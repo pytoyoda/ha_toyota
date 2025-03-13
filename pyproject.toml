@@ -21,7 +21,7 @@ homeassistant-stubs = "^2025.0"
 voluptuous-stubs = "^0.1"
 pre-commit = "^4.1"
 pre-commit-hooks = "^5.0"
-ruff = "^0.9"
+ruff = "^0.10.0"
 codespell = "^2.4"
 
 [tool.ruff.lint]

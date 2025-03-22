@@ -1520,14 +1520,14 @@ habluetooth = ">=3.0"
 
 [[package]]
 name = "homeassistant"
-version = "2025.3.3"
+version = "2025.3.4"
 description = "Open-source home automation platform running on Python 3."
 optional = false
 python-versions = ">=3.13.0"
 groups = ["main", "dev"]
 files = [
-    {file = "homeassistant-2025.3.3-py3-none-any.whl", hash = "sha256:c06692b280bb911aea87c86016494e463039ed77f54d580e5d49cb34a6ef1318"},
-    {file = "homeassistant-2025.3.3.tar.gz", hash = "sha256:6b19aa25188eb794fc82bfde87ba9739004c2eb711f594aa2d2f129664e0904f"},
+    {file = "homeassistant-2025.3.4-py3-none-any.whl", hash = "sha256:48e8d5bfea0f77a2df52cd11daef3e0d9c75a8f26a3d5002d0e35ae396b14be0"},
+    {file = "homeassistant-2025.3.4.tar.gz", hash = "sha256:30887c14c4ca655119ff30be02ff1fca44e9cfd9245e06597e7b2e3996e03f43"},
 ]
 
 [package.dependencies]
@@ -1583,18 +1583,18 @@ zeroconf = "0.145.1"
 
 [[package]]
 name = "homeassistant-stubs"
-version = "2025.3.3"
+version = "2025.3.4"
 description = "PEP 484 typing stubs for Home Assistant Core"
 optional = false
 python-versions = "<3.14,>=3.13"
 groups = ["dev"]
 files = [
-    {file = "homeassistant_stubs-2025.3.3-py3-none-any.whl", hash = "sha256:42c04c8980652149ab2cec716395fd831d0f547db415debb7d299ae7e80b39fd"},
-    {file = "homeassistant_stubs-2025.3.3.tar.gz", hash = "sha256:997461aa1b6ba71b9c10c58bd16f0c147fe22bfdaa1ee6aab5982b302c8d51e8"},
+    {file = "homeassistant_stubs-2025.3.4-py3-none-any.whl", hash = "sha256:b824d7d8a73a5eb3fd245079049a0af31b3ae7d24dfed2634a4c4639092b5dda"},
+    {file = "homeassistant_stubs-2025.3.4.tar.gz", hash = "sha256:866cd9180024b41c825d7a88ce571603dfdefdc8d4b555fc70944cfcf3825191"},
 ]
 
 [package.dependencies]
-homeassistant = "2025.3.3"
+homeassistant = "2025.3.4"
 
 [[package]]
 name = "httpcore"

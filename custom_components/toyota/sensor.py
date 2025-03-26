@@ -230,7 +230,8 @@ async def async_setup_entry(
                     getattr(vehicle._vehicle_info, "extended_capabilities", False),
                     "fuel_level_available",
                     False,
-                ),
+                )
+                and not vehicle.type == "electric",
                 FUEL_LEVEL_ENTITY_DESCRIPTION,
                 ToyotaSensor,
                 PERCENTAGE,
@@ -241,7 +242,8 @@ async def async_setup_entry(
                     getattr(vehicle._vehicle_info, "extended_capabilities", False),
                     "fuel_range_available",
                     False,
-                ),
+                )
+                and not vehicle.type == "electric",
                 FUEL_RANGE_ENTITY_DESCRIPTION,
                 ToyotaSensor,
                 UnitOfLength.KILOMETERS
@@ -302,7 +304,8 @@ async def async_setup_entry(
                     getattr(vehicle._vehicle_info, "extended_capabilities", False),
                     "fuel_range_available",
                     False,
-                ),
+                )
+                and not vehicle.type == "electric",
                 TOTAL_RANGE_ENTITY_DESCRIPTION,
                 ToyotaSensor,
                 UnitOfLength.KILOMETERS

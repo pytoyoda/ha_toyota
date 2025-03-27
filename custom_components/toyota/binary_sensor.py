@@ -437,9 +437,9 @@ class ToyotaBinarySensor(ToyotaBaseEntity, BinarySensorEntity):
     @property
     def is_on(self) -> Optional[bool]:
         """Return the state of the sensor."""
-        return self.entity_description.value_fn(self.vehicle)
+        return self.entity_description.value_fn(self.vehicle)  # type: ignore[reportAttributeAccessIssue, attr-defined]
 
     @property
     def extra_state_attributes(self) -> Optional[dict[str, Any]]:
         """Return the attributes of the sensor."""
-        return self.entity_description.attributes_fn(self.vehicle)
+        return self.entity_description.attributes_fn(self.vehicle)  # type: ignore[reportAttributeAccessIssue, attr-defined]

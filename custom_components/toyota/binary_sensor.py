@@ -1,9 +1,10 @@
 """Binary sensor platform for Toyota integration."""
 
+# pylint: disable=W0212, W0511
+
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any, Optional
 
 from homeassistant.components.binary_sensor import (
@@ -23,19 +24,13 @@ from .const import DOMAIN, LAST_UPDATED
 from .entity import ToyotaBaseEntity
 
 
-@dataclass
-class ToyotaBinaryEntityDescriptionMixin:
-    """Mixin for required keys."""
+class ToyotaBinaryEntityDescription(
+    BinarySensorEntityDescription, frozen_or_thawed=True
+):
+    """Describes a Toyota binary entity."""
 
     value_fn: Callable[[Vehicle], Optional[bool]]
     attributes_fn: Callable[[Vehicle], Optional[dict[str, Any]]]
-
-
-@dataclass
-class ToyotaBinaryEntityDescription(
-    BinarySensorEntityDescription, ToyotaBinaryEntityDescriptionMixin
-):
-    """Describes a Toyota binary entity."""
 
 
 HOOD_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
@@ -234,65 +229,125 @@ async def async_setup_entry(
         vehicle = coordinator.data[index]["data"]
         capabilities_descriptions = [
             (
-                vehicle._vehicle_info.extended_capabilities.bonnet_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "bonnet_status",
+                    False,
+                ),
                 HOOD_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_driver_door_lock_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_driver_door_lock_status",
+                    False,
+                ),
                 FRONT_DRIVER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_driver_door_open_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_driver_door_open_status",
+                    False,
+                ),
                 FRONT_DRIVER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_driver_door_window_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_driver_door_window_status",
+                    False,
+                ),
                 FRONT_DRIVER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_passenger_door_lock_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_passenger_door_lock_status",
+                    False,
+                ),
                 FRONT_PASSENGER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_passenger_door_open_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_passenger_door_open_status",
+                    False,
+                ),
                 FRONT_PASSENGER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_passenger_door_window_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_passenger_door_window_status",
+                    False,
+                ),
                 FRONT_PASSENGER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_driver_door_lock_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_driver_door_lock_status",
+                    False,
+                ),
                 REAR_DRIVER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_driver_door_open_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_driver_door_open_status",
+                    False,
+                ),
                 REAR_DRIVER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_driver_door_window_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_driver_door_window_status",
+                    False,
+                ),
                 REAR_DRIVER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_passenger_door_lock_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_passenger_door_lock_status",
+                    False,
+                ),
                 REAR_PASSENGER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_passenger_door_open_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_passenger_door_open_status",
+                    False,
+                ),
                 REAR_PASSENGER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_passenger_door_window_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_passenger_door_window_status",
+                    False,
+                ),
                 REAR_PASSENGER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION,
             ),
             # TODO: Find correct matching capabilities in _vehicle_info
             (
-                vehicle._vehicle_info.extended_capabilities.bonnet_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "bonnet_status",
+                    False,
+                ),
                 TRUNK_DOOR_LOCK_ENTITY_DESCRIPTION,
             ),
             # TODO: Find correct matching capabilities in _vehicle_info
             (
-                vehicle._vehicle_info.extended_capabilities.bonnet_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "bonnet_status",
+                    False,
+                ),
                 TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION,
             ),
         ]

@@ -1,5 +1,7 @@
 """Custom coordinator entity base classes for Toyota Connected Services integration."""
 
+# pylint: disable=W0212, W0511
+
 from __future__ import annotations
 
 from typing import Optional
@@ -29,7 +31,7 @@ class ToyotaBaseEntity(CoordinatorEntity):
         description: EntityDescription,
     ) -> None:
         """Initialize the Toyota entity."""
-        super().__init__(coordinator)
+        super().__init__(coordinator)  # type: ignore[reportArgumentType, arg-type]
 
         self.index = vehicle_index
         self.entity_description = description
@@ -43,10 +45,12 @@ class ToyotaBaseEntity(CoordinatorEntity):
             f"{entry_id}_{self.vehicle.vin}/{self.entity_description.key}"
         )
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, self.vehicle.vin)},
+            identifiers={(DOMAIN, self.vehicle.vin or "Unknown")},
             name=self.vehicle.alias,
             model=self.vehicle._vehicle_info.car_model_name,
-            manufacturer=CONF_BRAND_MAPPING.get(self.vehicle._vehicle_info.brand),
+            manufacturer=CONF_BRAND_MAPPING.get(self.vehicle._vehicle_info.brand)
+            if self.vehicle._vehicle_info.brand
+            else "Unknown",
         )
 
     @callback

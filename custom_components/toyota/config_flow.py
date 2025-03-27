@@ -1,5 +1,7 @@
 """Config flow for Toyota Connected Services integration."""
 
+# pylint: disable=W0212, W0511
+
 import logging
 from typing import Any, Mapping
 
@@ -16,7 +18,7 @@ from .const import CONF_METRIC_VALUES, DOMAIN
 _LOGGER = logging.getLogger(__name__)
 
 
-class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: disable=W0223
     """Handle a config flow for Toyota Connected Services."""
 
     VERSION = 1
@@ -27,7 +29,7 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self._email = None
         self._metric_values = True
 
-    async def async_step_user(self, user_input=None) -> FlowResult:
+    async def async_step_user(self, user_input=None) -> Any:
         """Handle the initial step."""
         errors = {}
 
@@ -85,9 +87,12 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> FlowResult:
         """Perform reauth if the user credentials have changed."""
-        self._reauth_entry = self.hass.config_entries.async_get_entry(
-            self.context["entry_id"]
-        )
+        if "entry_id" in self.context:
+            self._reauth_entry = self.hass.config_entries.async_get_entry(
+                self.context["entry_id"]
+            )
+        else:
+            self._reauth_entry = None
         self._email = entry_data[CONF_EMAIL]
         self._metric_values = entry_data[CONF_METRIC_VALUES]
         return await self.async_step_user()

@@ -1,9 +1,10 @@
 """Binary sensor platform for Toyota integration."""
 
+# pylint: disable=W0212, W0511
+
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
 from typing import Any, Optional
 
 from homeassistant.components.binary_sensor import (
@@ -23,19 +24,13 @@ from .const import DOMAIN, LAST_UPDATED
 from .entity import ToyotaBaseEntity
 
 
-@dataclass
-class ToyotaBinaryEntityDescriptionMixin:
-    """Mixin for required keys."""
+class ToyotaBinaryEntityDescription(
+    BinarySensorEntityDescription, frozen_or_thawed=True
+):
+    """Describes a Toyota binary entity."""
 
     value_fn: Callable[[Vehicle], Optional[bool]]
     attributes_fn: Callable[[Vehicle], Optional[dict[str, Any]]]
-
-
-@dataclass
-class ToyotaBinaryEntityDescription(
-    BinarySensorEntityDescription, ToyotaBinaryEntityDescriptionMixin
-):
-    """Describes a Toyota binary entity."""
 
 
 HOOD_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
@@ -44,9 +39,11 @@ HOOD_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.DOOR,
-    value_fn=lambda vehicle: not vehicle.lock_status.hood.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(vehicle.lock_status, "hood", None), "closed", None
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -56,9 +53,13 @@ FRONT_DRIVER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription
     icon="mdi:car-door-lock",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.LOCK,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.driver_seat.locked,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "doors", None), "driver_seat", None),
+        "locked",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -68,9 +69,13 @@ FRONT_DRIVER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.DOOR,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.driver_seat.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "doors", None), "driver_seat", None),
+        "closed",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -80,9 +85,13 @@ FRONT_DRIVER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescripti
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.WINDOW,
-    value_fn=lambda vehicle: not vehicle.lock_status.windows.driver_seat.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "windows", None), "driver_seat", None),
+        "closed",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -92,9 +101,13 @@ FRONT_PASSENGER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescript
     icon="mdi:car-door-lock",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.LOCK,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.passenger_seat.locked,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "doors", None), "passenger_seat", None),
+        "locked",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -104,9 +117,13 @@ FRONT_PASSENGER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescript
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.DOOR,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.passenger_seat.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "doors", None), "passenger_seat", None),
+        "closed",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -116,9 +133,13 @@ FRONT_PASSENGER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescri
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.WINDOW,
-    value_fn=lambda vehicle: not vehicle.lock_status.windows.passenger_seat.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "windows", None), "passenger_seat", None),
+        "closed",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -128,9 +149,13 @@ REAR_DRIVER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
     icon="mdi:car-door-lock",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.LOCK,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.driver_rear_seat.locked,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "doors", None), "driver_rear_seat", None),
+        "locked",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -140,9 +165,13 @@ REAR_DRIVER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.DOOR,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.driver_rear_seat.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "doors", None), "driver_rear_seat", None),
+        "closed",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -152,9 +181,15 @@ REAR_DRIVER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescriptio
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.WINDOW,
-    value_fn=lambda vehicle: not vehicle.lock_status.windows.driver_rear_seat.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(
+            getattr(vehicle.lock_status, "windows", None), "driver_rear_seat", None
+        ),
+        "closed",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -164,9 +199,15 @@ REAR_PASSENGER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescripti
     icon="mdi:car-door-lock",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.LOCK,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.passenger_seat.locked,
+    value_fn=lambda vehicle: not getattr(
+        getattr(
+            getattr(vehicle.lock_status, "doors", None), "passenger_rear_seat", None
+        ),
+        "locked",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -176,9 +217,15 @@ REAR_PASSENGER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescripti
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.DOOR,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.passenger_rear_seat.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(
+            getattr(vehicle.lock_status, "doors", None), "passenger_rear_seat", None
+        ),
+        "closed",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -188,9 +235,15 @@ REAR_PASSENGER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescrip
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.WINDOW,
-    value_fn=lambda vehicle: not vehicle.lock_status.windows.passenger_rear_seat.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(
+            getattr(vehicle.lock_status, "windows", None), "passenger_rear_seat", None
+        ),
+        "closed",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -200,9 +253,13 @@ TRUNK_DOOR_LOCK_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
     icon="mdi:car-door-lock",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.LOCK,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.trunk.locked,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "doors", None), "trunk", None),
+        "locked",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -212,9 +269,13 @@ TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.WINDOW,
-    value_fn=lambda vehicle: not vehicle.lock_status.doors.trunk.closed,
+    value_fn=lambda vehicle: not getattr(
+        getattr(getattr(vehicle.lock_status, "doors", None), "trunk", None),
+        "closed",
+        None,
+    ),
     attributes_fn=lambda vehicle: {
-        LAST_UPDATED: vehicle.lock_status.last_updated,
+        LAST_UPDATED: getattr(vehicle.lock_status, "last_updated", None),
     },
 )
 
@@ -234,65 +295,125 @@ async def async_setup_entry(
         vehicle = coordinator.data[index]["data"]
         capabilities_descriptions = [
             (
-                vehicle._vehicle_info.extended_capabilities.bonnet_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "bonnet_status",
+                    False,
+                ),
                 HOOD_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_driver_door_lock_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_driver_door_lock_status",
+                    False,
+                ),
                 FRONT_DRIVER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_driver_door_open_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_driver_door_open_status",
+                    False,
+                ),
                 FRONT_DRIVER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_driver_door_window_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_driver_door_window_status",
+                    False,
+                ),
                 FRONT_DRIVER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_passenger_door_lock_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_passenger_door_lock_status",
+                    False,
+                ),
                 FRONT_PASSENGER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_passenger_door_open_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_passenger_door_open_status",
+                    False,
+                ),
                 FRONT_PASSENGER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.front_passenger_door_window_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "front_passenger_door_window_status",
+                    False,
+                ),
                 FRONT_PASSENGER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_driver_door_lock_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_driver_door_lock_status",
+                    False,
+                ),
                 REAR_DRIVER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_driver_door_open_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_driver_door_open_status",
+                    False,
+                ),
                 REAR_DRIVER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_driver_door_window_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_driver_door_window_status",
+                    False,
+                ),
                 REAR_DRIVER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_passenger_door_lock_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_passenger_door_lock_status",
+                    False,
+                ),
                 REAR_PASSENGER_DOOR_LOCK_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_passenger_door_open_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_passenger_door_open_status",
+                    False,
+                ),
                 REAR_PASSENGER_DOOR_OPEN_STATUS_ENTITY_DESCRIPTION,
             ),
             (
-                vehicle._vehicle_info.extended_capabilities.rear_passenger_door_window_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "rear_passenger_door_window_status",
+                    False,
+                ),
                 REAR_PASSENGER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION,
             ),
             # TODO: Find correct matching capabilities in _vehicle_info
             (
-                vehicle._vehicle_info.extended_capabilities.bonnet_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "bonnet_status",
+                    False,
+                ),
                 TRUNK_DOOR_LOCK_ENTITY_DESCRIPTION,
             ),
             # TODO: Find correct matching capabilities in _vehicle_info
             (
-                vehicle._vehicle_info.extended_capabilities.bonnet_status,
+                getattr(
+                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
+                    "bonnet_status",
+                    False,
+                ),
                 TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION,
             ),
         ]
@@ -316,9 +437,9 @@ class ToyotaBinarySensor(ToyotaBaseEntity, BinarySensorEntity):
     @property
     def is_on(self) -> Optional[bool]:
         """Return the state of the sensor."""
-        return self.entity_description.value_fn(self.vehicle)
+        return self.entity_description.value_fn(self.vehicle)  # type: ignore[reportAttributeAccessIssue, attr-defined]
 
     @property
     def extra_state_attributes(self) -> Optional[dict[str, Any]]:
         """Return the attributes of the sensor."""
-        return self.entity_description.attributes_fn(self.vehicle)
+        return self.entity_description.attributes_fn(self.vehicle)  # type: ignore[reportAttributeAccessIssue, attr-defined]

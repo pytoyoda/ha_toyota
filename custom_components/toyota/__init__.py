@@ -1,5 +1,7 @@
 """Toyota integration."""
 
+# pylint: disable=W0212, W0511
+
 from __future__ import annotations
 
 import asyncio

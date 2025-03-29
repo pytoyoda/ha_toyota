@@ -6,7 +6,7 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
-from typing import Any, Literal, Optional, Union
+from typing import Any, List, Literal, Optional, Union
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -35,11 +35,43 @@ from .utils import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def get_vehicle_capability(
+    vehicle, capability_name: str, default: bool = False
+) -> bool:
+    """Safely retrieve a vehicle capability with a default fallback.
+
+    Args:
+        vehicle: The vehicle object
+        capability_name: Name of the capability to check
+        default: Default return value if capability cannot be retrieved
+
+    Returns:
+        bool: Value of the requested capability
+
+    """
+    try:
+        return getattr(
+            getattr(vehicle._vehicle_info, "extended_capabilities", False),
+            capability_name,
+            default,
+        )
+    except Exception:  # pylint: disable=W0718
+        return default
+
+
 class ToyotaSensorEntityDescription(SensorEntityDescription, frozen_or_thawed=True):
     """Describes a Toyota sensor entity."""
 
     value_fn: Callable[[Vehicle], StateType]
     attributes_fn: Callable[[Vehicle], Optional[dict[str, Any]]]
+
+
+class ToyotaStatisticsSensorEntityDescription(
+    SensorEntityDescription, frozen_or_thawed=True
+):
+    """Describes a Toyota statistics sensor entity."""
+
+    period: Literal["day", "week", "month", "year"]
 
 
 VIN_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
@@ -137,15 +169,6 @@ TOTAL_RANGE_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
 
-
-class ToyotaStatisticsSensorEntityDescription(
-    SensorEntityDescription, frozen_or_thawed=True
-):
-    """Describes a Toyota statistics sensor entity."""
-
-    period: Literal["day", "week", "month", "year"]
-
-
 STATISTICS_ENTITY_DESCRIPTIONS_DAILY = ToyotaStatisticsSensorEntityDescription(
     key="current_day_statistics",
     translation_key="current_day_statistics",
@@ -187,194 +210,113 @@ STATISTICS_ENTITY_DESCRIPTIONS_YEARLY = ToyotaStatisticsSensorEntityDescription(
 )
 
 
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_devices: AddEntitiesCallback,
-) -> None:
-    """Set up the sensor platform."""
-    coordinator: DataUpdateCoordinator[list[VehicleData]] = hass.data[DOMAIN][
-        entry.entry_id
+def create_sensor_configurations(metric_values: bool) -> List[dict[str, Any]]:
+    """Create a list of sensor configurations based on vehicle capabilities.
+
+    Args:
+        vehicle: The vehicle object
+        metric_values: Whether to use metric units
+
+    Returns:
+        List of sensor configurations
+
+    """
+
+    def get_length_unit(metric: bool) -> str:
+        return UnitOfLength.KILOMETERS if metric else UnitOfLength.MILES
+
+    return [
+        {
+            "description": VIN_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: True,  # noqa : ARG005
+            "native_unit": None,
+            "suggested_unit": None,
+        },
+        {
+            "description": ODOMETER_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: get_vehicle_capability(
+                v, "telemetry_capable"
+            ),
+            "native_unit": get_length_unit(metric_values),
+            "suggested_unit": get_length_unit(metric_values),
+        },
+        {
+            "description": FUEL_LEVEL_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: (
+                get_vehicle_capability(v, "fuel_level_available")
+                and v.type != "electric"
+            ),
+            "native_unit": PERCENTAGE,
+            "suggested_unit": None,
+        },
+        {
+            "description": FUEL_RANGE_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: (
+                get_vehicle_capability(v, "fuel_range_available")
+                and v.type != "electric"
+            ),
+            "native_unit": get_length_unit(metric_values),
+            "suggested_unit": get_length_unit(metric_values),
+        },
+        {
+            "description": BATTERY_LEVEL_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: get_vehicle_capability(
+                v, "econnect_vehicle_status_capable"
+            ),
+            "native_unit": PERCENTAGE,
+            "suggested_unit": None,
+        },
+        {
+            "description": BATTERY_RANGE_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: get_vehicle_capability(
+                v, "econnect_vehicle_status_capable"
+            ),
+            "native_unit": get_length_unit(metric_values),
+            "suggested_unit": get_length_unit(metric_values),
+        },
+        {
+            "description": BATTERY_RANGE_AC_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: get_vehicle_capability(
+                v, "econnect_vehicle_status_capable"
+            ),
+            "native_unit": get_length_unit(metric_values),
+            "suggested_unit": get_length_unit(metric_values),
+        },
+        {
+            "description": TOTAL_RANGE_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: (
+                get_vehicle_capability(v, "econnect_vehicle_status_capable")
+                and get_vehicle_capability(v, "fuel_range_available")
+                and v.type != "electric"
+            ),
+            "native_unit": get_length_unit(metric_values),
+            "suggested_unit": get_length_unit(metric_values),
+        },
+        {
+            "description": STATISTICS_ENTITY_DESCRIPTIONS_DAILY,
+            "capability_check": lambda v: True,  # noqa : ARG005
+            "native_unit": get_length_unit(metric_values),
+            "suggested_unit": get_length_unit(metric_values),
+        },
+        {
+            "description": STATISTICS_ENTITY_DESCRIPTIONS_WEEKLY,
+            "capability_check": lambda v: True,  # noqa : ARG005
+            "native_unit": get_length_unit(metric_values),
+            "suggested_unit": get_length_unit(metric_values),
+        },
+        {
+            "description": STATISTICS_ENTITY_DESCRIPTIONS_MONTHLY,
+            "capability_check": lambda v: True,  # noqa : ARG005
+            "native_unit": get_length_unit(metric_values),
+            "suggested_unit": get_length_unit(metric_values),
+        },
+        {
+            "description": STATISTICS_ENTITY_DESCRIPTIONS_YEARLY,
+            "capability_check": lambda v: True,  # noqa : ARG005
+            "native_unit": get_length_unit(metric_values),
+            "suggested_unit": get_length_unit(metric_values),
+        },
     ]
-
-    sensors: list[Union[ToyotaSensor, ToyotaStatisticsSensor]] = []
-    for index, _ in enumerate(coordinator.data):
-        vehicle = coordinator.data[index]["data"]
-        metric_values = coordinator.data[index]["metric_values"]
-
-        capabilities_descriptions = [
-            (
-                True,
-                VIN_ENTITY_DESCRIPTION,
-                ToyotaSensor,
-                None,
-                None,
-            ),
-            (
-                getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
-                    "telemetry_capable",
-                    False,
-                ),
-                ODOMETER_ENTITY_DESCRIPTION,
-                ToyotaSensor,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-            ),
-            (
-                getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
-                    "fuel_level_available",
-                    False,
-                )
-                and not vehicle.type == "electric",
-                FUEL_LEVEL_ENTITY_DESCRIPTION,
-                ToyotaSensor,
-                PERCENTAGE,
-                None,
-            ),
-            (
-                getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
-                    "fuel_range_available",
-                    False,
-                )
-                and not vehicle.type == "electric",
-                FUEL_RANGE_ENTITY_DESCRIPTION,
-                ToyotaSensor,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-            ),
-            (
-                getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
-                    "econnect_vehicle_status_capable",
-                    False,
-                ),
-                BATTERY_LEVEL_ENTITY_DESCRIPTION,
-                ToyotaSensor,
-                PERCENTAGE,
-                None,
-            ),
-            (
-                getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
-                    "econnect_vehicle_status_capable",
-                    False,
-                ),
-                BATTERY_RANGE_ENTITY_DESCRIPTION,
-                ToyotaSensor,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-            ),
-            (
-                getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
-                    "econnect_vehicle_status_capable",
-                    False,
-                ),
-                BATTERY_RANGE_AC_ENTITY_DESCRIPTION,
-                ToyotaSensor,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-            ),
-            (
-                getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
-                    "econnect_vehicle_status_capable",
-                    False,
-                )
-                and getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),
-                    "fuel_range_available",
-                    False,
-                )
-                and not vehicle.type == "electric",
-                TOTAL_RANGE_ENTITY_DESCRIPTION,
-                ToyotaSensor,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-            ),
-            (
-                True,  # TODO Unsure of the required capability
-                STATISTICS_ENTITY_DESCRIPTIONS_DAILY,
-                ToyotaStatisticsSensor,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-            ),
-            (
-                True,  # TODO Unsure of the required capability
-                STATISTICS_ENTITY_DESCRIPTIONS_WEEKLY,
-                ToyotaStatisticsSensor,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-            ),
-            (
-                True,  # TODO Unsure of the required capability
-                STATISTICS_ENTITY_DESCRIPTIONS_MONTHLY,
-                ToyotaStatisticsSensor,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-            ),
-            (
-                True,  # TODO Unsure of the required capability
-                STATISTICS_ENTITY_DESCRIPTIONS_YEARLY,
-                ToyotaStatisticsSensor,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-                UnitOfLength.KILOMETERS
-                if metric_values is True
-                else UnitOfLength.MILES,
-            ),
-        ]
-
-        sensors.extend(
-            sensor_type(
-                coordinator=coordinator,
-                entry_id=entry.entry_id,
-                vehicle_index=index,
-                description=description,
-                native_unit=native_unit,
-                suggested_unit=suggested_unit,
-            )
-            for capability, description, sensor_type, native_unit, suggested_unit in capabilities_descriptions  # noqa: E501
-            if capability
-        )
-
-    async_add_devices(sensors)
 
 
 class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
@@ -443,3 +385,52 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
             if data
             else None
         )
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_devices: AddEntitiesCallback,
+) -> None:
+    """Set up the sensor platform."""
+    coordinator: DataUpdateCoordinator[list[VehicleData]] = hass.data[DOMAIN][
+        entry.entry_id
+    ]
+
+    sensors: list[Union[ToyotaSensor, ToyotaStatisticsSensor]] = []
+    for index, vehicle_data in enumerate(coordinator.data):
+        vehicle = vehicle_data["data"]
+        metric_values = vehicle_data["metric_values"]
+
+        sensor_configs = create_sensor_configurations(metric_values)
+
+        sensors.extend(
+            ToyotaSensor(
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=config["description"],
+                native_unit=config["native_unit"],
+                suggested_unit=config["suggested_unit"],
+            )
+            for config in sensor_configs
+            if not config["description"].key.startswith("current_")
+            and config["capability_check"](vehicle)
+        )
+
+        # Add statistics sensors
+        sensors.extend(
+            ToyotaStatisticsSensor(
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=config["description"],
+                native_unit=config["native_unit"],
+                suggested_unit=config["suggested_unit"],
+            )
+            for config in sensor_configs
+            if config["description"].key.startswith("current_")
+            and config["capability_check"](vehicle)
+        )
+
+    async_add_devices(sensors)

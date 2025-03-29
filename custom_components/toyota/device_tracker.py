@@ -1,5 +1,7 @@
 """Device tracker platform for Toyota Connected Services."""
 
+# pylint: disable=W0212, W0511
+
 from typing import Optional
 
 from homeassistant.components.device_tracker import SourceType
@@ -39,8 +41,16 @@ async def async_setup_entry(
             description=PARKING_TRACKER_DESCRIPTION,
         )
         for index, vehicle in enumerate(coordinator.data)
-        if vehicle["data"]._vehicle_info.extended_capabilities.last_parked_capable
-        or vehicle["data"]._vehicle_info.features.last_parked
+        if getattr(
+            getattr(vehicle["data"]._vehicle_info, "extended_capabilities", False),
+            "last_parked_capable",
+            False,
+        )
+        or getattr(
+            getattr(vehicle["data"]._vehicle_info, "features", False),
+            "last_parked",
+            False,
+        )
     )
 
 
@@ -62,7 +72,7 @@ class ToyotaParkingTracker(ToyotaBaseEntity, TrackerEntity):
         return location.longitude if location else None
 
     @property
-    def source_type(self) -> str:
+    def source_type(self) -> SourceType:
         """Return the source type, eg gps or router, of the device."""
         return SourceType.GPS
 

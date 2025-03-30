@@ -46,7 +46,7 @@ class VehicleData(TypedDict):
     metric_values: bool
 
 
-async def async_setup_entry(  # pylint: disable=too-many-statements
+async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0915
     hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
     """Set up Toyota Connected Services from a config entry."""
@@ -63,7 +63,17 @@ async def async_setup_entry(  # pylint: disable=too-many-statements
     )
 
     try:
-        await client.login()
+
+        def _sync_login():
+            loop = asyncio.new_event_loop()
+            result = None
+            try:
+                result = loop.run_until_complete(client.login())
+            finally:
+                loop.close()
+            return result
+
+        await hass.async_add_executor_job(_sync_login)
     except ToyotaLoginError as ex:
         raise ConfigEntryAuthFailed(ex) from ex
     except (httpx.ConnectTimeout, httpcore.ConnectTimeout) as ex:

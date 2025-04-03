@@ -1,0 +1,141 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Por favor insira o seu e-mail e palavra-passe do MyToyota abaixo.",
+        "data": {
+          "email": "E-mail",
+          "password": "Palavra-Passe",
+          "use_metric_values": "Usar unidades métricas (ex. Km em vez de Milhas)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "O e-mail tem de conter @.",
+      "invalid_auth": "E-mail/Palavra-passe incorreto.",
+      "unknown": "Erro inesperado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "use_liters": "Usar litros (L/100 milhas) em vez de milhas por galão (MPG). Só aplicável se o seu carro reporta dados em milhas (Unidade do Sistema Imperial)."
+        }
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Localização do Estacionamento"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Número de Indentificação do Veículo (VIN)"
+      },
+      "odometer": {
+        "name": "Conta Quilómetros"
+      },
+      "fuel_level": {
+        "name": "Nível de combustível"
+      },
+      "fuel_range": {
+        "name": "Autonomia do combustível"
+      },
+      "battery_level": {
+        "name": "Nível da bateria"
+      },
+      "battery_range_ac": {
+        "name": "Autonomia da bateria com AC"
+      },
+      "battery_range": {
+        "name": "Autonomia da bateria"
+      },
+      "total_range": {
+        "name": "Autonomia total"
+      },
+      "current_day_statistics": {
+        "name": "Current day statistics"
+      },
+      "current_week_statistics": {
+        "name": "Estatística da semana atual"
+      },
+      "current_month_statistics": {
+        "name": "Estatística do mês atual"
+      },
+      "current_year_statistics": {
+        "name": "Estatística do ano atual"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Estado geral"
+      },
+      "hood": {
+        "name": "Capô"
+      },
+      "key_in_car": {
+        "name": "Key in car"
+      },
+      "front_defogger": {
+        "name": "Desembaciador frontal"
+      },
+      "rear_defogger": {
+        "name": "Desembaciador traseiro"
+      },
+      "driverseat_window": {
+        "name": "Janela do condutor"
+      },
+      "passengerseat_window": {
+        "name": "Janela do passageiro"
+      },
+      "leftrearseat_window": {
+        "name": "Janela esquerda traseira"
+      },
+      "rightrearseat_window": {
+        "name": "Janela direita traseira"
+      },
+      "driverseat_door": {
+        "name": "Porta do condutor"
+      },
+      "driverseat_lock": {
+        "name": "Fecho da porta do condutor"
+      },
+      "passengerseat_door": {
+        "name": "Porta do passageiro"
+      },
+      "passengerseat_lock": {
+        "name": "Fecho da porta do passageiro"
+      },
+      "leftrearseat_door": {
+        "name": "Porta esquerda traseira"
+      },
+      "leftrearseat_lock": {
+        "name": "Fecho da porta esquerda traseira"
+      },
+      "rightrearseat_door": {
+        "name": "Porta direita traseira"
+      },
+      "rightrearseat_lock": {
+        "name": "Fecho da porta direita traseira"
+      },
+      "trunk_door": {
+        "name": "Bagageira"
+      },
+      "trunk_lock": {
+        "name": "Fecho da bagageira"
+      },
+      "hazardlights": {
+        "name": "Luzes de aviso"
+      },
+      "headlights": {
+        "name": "Faróis"
+      },
+      "taillights": {
+        "name": "Luzes traseiras"
+      }
+    }
+  }
+}

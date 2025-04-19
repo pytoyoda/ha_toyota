@@ -1611,14 +1611,14 @@ files = [
 
 [[package]]
 name = "homeassistant"
-version = "2025.4.2"
+version = "2025.4.3"
 description = "Open-source home automation platform running on Python 3."
 optional = false
 python-versions = ">=3.13.0"
 groups = ["main", "dev"]
 files = [
-    {file = "homeassistant-2025.4.2-py3-none-any.whl", hash = "sha256:8cdffefeea8b2d5b8335275f5b3df6ea247baf6cb53e353626b04051342d9673"},
-    {file = "homeassistant-2025.4.2.tar.gz", hash = "sha256:201271c8f66016b0a201180ecd811c0ba12efe1c283854c7f3b9646fee94609e"},
+    {file = "homeassistant-2025.4.3-py3-none-any.whl", hash = "sha256:38ad9fc5b74e377791c52373c365c9889f8f9a5382cc281a9e21cda46b81582e"},
+    {file = "homeassistant-2025.4.3.tar.gz", hash = "sha256:c68d5fd860de69f39a5e2275fa5f8db0992953416f6d29df96ca76044fc9282e"},
 ]
 
 [package.dependencies]
@@ -1683,18 +1683,18 @@ zeroconf = "0.146.0"
 
 [[package]]
 name = "homeassistant-stubs"
-version = "2025.4.2"
+version = "2025.4.3"
 description = "PEP 484 typing stubs for Home Assistant Core"
 optional = false
 python-versions = "<3.14,>=3.13"
 groups = ["dev"]
 files = [
-    {file = "homeassistant_stubs-2025.4.2-py3-none-any.whl", hash = "sha256:4584fb6a050496df950f3a07629f58eb436f98e41bee7afd4ae1e9949b733602"},
-    {file = "homeassistant_stubs-2025.4.2.tar.gz", hash = "sha256:8af58efdb1fae63c27b42c2db5c9476d7cc6cb52465a06443f040d534ee87c47"},
+    {file = "homeassistant_stubs-2025.4.3-py3-none-any.whl", hash = "sha256:3b3838993c893508a2196a17ef275e79466d14195ee15143f049fa6fdaf93384"},
+    {file = "homeassistant_stubs-2025.4.3.tar.gz", hash = "sha256:52103c019bf7827e9ab3a1b5162f0f23217ba651bf6e9add1346889e59d14df1"},
 ]
 
 [package.dependencies]
-homeassistant = "2025.4.2"
+homeassistant = "2025.4.3"
 
 [[package]]
 name = "httpcore"
@@ -2293,18 +2293,6 @@ files = [
     {file = "multidict-6.3.2-cp39-cp39-win_amd64.whl", hash = "sha256:d091d123e44035cd5664554308477aff0b58db37e701e7598a67e907b98d1925"},
     {file = "multidict-6.3.2-py3-none-any.whl", hash = "sha256:71409d4579f716217f23be2f5e7afca5ca926aaeb398aa11b72d793bff637a1f"},
     {file = "multidict-6.3.2.tar.gz", hash = "sha256:c1035eea471f759fa853dd6e76aaa1e389f93b3e1403093fa0fd3ab4db490678"},
-]
-
-[[package]]
-name = "mutagen"
-version = "1.47.0"
-description = "read and write audio tags for many formats"
-optional = false
-python-versions = ">=3.7"
-groups = ["main", "dev"]
-files = [
-    {file = "mutagen-1.47.0-py3-none-any.whl", hash = "sha256:edd96f50c5907a9539d8e5bba7245f62c9f520aef333d13392a79a4f70aca719"},
-    {file = "mutagen-1.47.0.tar.gz", hash = "sha256:719fadef0a978c31b4cf3c956261b3c58b6948b32023078a2117b1de09f0fc99"},
 ]
 
 [[package]]

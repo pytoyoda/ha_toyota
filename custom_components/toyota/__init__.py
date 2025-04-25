@@ -25,10 +25,11 @@ from .const import CONF_METRIC_VALUES, DOMAIN, PLATFORMS, STARTUP_MESSAGE
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def loguru_to_hass(message: str) -> None:
     """Forwards Loguru logs to standard python logger used by HACS."""
     level_name = message.record["level"].name.lower()
-    
+
     if "debug" in level_name:
         _LOGGER.debug(message)
     elif "info" in level_name:
@@ -39,6 +40,7 @@ def loguru_to_hass(message: str) -> None:
         _LOGGER.error(message)
     else:
         _LOGGER.critical(message)
+
 
 logger.remove()
 logger.configure(handlers=[{"sink": loguru_to_hass}])

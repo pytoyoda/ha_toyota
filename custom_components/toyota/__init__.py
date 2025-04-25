@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import asyncio.exceptions as asyncioexceptions
 import logging
+from loguru import logger
 from datetime import timedelta
 from functools import partial
 from typing import Optional, TypedDict
@@ -19,14 +20,27 @@ from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from pydantic import ValidationError
-from pytoyoda.client import MyT
-from pytoyoda.exceptions import ToyotaApiError, ToyotaInternalError, ToyotaLoginError
-from pytoyoda.models.summary import Summary
-from pytoyoda.models.vehicle import Vehicle
 
 from .const import CONF_METRIC_VALUES, DOMAIN, PLATFORMS, STARTUP_MESSAGE
 
 _LOGGER = logging.getLogger(__name__)
+logger.remove()
+logger.configure(
+    handlers=[
+        {
+            "sink": lambda msg: _LOGGER.debug(msg) if "debug" in msg.record["level"].name.lower() else 
+                              _LOGGER.info(msg) if "info" in msg.record["level"].name.lower() else
+                              _LOGGER.warning(msg) if "warn" in msg.record["level"].name.lower() else
+                              _LOGGER.error(msg) if "error" in msg.record["level"].name.lower() else
+                              _LOGGER.critical(msg)
+        }
+    ]
+)
+
+from pytoyoda.client import MyT
+from pytoyoda.exceptions import ToyotaApiError, ToyotaInternalError, ToyotaLoginError
+from pytoyoda.models.summary import Summary
+from pytoyoda.models.vehicle import Vehicle
 
 
 class StatisticsData(TypedDict):

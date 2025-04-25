@@ -2303,6 +2303,18 @@ files = [
 ]
 
 [[package]]
+name = "mutagen"
+version = "1.47.0"
+description = "read and write audio tags for many formats"
+optional = false
+python-versions = ">=3.7"
+groups = ["main", "dev"]
+files = [
+    {file = "mutagen-1.47.0-py3-none-any.whl", hash = "sha256:edd96f50c5907a9539d8e5bba7245f62c9f520aef333d13392a79a4f70aca719"},
+    {file = "mutagen-1.47.0.tar.gz", hash = "sha256:719fadef0a978c31b4cf3c956261b3c58b6948b32023078a2117b1de09f0fc99"},
+]
+
+[[package]]
 name = "mypy"
 version = "1.15.0"
 description = "Optional static typing for Python"
@@ -3280,14 +3292,14 @@ unidecode = ["Unidecode (>=1.1.1)"]
 
 [[package]]
 name = "pytoyoda"
-version = "3.0.3"
+version = "3.0.4"
 description = "Python client for Toyota Connected Services Europe."
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "pytoyoda-3.0.3-py3-none-any.whl", hash = "sha256:a8f80394b86072fe1edfa1dd7c2150e8462c51b2f252f2e0ee876e5bf5cc58ee"},
-    {file = "pytoyoda-3.0.3.tar.gz", hash = "sha256:92234863c41a3456f2c78bc99d0c02eeff562ef108c1b5e020791b146688fe14"},
+    {file = "pytoyoda-3.0.4-py3-none-any.whl", hash = "sha256:fd42e3582c52a73a59110269f15129db08a9fa1a692e33aade4b98826feb11bd"},
+    {file = "pytoyoda-3.0.4.tar.gz", hash = "sha256:c97f2491b39f38224d79aca243673a865e6d14e5bdf3c539076093886a40e91f"},
 ]
 
 [package.dependencies]
@@ -4385,4 +4397,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<3.14"
-content-hash = "ac0e0b6c53fc52757157285b37b2821652ef90feccf85c7576798d127992683d"
+content-hash = "8d0e2547fd3b7e41f802681deba6887b85c47f911b98b25a5a4ec432de2fe8c5"

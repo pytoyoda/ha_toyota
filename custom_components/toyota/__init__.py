@@ -27,7 +27,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def loguru_to_hass(message: str) -> None:
-    """Forwards Loguru logs to standard python logger used by HACS."""
+    """Forward Loguru logs to standard Python logger used by HACS."""
     level_name = message.record["level"].name.lower()
 
     if "debug" in level_name:
@@ -45,7 +45,7 @@ def loguru_to_hass(message: str) -> None:
 logger.remove()
 logger.configure(handlers=[{"sink": loguru_to_hass}])
 
-# These imports must be after loguru configuration to properly intercept logging
+# These imports must be after Loguru configuration to properly intercept logging
 from pytoyoda.client import MyT  # noqa: E402
 from pytoyoda.exceptions import (  # noqa: E402
     ToyotaApiError,

@@ -4,15 +4,13 @@
 
 from __future__ import annotations
 
-from typing import Optional, Union
-
 from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
 from pytoyoda.models.summary import Summary
 
 from .const import CONF_BRAND_MAPPING
 
 
-def round_number(number: int | float | None, places: int = 0) -> int | float | None:
+def round_number(number: float | None, places: int = 0) -> int | float | None:
     """Round a number if it is not None."""
     return None if number is None else round(number, places)
 
@@ -26,7 +24,7 @@ def mask_string(string: str | None) -> str | None:
 
 def format_vin_sensor_attributes(
     vehicle_info: VehicleGuidModel,
-) -> dict[str, Optional[Union[str, bool, dict[str, bool]]]]:
+) -> dict[str, str | bool | dict[str, bool] | None]:
     """Format and returns vin sensor attributes."""
     return {
         "Contract_id": mask_string(vehicle_info.contract_id),

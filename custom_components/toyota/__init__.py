@@ -59,17 +59,17 @@ from pytoyoda.models.vehicle import Vehicle  # noqa: E402
 class StatisticsData(TypedDict):
     """Representing Statistics data."""
 
-    day: Optional[Summary]
-    week: Optional[Summary]
-    month: Optional[Summary]
-    year: Optional[Summary]
+    day: Summary | None
+    week: Summary | None
+    month: Summary | None
+    year: Summary | None
 
 
 class VehicleData(TypedDict):
     """Representing Vehicle data."""
 
     data: Vehicle
-    statistics: Optional[StatisticsData]
+    statistics: StatisticsData | None
     metric_values: bool
 
 
@@ -108,7 +108,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             "Unable to connect to Toyota Connected Services"
         ) from ex
 
-    async def async_get_vehicle_data() -> Optional[list[VehicleData]]:
+    async def async_get_vehicle_data() -> list[VehicleData] | None:
         """Fetch vehicle data from Toyota API."""
         try:
             vehicles = await asyncio.wait_for(client.get_vehicles(), 15)

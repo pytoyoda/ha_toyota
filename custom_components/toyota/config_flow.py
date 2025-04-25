@@ -3,7 +3,8 @@
 # pylint: disable=W0212, W0511
 
 import logging
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries

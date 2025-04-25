@@ -4,8 +4,6 @@
 
 from __future__ import annotations
 
-from typing import Optional
-
 from homeassistant.core import callback
 from homeassistant.helpers.entity import DeviceInfo, EntityDescription
 from homeassistant.helpers.update_coordinator import (
@@ -36,7 +34,7 @@ class ToyotaBaseEntity(CoordinatorEntity):
         self.index = vehicle_index
         self.entity_description = description
         self.vehicle: Vehicle = coordinator.data[self.index]["data"]
-        self.statistics: Optional[StatisticsData] = coordinator.data[self.index][
+        self.statistics: StatisticsData | None = coordinator.data[self.index][
             "statistics"
         ]
         self.metric_values: bool = coordinator.data[self.index]["metric_values"]

@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import Any, Optional
+from typing import Any
 
 from homeassistant.components.binary_sensor import (
     BinarySensorDeviceClass,
@@ -29,8 +29,8 @@ class ToyotaBinaryEntityDescription(
 ):
     """Describes a Toyota binary entity."""
 
-    value_fn: Callable[[Vehicle], Optional[bool]]
-    attributes_fn: Callable[[Vehicle], Optional[dict[str, Any]]]
+    value_fn: Callable[[Vehicle], bool | None]
+    attributes_fn: Callable[[Vehicle], dict[str, Any] | None]
 
 
 HOOD_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
@@ -435,11 +435,11 @@ class ToyotaBinarySensor(ToyotaBaseEntity, BinarySensorEntity):
     """Representation of a Toyota binary sensor."""
 
     @property
-    def is_on(self) -> Optional[bool]:
+    def is_on(self) -> bool | None:
         """Return the state of the sensor."""
         return self.entity_description.value_fn(self.vehicle)  # type: ignore[reportAttributeAccessIssue, attr-defined]
 
     @property
-    def extra_state_attributes(self) -> Optional[dict[str, Any]]:
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return the attributes of the sensor."""
         return self.entity_description.attributes_fn(self.vehicle)  # type: ignore[reportAttributeAccessIssue, attr-defined]

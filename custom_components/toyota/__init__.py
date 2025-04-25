@@ -18,15 +18,42 @@ from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from loguru import logger
 from pydantic import ValidationError
-from pytoyoda.client import MyT
-from pytoyoda.exceptions import ToyotaApiError, ToyotaInternalError, ToyotaLoginError
-from pytoyoda.models.summary import Summary
-from pytoyoda.models.vehicle import Vehicle
 
 from .const import CONF_METRIC_VALUES, DOMAIN, PLATFORMS, STARTUP_MESSAGE
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def loguru_to_hass(message: str) -> None:
+    """Forward Loguru logs to standard Python logger used by HACS."""
+    level_name = message.record["level"].name.lower()
+
+    if "debug" in level_name:
+        _LOGGER.debug(message)
+    elif "info" in level_name:
+        _LOGGER.info(message)
+    elif "warn" in level_name:
+        _LOGGER.warning(message)
+    elif "error" in level_name:
+        _LOGGER.error(message)
+    else:
+        _LOGGER.critical(message)
+
+
+logger.remove()
+logger.configure(handlers=[{"sink": loguru_to_hass}])
+
+# These imports must be after Loguru configuration to properly intercept logging
+from pytoyoda.client import MyT  # noqa: E402
+from pytoyoda.exceptions import (  # noqa: E402
+    ToyotaApiError,
+    ToyotaInternalError,
+    ToyotaLoginError,
+)
+from pytoyoda.models.summary import Summary  # noqa: E402
+from pytoyoda.models.vehicle import Vehicle  # noqa: E402
 
 
 class StatisticsData(TypedDict):

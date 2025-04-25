@@ -24,22 +24,24 @@ from pydantic import ValidationError
 from .const import CONF_METRIC_VALUES, DOMAIN, PLATFORMS, STARTUP_MESSAGE
 
 _LOGGER = logging.getLogger(__name__)
+
+def loguru_to_hass(message: str) -> None:
+    """Forwards Loguru logs to standard python logger used by HACS."""
+    level_name = message.record["level"].name.lower()
+    
+    if "debug" in level_name:
+        _LOGGER.debug(message)
+    elif "info" in level_name:
+        _LOGGER.info(message)
+    elif "warn" in level_name:
+        _LOGGER.warning(message)
+    elif "error" in level_name:
+        _LOGGER.error(message)
+    else:
+        _LOGGER.critical(message)
+
 logger.remove()
-logger.configure(
-    handlers=[
-        {
-            "sink": lambda msg: _LOGGER.debug(msg)
-            if "debug" in msg.record["level"].name.lower()
-            else _LOGGER.info(msg)
-            if "info" in msg.record["level"].name.lower()
-            else _LOGGER.warning(msg)
-            if "warn" in msg.record["level"].name.lower()
-            else _LOGGER.error(msg)
-            if "error" in msg.record["level"].name.lower()
-            else _LOGGER.critical(msg)
-        }
-    ]
-)
+logger.configure(handlers=[{"sink": loguru_to_hass}])
 
 # These imports must be after loguru configuration to properly intercept logging
 from pytoyoda.client import MyT  # noqa: E402

@@ -5,8 +5,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
-from typing import Any, List, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Literal
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -14,16 +13,9 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import PERCENTAGE, UnitOfLength
-from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import EntityCategory
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.typing import StateType
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from pytoyoda.models.vehicle import Vehicle
 
-from . import StatisticsData, VehicleData
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
 from .utils import (
@@ -32,11 +24,25 @@ from .utils import (
     round_number,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.typing import StateType
+    from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+    from pytoyoda.models.vehicle import Vehicle
+
+    from . import StatisticsData, VehicleData
+
 _LOGGER = logging.getLogger(__name__)
 
 
 def get_vehicle_capability(
-    vehicle, capability_name: str, default: bool = False
+    vehicle: Vehicle,
+    capability_name: str,
+    default: bool = False,  # noqa: FBT001, FBT002
 ) -> bool:
     """Safely retrieve a vehicle capability with a default fallback.
 
@@ -51,11 +57,11 @@ def get_vehicle_capability(
     """
     try:
         return getattr(
-            getattr(vehicle._vehicle_info, "extended_capabilities", False),
+            getattr(vehicle._vehicle_info, "extended_capabilities", False),  # noqa : SLF001
             capability_name,
             default,
         )
-    except Exception:  # pylint: disable=W0718
+    except Exception:  # pylint: disable=W0718 # noqa : BLE001
         return default
 
 
@@ -63,7 +69,7 @@ class ToyotaSensorEntityDescription(SensorEntityDescription, frozen_or_thawed=Tr
     """Describes a Toyota sensor entity."""
 
     value_fn: Callable[[Vehicle], StateType]
-    attributes_fn: Callable[[Vehicle], Optional[dict[str, Any]]]
+    attributes_fn: Callable[[Vehicle], dict[str, Any] | None]
 
 
 class ToyotaStatisticsSensorEntityDescription(
@@ -82,7 +88,7 @@ VIN_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     device_class=SensorDeviceClass.ENUM,
     state_class=None,
     value_fn=lambda vehicle: vehicle.vin,
-    attributes_fn=lambda vehicle: format_vin_sensor_attributes(vehicle._vehicle_info),
+    attributes_fn=lambda vehicle: format_vin_sensor_attributes(vehicle._vehicle_info),  # noqa : SLF001
 )
 ODOMETER_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     key="odometer",
@@ -210,7 +216,7 @@ STATISTICS_ENTITY_DESCRIPTIONS_YEARLY = ToyotaStatisticsSensorEntityDescription(
 )
 
 
-def create_sensor_configurations(metric_values: bool) -> List[dict[str, Any]]:
+def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  # noqa : FBT001
     """Create a list of sensor configurations based on vehicle capabilities.
 
     Args:
@@ -222,7 +228,7 @@ def create_sensor_configurations(metric_values: bool) -> List[dict[str, Any]]:
 
     """
 
-    def get_length_unit(metric: bool) -> str:
+    def get_length_unit(metric: bool) -> str:  # noqa : FBT001
         return UnitOfLength.KILOMETERS if metric else UnitOfLength.MILES
 
     return [
@@ -330,8 +336,8 @@ class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
         entry_id: str,
         vehicle_index: int,
         description: ToyotaSensorEntityDescription,
-        native_unit: Union[UnitOfLength, str],
-        suggested_unit: Union[UnitOfLength, str],
+        native_unit: UnitOfLength | str,
+        suggested_unit: UnitOfLength | str,
     ) -> None:
         """Initialise the ToyotaSensor class."""
         super().__init__(coordinator, entry_id, vehicle_index, description)
@@ -345,7 +351,7 @@ class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
         return self.description.value_fn(self.vehicle)
 
     @property
-    def extra_state_attributes(self) -> Optional[dict[str, Any]]:
+    def extra_state_attributes(self) -> dict[str, Any] | None:
         """Return the attributes of the sensor."""
         return self.description.attributes_fn(self.vehicle)
 
@@ -361,8 +367,8 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
         entry_id: str,
         vehicle_index: int,
         description: ToyotaStatisticsSensorEntityDescription,
-        native_unit: Union[UnitOfLength, str],
-        suggested_unit: Union[UnitOfLength, str],
+        native_unit: UnitOfLength | str,
+        suggested_unit: UnitOfLength | str,
     ) -> None:
         """Initialise the ToyotaStatisticsSensor class."""
         super().__init__(coordinator, entry_id, vehicle_index, description)
@@ -377,11 +383,11 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
         return round(data.distance, 1) if data and data.distance else None
 
     @property
-    def extra_state_attributes(self):
+    def extra_state_attributes(self) -> dict | None:
         """Return the state attributes."""
         data = self.statistics[self.period]
         return (
-            format_statistics_attributes(data, self.vehicle._vehicle_info)
+            format_statistics_attributes(data, self.vehicle._vehicle_info)  # noqa : SLF001
             if data
             else None
         )
@@ -397,7 +403,7 @@ async def async_setup_entry(
         entry.entry_id
     ]
 
-    sensors: list[Union[ToyotaSensor, ToyotaStatisticsSensor]] = []
+    sensors: list[ToyotaSensor | ToyotaStatisticsSensor] = []
     for index, vehicle_data in enumerate(coordinator.data):
         vehicle = vehicle_data["data"]
         metric_values = vehicle_data["metric_values"]

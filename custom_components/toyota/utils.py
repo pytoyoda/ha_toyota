@@ -4,15 +4,16 @@
 
 from __future__ import annotations
 
-from typing import Optional, Union
-
-from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
-from pytoyoda.models.summary import Summary
+from typing import TYPE_CHECKING
 
 from .const import CONF_BRAND_MAPPING
 
+if TYPE_CHECKING:
+    from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
+    from pytoyoda.models.summary import Summary
 
-def round_number(number: int | float | None, places: int = 0) -> int | float | None:
+
+def round_number(number: float | None, places: int = 0) -> int | float | None:
     """Round a number if it is not None."""
     return None if number is None else round(number, places)
 
@@ -20,13 +21,18 @@ def round_number(number: int | float | None, places: int = 0) -> int | float | N
 def mask_string(string: str | None) -> str | None:
     """Mask all except the last 5 digits of a given string with asteriks."""
     if string:
-        return "*" * (len(string) - 5) + string[-5:] if len(string) >= 5 else "*****"
+        max_digits = 5
+        return (
+            "*" * (len(string) - max_digits) + string[-max_digits:]
+            if len(string) >= max_digits
+            else "*****"
+        )
     return string
 
 
 def format_vin_sensor_attributes(
     vehicle_info: VehicleGuidModel,
-) -> dict[str, Optional[Union[str, bool, dict[str, bool]]]]:
+) -> dict[str, str | bool | dict[str, bool] | None]:
     """Format and returns vin sensor attributes."""
     return {
         "Contract_id": mask_string(vehicle_info.contract_id),

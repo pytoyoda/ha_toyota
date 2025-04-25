@@ -3,7 +3,8 @@
 # pylint: disable=W0212, W0511
 
 import logging
-from typing import Any, Mapping
+from collections.abc import Mapping
+from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
@@ -23,13 +24,13 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
 
     VERSION = 1
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Start the toyota custom component config flow."""
         self._reauth_entry = None
         self._email = None
         self._metric_values = True
 
-    async def async_step_user(self, user_input=None) -> Any:
+    async def async_step_user(self, user_input: dict | None = None) -> Any:  # noqa : ANN401
         """Handle the initial step."""
         errors = {}
 
@@ -48,15 +49,15 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
                 self._abort_if_unique_id_configured()
             try:
                 await client.login()
-            except ToyotaLoginError as ex:
+            except ToyotaLoginError:
                 errors["base"] = "invalid_auth"
-                _LOGGER.error(ex)
-            except ToyotaInvalidUsernameError as ex:
+                _LOGGER.exception("Toyota login error: Invalid auth")
+            except ToyotaInvalidUsernameError:
                 errors["base"] = "invalid_username"
-                _LOGGER.error(ex)
-            except Exception as ex:  # pylint: disable=broad-except
+                _LOGGER.exception("Toyota login error: Invalid username")
+            except Exception:  # pylint: disable=broad-except
                 errors["base"] = "unknown"
-                _LOGGER.error("An unknown error occurred during login request: %s", ex)
+                _LOGGER.exception("An unknown error occurred during login request.")
             else:
                 if not self._reauth_entry:
                     return self.async_create_entry(

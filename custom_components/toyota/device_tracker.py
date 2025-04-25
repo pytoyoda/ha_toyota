@@ -2,8 +2,6 @@
 
 # pylint: disable=W0212, W0511
 
-from typing import Optional
-
 from homeassistant.components.device_tracker import SourceType
 from homeassistant.components.device_tracker.config_entry import TrackerEntity
 from homeassistant.config_entries import ConfigEntry
@@ -42,12 +40,12 @@ async def async_setup_entry(
         )
         for index, vehicle in enumerate(coordinator.data)
         if getattr(
-            getattr(vehicle["data"]._vehicle_info, "extended_capabilities", False),
+            getattr(vehicle["data"]._vehicle_info, "extended_capabilities", False),  # noqa : SLF001
             "last_parked_capable",
             False,
         )
         or getattr(
-            getattr(vehicle["data"]._vehicle_info, "features", False),
+            getattr(vehicle["data"]._vehicle_info, "features", False),  # noqa : SLF001
             "last_parked",
             False,
         )
@@ -60,13 +58,13 @@ class ToyotaParkingTracker(ToyotaBaseEntity, TrackerEntity):
     coordinator: DataUpdateCoordinator[list[VehicleData]]
 
     @property
-    def latitude(self) -> Optional[float]:
+    def latitude(self) -> float | None:
         """Return latitude value of the device."""
         location = self.vehicle.location
         return location.latitude if location else None
 
     @property
-    def longitude(self) -> Optional[float]:
+    def longitude(self) -> float | None:
         """Return longitude value of the device."""
         location = self.vehicle.location
         return location.longitude if location else None
@@ -77,6 +75,6 @@ class ToyotaParkingTracker(ToyotaBaseEntity, TrackerEntity):
         return SourceType.GPS
 
     @property
-    def entity_picture(self) -> Optional[str]:
+    def entity_picture(self) -> str | None:
         """Return entity picture."""
-        return self.vehicle._vehicle_info.image
+        return self.vehicle._vehicle_info.image  # noqa : SLF001

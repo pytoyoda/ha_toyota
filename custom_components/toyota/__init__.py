@@ -9,13 +9,11 @@ import asyncio.exceptions as asyncioexceptions
 import logging
 from datetime import timedelta
 from functools import partial
-from typing import Optional, TypedDict
+from typing import TYPE_CHECKING, Any, TypedDict
 
 import httpcore
 import httpx
-from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from loguru import logger
@@ -52,28 +50,32 @@ from pytoyoda.exceptions import (  # noqa: E402
     ToyotaInternalError,
     ToyotaLoginError,
 )
-from pytoyoda.models.summary import Summary  # noqa: E402
-from pytoyoda.models.vehicle import Vehicle  # noqa: E402
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from pytoyoda.models.summary import Summary
+    from pytoyoda.models.vehicle import Vehicle
 
 
 class StatisticsData(TypedDict):
     """Representing Statistics data."""
 
-    day: Optional[Summary]
-    week: Optional[Summary]
-    month: Optional[Summary]
-    year: Optional[Summary]
+    day: Summary | None
+    week: Summary | None
+    month: Summary | None
+    year: Summary | None
 
 
 class VehicleData(TypedDict):
     """Representing Vehicle data."""
 
     data: Vehicle
-    statistics: Optional[StatisticsData]
+    statistics: StatisticsData | None
     metric_values: bool
 
 
-async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0915
+async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0915, C901
     hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
     """Set up Toyota Connected Services from a config entry."""
@@ -91,7 +93,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
     try:
 
-        def _sync_login():
+        def _sync_login() -> Any:  # noqa: ANN401
             loop = asyncio.new_event_loop()
             result = None
             try:
@@ -104,11 +106,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     except ToyotaLoginError as ex:
         raise ConfigEntryAuthFailed(ex) from ex
     except (httpx.ConnectTimeout, httpcore.ConnectTimeout) as ex:
-        raise ConfigEntryNotReady(
-            "Unable to connect to Toyota Connected Services"
-        ) from ex
+        msg = "Unable to connect to Toyota Connected Services"
+        raise ConfigEntryNotReady(msg) from ex
 
-    async def async_get_vehicle_data() -> Optional[list[VehicleData]]:
+    async def async_get_vehicle_data() -> list[VehicleData] | None:  # noqa: C901
         """Fetch vehicle data from Toyota API."""
         try:
             vehicles = await asyncio.wait_for(client.get_vehicles(), 15)
@@ -142,25 +143,27 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                 _LOGGER.debug(vehicle_informations)
                 return vehicle_informations
 
-        except ToyotaLoginError as ex:
-            _LOGGER.error(ex)
+        except ToyotaLoginError:
+            _LOGGER.exception("Toyota login error")
         except ToyotaInternalError as ex:
             _LOGGER.debug(ex)
         except ToyotaApiError as ex:
             raise UpdateFailed(ex) from ex
         except (httpx.ConnectTimeout, httpcore.ConnectTimeout) as ex:
-            raise UpdateFailed("Unable to connect to Toyota Connected Services") from ex
-        except ValidationError as ex:
-            _LOGGER.error(ex)
+            msg = "Unable to connect to Toyota Connected Services"
+            raise UpdateFailed(msg) from ex
+        except ValidationError:
+            _LOGGER.exception("Toyota validation error")
         except (
             asyncioexceptions.CancelledError,
             asyncioexceptions.TimeoutError,
             httpx.ReadTimeout,
         ) as ex:
-            raise UpdateFailed(
+            msg = (
                 "Update canceled! \n"
                 "Toyota's API was too slow to respond. Will try again later."
-            ) from ex
+            )
+            raise UpdateFailed(msg) from ex
         return None
 
     coordinator = DataUpdateCoordinator(

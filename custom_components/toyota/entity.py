@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING
 
 from homeassistant.core import callback
 from homeassistant.helpers.entity import DeviceInfo, EntityDescription
@@ -12,10 +12,13 @@ from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
 )
-from pytoyoda.models.vehicle import Vehicle
 
-from . import StatisticsData, VehicleData
 from .const import CONF_BRAND_MAPPING, DOMAIN
+
+if TYPE_CHECKING:
+    from pytoyoda.models.vehicle import Vehicle
+
+    from . import StatisticsData, VehicleData
 
 
 class ToyotaBaseEntity(CoordinatorEntity):
@@ -36,7 +39,7 @@ class ToyotaBaseEntity(CoordinatorEntity):
         self.index = vehicle_index
         self.entity_description = description
         self.vehicle: Vehicle = coordinator.data[self.index]["data"]
-        self.statistics: Optional[StatisticsData] = coordinator.data[self.index][
+        self.statistics: StatisticsData | None = coordinator.data[self.index][
             "statistics"
         ]
         self.metric_values: bool = coordinator.data[self.index]["metric_values"]
@@ -47,9 +50,9 @@ class ToyotaBaseEntity(CoordinatorEntity):
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, self.vehicle.vin or "Unknown")},
             name=self.vehicle.alias,
-            model=self.vehicle._vehicle_info.car_model_name,
-            manufacturer=CONF_BRAND_MAPPING.get(self.vehicle._vehicle_info.brand)
-            if self.vehicle._vehicle_info.brand
+            model=self.vehicle._vehicle_info.car_model_name,  # noqa : SLF001
+            manufacturer=CONF_BRAND_MAPPING.get(self.vehicle._vehicle_info.brand)  # noqa : SLF001
+            if self.vehicle._vehicle_info.brand  # noqa : SLF001
             else "Unknown",
         )
 

@@ -41,10 +41,11 @@ logger.configure(
     ]
 )
 
-from pytoyoda.client import MyT
-from pytoyoda.exceptions import ToyotaApiError, ToyotaInternalError, ToyotaLoginError
-from pytoyoda.models.summary import Summary
-from pytoyoda.models.vehicle import Vehicle
+# These imports must be after loguru configuration to properly intercept logging
+from pytoyoda.client import MyT # noqa: E402
+from pytoyoda.exceptions import ToyotaApiError, ToyotaInternalError, ToyotaLoginError # noqa: E402
+from pytoyoda.models.summary import Summary # noqa: E402
+from pytoyoda.models.vehicle import Vehicle # noqa: E402
 
 
 class StatisticsData(TypedDict):

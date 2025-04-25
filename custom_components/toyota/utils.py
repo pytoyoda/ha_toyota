@@ -4,10 +4,13 @@
 
 from __future__ import annotations
 
-from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
-from pytoyoda.models.summary import Summary
+from typing import TYPE_CHECKING
 
 from .const import CONF_BRAND_MAPPING
+
+if TYPE_CHECKING:
+    from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
+    from pytoyoda.models.summary import Summary
 
 
 def round_number(number: float | None, places: int = 0) -> int | float | None:
@@ -18,7 +21,12 @@ def round_number(number: float | None, places: int = 0) -> int | float | None:
 def mask_string(string: str | None) -> str | None:
     """Mask all except the last 5 digits of a given string with asteriks."""
     if string:
-        return "*" * (len(string) - 5) + string[-5:] if len(string) >= 5 else "*****"
+        max_digits = 5
+        return (
+            "*" * (len(string) - max_digits) + string[-max_digits:]
+            if len(string) >= max_digits
+            else "*****"
+        )
     return string
 
 

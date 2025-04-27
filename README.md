@@ -14,6 +14,28 @@
     This custom integration aims to provide plug-and-play integration for your Toyota vehicle.
 </p>
 
+## Summary
+
+- [About](#about)
+- [Features](#features)
+  * [Overview](#overview)
+  * [Binary sensor(s)](#binary-sensor-s-)
+  * [Device tracker(s)](#device-tracker-s-)
+  * [Sensor(s)](#sensor-s-)
+  * [Statistics sensors](#statistics-sensors)
+    + [Important](#important)
+    + [Attributes available](#attributes-available)
+- [Getting started](#getting-started)
+  * [Prerequisites](#prerequisites)
+  * [HACS installation (Recommended)](#hacs-installation--recommended-)
+  * [Manual Installation](#manual-installation)
+    + [Git clone method](#git-clone-method)
+    + [Copy method](#copy-method)
+  * [Integration Setup](#integration-setup)
+- [Contribution](#contribution)
+  * [License](#license)
+- [Credits](#credits)
+
 ## About
 
 This is a custom integration the retrieves' data from the

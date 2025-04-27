@@ -113,7 +113,10 @@ If you can confirm that it is working as advertised on older version please open
 
 ### HACS installation (Recommended)
 
-Open HACS and search for `Toyota Connected Services` under integrations.
+We are still waiting for our repository to be included in the current HACS package sources (see: https://github.com/hacs/default/pull/3284).
+Therefore you have to add the repository manually as an “Integration” custom repository in HACS for the time being. See also: https://www.hacs.xyz/docs/faq/custom_repositories/?h=add+repos
+
+After that you can open HACS and search for `Toyota EU community integration` under integrations.
 You can choose to install a specific version or from main (Not recommended).
 
 ### Manual Installation

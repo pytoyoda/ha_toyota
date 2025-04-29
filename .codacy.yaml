@@ -1,3 +1,5 @@
 ---
+exclude_paths:
+  - "**"
 include_paths:
   - "custom_components/**"

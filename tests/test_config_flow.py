@@ -42,3 +42,23 @@ async def test_form_no_email(hass):
             CONF_METRIC_VALUES: True
             }
     )
+
+async def test_form_no_password(hass):
+    """Assert we get the a ToyotaInvalidUsernameError for empty EMail."""
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+    assert result["handler"] == DOMAIN
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={
+            CONF_EMAIL: "test@mail.com",
+            CONF_PASSWORD: "",
+            CONF_METRIC_VALUES: True
+            }
+    )
+    print(result)

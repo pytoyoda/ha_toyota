@@ -19,3 +19,24 @@ async def test_form(hass):
     assert isinstance(result["data_schema"].schema[CONF_EMAIL], type)
     assert isinstance(result["data_schema"].schema[CONF_PASSWORD], type)
     assert isinstance(result["data_schema"].schema[CONF_METRIC_VALUES], BooleanSelector)
+
+async def test_form_no_email(hass):
+    """Assert we get the user form with correct data_schema."""
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": "user"}
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "user"
+    assert result["handler"] == DOMAIN
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], user_input={
+            CONF_EMAIL: "",
+            CONF_PASSWORD: "password",
+            CONF_METRIC_VALUES: True
+            }
+    )
+
+    print(result)

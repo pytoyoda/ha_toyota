@@ -11,7 +11,6 @@ from pytoyoda.exceptions import ToyotaLoginError
 
 from custom_components.toyota.const import CONF_METRIC_VALUES, DOMAIN
 
-@pytest.mark.asyncio
 async def test_form(hass, mock_toyota_client):
     """Test we get the form."""
     result = await hass.config_entries.flow.async_init(
@@ -63,7 +62,6 @@ async def test_form(hass, mock_toyota_client):
         CONF_METRIC_VALUES: True,
     }
 
-@pytest.mark.asyncio
 async def test_form_invalid_auth(hass, mock_toyota_client):
     """Test we handle invalid auth."""
     result = await hass.config_entries.flow.async_init(
@@ -84,7 +82,6 @@ async def test_form_invalid_auth(hass, mock_toyota_client):
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
 
-@pytest.mark.asyncio
 async def test_form_toyota_exception(hass, mock_toyota_client):
     """Test we handle Toyota exception."""
     result = await hass.config_entries.flow.async_init(
@@ -105,7 +102,6 @@ async def test_form_toyota_exception(hass, mock_toyota_client):
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "unknown"}
 
-@pytest.mark.asyncio
 async def test_form_duplicate_entries(hass, mock_toyota_client):
     """Test we handle duplicate entries."""
     # Setup an existing entry
@@ -145,7 +141,6 @@ async def test_form_duplicate_entries(hass, mock_toyota_client):
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "already_configured"
 
-@pytest.mark.asyncio
 async def test_reauth_flow(hass, mock_toyota_client):
     """Test the reauthentication flow."""
     # Setup an existing entry

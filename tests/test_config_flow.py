@@ -122,7 +122,7 @@ async def test_form_duplicate_entries(hass, mock_toyota_client):
         discovery_keys=[],
         subentries_data={},
     )
-    
+
     # Mock der async_entries Methode
     with patch.object(
         hass.config_entries, "async_entries", return_value=[entry]
@@ -173,7 +173,7 @@ async def test_reauth_flow(hass, mock_toyota_client):
     # Mock der Konfigurations-Einträge
     with patch.object(hass.config_entries, "async_get_entry", return_value=entry), \
          patch.object(hass.config_entries, "async_update_entry", return_value=None):
-        
+
         # Initialize a reauth flow
         result = await hass.config_entries.flow.async_init(
             DOMAIN,

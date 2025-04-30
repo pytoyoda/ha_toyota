@@ -1,10 +1,13 @@
 """Tests for the Toyota EU community integration config flow."""
 
+import pytest
+
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.selector import BooleanSelector
 
 from custom_components.toyota.const import CONF_METRIC_VALUES, DOMAIN
+from pytoyoda.exceptions import ToyotaInvalidUsernameError
 
 async def test_form(hass):
     """Assert we get the user form with correct data_schema."""
@@ -21,7 +24,7 @@ async def test_form(hass):
     assert isinstance(result["data_schema"].schema[CONF_METRIC_VALUES], BooleanSelector)
 
 async def test_form_no_email(hass):
-    """Assert we get the user form with correct data_schema."""
+    """Assert we get the a ToyotaInvalidUsernameError for empty EMail."""
 
     result = await hass.config_entries.flow.async_init(
         DOMAIN, context={"source": "user"}
@@ -31,12 +34,11 @@ async def test_form_no_email(hass):
     assert result["step_id"] == "user"
     assert result["handler"] == DOMAIN
 
-    result = await hass.config_entries.flow.async_configure(
+    with pytest.raises(ToyotaInvalidUsernameError):
+        await hass.config_entries.flow.async_configure(
         result["flow_id"], user_input={
             CONF_EMAIL: "",
             CONF_PASSWORD: "password",
             CONF_METRIC_VALUES: True
             }
     )
-
-    print(result)

@@ -1,8 +1,8 @@
 [project]
 name = "toyota"
-description = "Toyota Connected Services integration for Home Assistant"
+description = "Toyota Connected Services community integration for Home Assistant"
 license = "MIT"
-version = "v2.0.14"
+version = "v2.0.15"
 authors = [
             {name = "CM000n", email = "simon.hoerrle@gmail.com"},
             {name = "deejay1", email = "deejay1@srem.org"}

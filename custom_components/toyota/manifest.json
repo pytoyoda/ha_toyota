@@ -1,12 +1,12 @@
 {
   "domain": "toyota",
-  "name": "Toyota Connected Services",
+  "name": "Toyota EU community integration",
   "after_dependencies": ["cloud", "http"],
   "codeowners": ["@deejay1", "@CM000n"],
   "config_flow": true,
   "documentation": "https://github.com/pytoyoda/ha_toyota",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/pytoyoda/ha_toyota/issues",
-  "requirements": ["pytoyoda>=3.0.4,<4.0", "arrow"],
-  "version": "v2.0.14"
+  "requirements": ["pytoyoda>=3.1.0,<4.0", "arrow"],
+  "version": "v2.0.15"
 }

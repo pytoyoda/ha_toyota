@@ -13,12 +13,9 @@ async def test_form(hass):
         DOMAIN, context={"source": "user"}
     )
 
-    print(result)
-
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
     assert result["handler"] == DOMAIN
     assert isinstance(result["data_schema"].schema[CONF_EMAIL], type)
     assert isinstance(result["data_schema"].schema[CONF_PASSWORD], type)
     assert isinstance(result["data_schema"].schema[CONF_METRIC_VALUES], BooleanSelector)
-

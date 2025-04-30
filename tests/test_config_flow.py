@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.data_entry_flow import FlowResultType
@@ -9,7 +11,7 @@ from pytoyoda.exceptions import ToyotaLoginError
 
 from custom_components.toyota.const import CONF_METRIC_VALUES, DOMAIN
 
-
+@pytest.mark.asyncio
 async def test_form(hass, mock_toyota_client):
     """Test we get the form."""
     result = await hass.config_entries.flow.async_init(
@@ -61,7 +63,7 @@ async def test_form(hass, mock_toyota_client):
         CONF_METRIC_VALUES: True,
     }
 
-
+@pytest.mark.asyncio
 async def test_form_invalid_auth(hass, mock_toyota_client):
     """Test we handle invalid auth."""
     result = await hass.config_entries.flow.async_init(
@@ -82,7 +84,7 @@ async def test_form_invalid_auth(hass, mock_toyota_client):
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "invalid_auth"}
 
-
+@pytest.mark.asyncio
 async def test_form_toyota_exception(hass, mock_toyota_client):
     """Test we handle Toyota exception."""
     result = await hass.config_entries.flow.async_init(
@@ -103,7 +105,7 @@ async def test_form_toyota_exception(hass, mock_toyota_client):
     assert result["type"] == FlowResultType.FORM
     assert result["errors"] == {"base": "unknown"}
 
-
+@pytest.mark.asyncio
 async def test_form_duplicate_entries(hass, mock_toyota_client):
     """Test we handle duplicate entries."""
     # Setup an existing entry
@@ -143,7 +145,7 @@ async def test_form_duplicate_entries(hass, mock_toyota_client):
     assert result["type"] == FlowResultType.ABORT
     assert result["reason"] == "already_configured"
 
-
+@pytest.mark.asyncio
 async def test_reauth_flow(hass, mock_toyota_client):
     """Test the reauthentication flow."""
     # Setup an existing entry
@@ -195,24 +197,3 @@ async def test_reauth_flow(hass, mock_toyota_client):
 
     # Check that the password was updated
     assert entry.data[CONF_PASSWORD] == "new_password"
-
-
-async def test_reauth_flow_invalid_auth(hass, mock_toyota_client):
-    """Test the reauthentication flow with invalid auth."""
-    # Setup an existing entry
-    entry = config_entries.ConfigEntry(
-        version=1,
-        domain=DOMAIN,
-        title="test@example.com",
-        data={
-            CONF_EMAIL: "test@example.com",
-            CONF_PASSWORD: "old_password",
-            CONF_METRIC_VALUES: True,
-        },
-        source=config_entries.SOURCE_USER,
-        options={},
-        entry_id="test_entry_id",
-        state=config_entries.ConfigEntryState.LOADED,
-    )
-    
-    # Initialize

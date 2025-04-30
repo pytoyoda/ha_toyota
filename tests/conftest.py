@@ -1,26 +1,38 @@
 """Fixtures for Toyota EU community integration tests."""
 
-from unittest.mock import patch, Mock
 import pytest
+from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.toyota.const import DOMAIN
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
+from custom_components.toyota.const import CONF_METRIC_VALUES, DOMAIN
 
 @pytest.fixture(autouse=True)
-def mock_integration(hass):
-    """Mock the Toyota integration."""
-    with patch("homeassistant.loader.async_get_integration") as mock_get:
-        mock_integration = Mock()
-        mock_integration.domain = DOMAIN
-        # Simuliere einen config_flow
-        mock_integration.get_component = lambda: Mock(CONFIG_SCHEMA=None)
-        mock_get.return_value = mock_integration
-        yield mock_integration
+def auto_enable_custom_integrations(enable_custom_integrations):
+    yield
+
 
 @pytest.fixture
-def mock_toyota_client():
-    """Return a mocked Toyota client."""
-    with patch("custom_components.toyota.config_flow.MyT", autospec=True) as mock_client_class:
-        client = mock_client_class.return_value
-        # Set up necessary mocked functions
-        client.login = lambda: None  # Will be mocked in tests
-        yield client
+async def init_integration(hass, aioclient_mock) -> MockConfigEntry:
+    #mock_data = load_json_value_fixture("rest_response.json")
+    #url = f"{FERNPORTAL_URL}/{MOCK_SERIAL_NUMBER}"
+    #aioclient_mock.get(url, json=mock_data)
+
+    # Create a mock config entry
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            CONF_EMAIL: "test@example.com",
+            CONF_PASSWORD: "password",
+            CONF_METRIC_VALUES: True,
+        },
+        entry_id="test_entry_toyota",
+        title="test_entry_toyota config",
+        source="user",
+    )
+    entry.add_to_hass(hass)
+
+    # Call async_setup_entry()
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    return entry

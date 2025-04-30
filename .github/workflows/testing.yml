@@ -29,7 +29,7 @@ jobs:
         run: "poetry install"
       - name: "🚀 Run pytest with coverage"
         run: |
-          poetry run pytest tests --cov=custom_components/toyota --cov-report term --cov-report xml:coverage.xml
+          poetry run pytest tests -s -vv --cov=custom_components/toyota --cov-report term --cov-report xml:coverage.xml
       - name: "⬆️ Archive code coverage results"
         uses: actions/upload-artifact@v4
         with:

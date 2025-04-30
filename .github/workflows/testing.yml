@@ -14,9 +14,6 @@ jobs:
     runs-on: "ubuntu-latest"
     permissions:
       contents: read
-    env:
-      OS: "ubuntu-latest"
-      PYTHON: "3.13"
     steps:
       - name: "⤵️ Check out code from GitHub"
         uses: "actions/checkout@v4"

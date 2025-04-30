@@ -21,4 +21,3 @@ async def test_form(hass):
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "user"
     assert result["handler"] == DOMAIN
-

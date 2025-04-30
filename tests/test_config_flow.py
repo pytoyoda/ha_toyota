@@ -161,7 +161,7 @@ async def test_reauth_flow(hass, mock_toyota_client):
         entry_id="test_entry_id",
         state=config_entries.ConfigEntryState.LOADED,
     )
-    
+
     # Initialize a reauth flow
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
@@ -214,5 +214,5 @@ async def test_reauth_flow_invalid_auth(hass, mock_toyota_client):
         entry_id="test_entry_id",
         state=config_entries.ConfigEntryState.LOADED,
     )
-    
+
     # Initialize

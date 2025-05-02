@@ -268,7 +268,8 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "description": BATTERY_LEVEL_ENTITY_DESCRIPTION,
             "capability_check": lambda v: get_vehicle_capability(
                 v, "econnect_vehicle_status_capable"
-            ),
+            )
+            or v.type == "electric",
             "native_unit": PERCENTAGE,
             "suggested_unit": None,
         },
@@ -276,7 +277,8 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "description": BATTERY_RANGE_ENTITY_DESCRIPTION,
             "capability_check": lambda v: get_vehicle_capability(
                 v, "econnect_vehicle_status_capable"
-            ),
+            )
+            or v.type == "electric",
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
         },
@@ -284,7 +286,8 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "description": BATTERY_RANGE_AC_ENTITY_DESCRIPTION,
             "capability_check": lambda v: get_vehicle_capability(
                 v, "econnect_vehicle_status_capable"
-            ),
+            )
+            or v.type == "electric",
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
         },

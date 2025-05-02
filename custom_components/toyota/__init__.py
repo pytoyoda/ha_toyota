@@ -116,7 +116,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             vehicle_informations: list[VehicleData] = []
             if vehicles:
                 for vehicle in vehicles:
-                    if vehicle:
+                    if vehicle and vehicle._vehicle_info.remote_user_guid:  # noqa : SLF001
                         await vehicle.update()
                         vehicle_data = VehicleData(
                             data=vehicle, statistics=None, metric_values=metric_values

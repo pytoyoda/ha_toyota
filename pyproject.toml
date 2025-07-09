@@ -17,7 +17,7 @@ requires-poetry = '>=2.0'
 [tool.poetry.dependencies]
 arrow = "^1.3"
 homeassistant = "^2025.0.0"
-pytoyoda = "^3.0.4"
+pytoyoda = "^4.0.1"
 
 [tool.poetry.group.dev.dependencies]
 homeassistant-stubs = "^2025.0"

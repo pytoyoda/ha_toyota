@@ -15,7 +15,7 @@ jobs:
       issues: write
     steps:
       - name: "⤵️ Check out code from GitHub"
-        uses: "actions/checkout@v4"
+        uses: "actions/checkout@v5"
       - name: "🚀 Run Labeler"
         uses: "crazy-max/ghaction-github-labeler@v5"
         with:

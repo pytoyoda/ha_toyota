@@ -112,19 +112,19 @@ Due to this, this integration will list sensors as unavailable when no data is a
 
 All values will show `None` if no data is available for the period.
 
-| Attribute               | Description                                                                    |
-| ----------------------- | ------------------------------------------------------------------------------ |
-| `Distance`              | Distance driven (Displayed as sensor value).                                   |
-| `Average_speed`         | The average speed in the respective period (can be km/h or mph).               |
-| `Countries`             | The countries travelled through in the respective period.                      |
-| `Duration`              | The total driving time in the respective period.                               |
-| `Total_fuel_consumed`   | The total fuel consumption in the respective period (can be litres or gallons).|
-| `Average_fuel_consumed` | The average fuel consumption in the respective period (can be l/100km or mpg). |
-| `EV_distance`           | The driving distiance in EV mode in the respective period .                    |
-| `EV_duration`           | The driving time in EV mode in the respective period .                         |
-| `EV_percentage`         | The percentage distance in EV mode / total distance in the respective period.  |
-| `From_date`             | Start date of the calculation period.                                          |
-| `To_date`               | End date of the calculation period.                                            |
+| Attribute               | Description                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------- |
+| `Distance`              | Distance driven (Displayed as sensor value).                                    |
+| `Average_speed`         | The average speed in the respective period (can be km/h or mph).                |
+| `Countries`             | The countries travelled through in the respective period.                       |
+| `Duration`              | The total driving time in the respective period.                                |
+| `Total_fuel_consumed`   | The total fuel consumption in the respective period (can be litres or gallons). |
+| `Average_fuel_consumed` | The average fuel consumption in the respective period (can be l/100km or mpg).  |
+| `EV_distance`           | The driving distiance in EV mode in the respective period .                     |
+| `EV_duration`           | The driving time in EV mode in the respective period .                          |
+| `EV_percentage`         | The percentage distance in EV mode / total distance in the respective period.   |
+| `From_date`             | Start date of the calculation period.                                           |
+| `To_date`               | End date of the calculation period.                                             |
 
 ### Scores sensors
 

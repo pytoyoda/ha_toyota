@@ -55,6 +55,7 @@ if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from pytoyoda.models.summary import Summary
+    from pytoyoda.models.trips import Trip
     from pytoyoda.models.vehicle import Vehicle
 
 
@@ -65,6 +66,16 @@ class StatisticsData(TypedDict):
     week: Summary | None
     month: Summary | None
     year: Summary | None
+
+
+class ScoresData(TypedDict):
+    """Representing Vehicle data."""
+
+    global_: Trip | None
+    acceleration: Trip | None
+    braking: Trip | None
+    advice: Trip | None
+    constant_speed: Trip | None
 
 
 class VehicleData(TypedDict):

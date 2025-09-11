@@ -35,6 +35,9 @@
       "vin": {
         "name": "Numero-Identificativo-Veicolo"
       },
+      "score": {
+        "name": "Score"
+      },
       "odometer": {
         "name": "Odometro"
       },

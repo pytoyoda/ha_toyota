@@ -19,6 +19,7 @@ from homeassistant.helpers.entity import EntityCategory
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
 from .utils import (
+    format_scores_attributes,
     format_statistics_attributes,
     format_vin_sensor_attributes,
     round_number,
@@ -80,6 +81,13 @@ class ToyotaStatisticsSensorEntityDescription(
     period: Literal["day", "week", "month", "year"]
 
 
+class ToyotaScoresEntityDescription(SensorEntityDescription, frozen_or_thawed=True):
+    """Describes a Toyota sensor entity."""
+
+    value_fn: Callable[[Vehicle], StateType]
+    attributes_fn: Callable[[Vehicle], dict[str, Any] | None]
+
+
 VIN_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     key="vin",
     translation_key="vin",
@@ -90,6 +98,21 @@ VIN_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     value_fn=lambda vehicle: vehicle.vin,
     attributes_fn=lambda vehicle: format_vin_sensor_attributes(vehicle._vehicle_info),  # noqa : SLF001
 )
+
+SCORES_ENTITY_DESCRIPTION = ToyotaScoresEntityDescription(
+    key="score",
+    translation_key="score",
+    icon="mdi:car-info",
+    entity_category=EntityCategory.DIAGNOSTIC,
+    device_class=SensorDeviceClass.ENUM,
+    state_class=None,
+    value_fn=lambda vehicle: vehicle.last_trip.score,
+    attributes_fn=lambda vehicle: format_scores_attributes(
+        vehicle.last_trip,
+        vehicle._vehicle_info,  # noqa : SLF001
+    ),
+)
+
 ODOMETER_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     key="odometer",
     translation_key="odometer",
@@ -235,6 +258,12 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
         {
             "description": VIN_ENTITY_DESCRIPTION,
             "capability_check": lambda v: True,  # noqa : ARG005
+            "native_unit": None,
+            "suggested_unit": None,
+        },
+        {
+            "description": SCORES_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: False,  # noqa : ARG005
             "native_unit": None,
             "suggested_unit": None,
         },
@@ -396,6 +425,40 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
         )
 
 
+class ToyotaScoresSensor(ToyotaBaseEntity, SensorEntity):
+    """Representation of a Toyota scores sensor."""
+
+    def __init__(  # noqa: PLR0913
+        self,
+        coordinator: DataUpdateCoordinator[list[VehicleData]],
+        entry_id: str,
+        vehicle_index: int,
+        description: ToyotaScoresEntityDescription,
+        native_unit: PERCENTAGE,
+        suggested_unit: PERCENTAGE,
+    ) -> None:
+        """Initialise the ToyotaStatisticsSensor class."""
+        super().__init__(coordinator, entry_id, vehicle_index, description)
+        self._attr_native_unit_of_measurement = native_unit
+        self._attr_suggested_unit_of_measurement = suggested_unit
+
+    @property
+    def native_value(self) -> StateType:
+        """Return the state of the sensor."""
+        data = self.vehicle.last_trip
+        return data.score if data else None
+
+    @property
+    def extra_state_attributes(self) -> dict | None:
+        """Return the state attributes."""
+        data = self.vehicle.last_trip
+        return (
+            format_scores_attributes(data, self.vehicle._vehicle_info)  # noqa : SLF001
+            if data
+            else None
+        )
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -440,6 +503,23 @@ async def async_setup_entry(
             for config in sensor_configs
             if config["description"].key.startswith("current_")
             and config["capability_check"](vehicle)
+        )
+
+        # Add statistics sensors
+        sensors.extend(
+            ToyotaScoresSensor(
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=config["description"],
+                native_unit=config["native_unit"],
+                suggested_unit=config["suggested_unit"],
+            )
+            for config in sensor_configs
+            if (
+                not config["description"].key.startswith("current_")
+                and config["description"].key.startswith("score")
+            )
         )
 
     async_add_devices(sensors)

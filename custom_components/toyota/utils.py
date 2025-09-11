@@ -11,6 +11,7 @@ from .const import CONF_BRAND_MAPPING
 if TYPE_CHECKING:
     from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
     from pytoyoda.models.summary import Summary
+    from pytoyoda.models.trip import Trip
 
 
 def round_number(number: float | None, places: int = 0) -> int | float | None:
@@ -119,6 +120,9 @@ def format_statistics_attributes(
             "EV_duration": str(statistics.ev_duration)
             if statistics.ev_duration
             else None,
+            "EV_percentage": int((statistics.ev_distance / statistics.distance) * 100)
+            if statistics.ev_distance and statistics.distance
+            else None,
         }
 
     attr |= {
@@ -127,3 +131,32 @@ def format_statistics_attributes(
     }
 
     return attr
+
+
+def format_scores_attributes(
+    last_trip: Trip, vehicle_info: VehicleGuidModel
+) -> dict[str, int | None] | None:
+    """Format and returns scores attributes."""
+    if getattr(
+        getattr(vehicle_info, "extended_capabilities", False),
+        "hybrid_pulse",
+        False,
+    ) or getattr(
+        getattr(vehicle_info, "extended_capabilities", False),
+        "econnect_vehicle_status_capable",
+        False,
+    ):
+        return {
+            "score_acceleration": last_trip.score_acceleration
+            if last_trip.score_acceleration
+            else None,
+            "score_braking": last_trip.score_braking
+            if last_trip.score_braking
+            else None,
+            "score_advice": last_trip.score_advice if last_trip.score_advice else None,
+            "score_constant_speed": last_trip.score_constant_speed
+            if last_trip.score_constant_speed
+            else None,
+        }
+
+    return None

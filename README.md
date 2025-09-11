@@ -25,6 +25,8 @@
   - [Statistics sensors](#statistics-sensors)
     - [Important](#important)
     - [Attributes available](#attributes-available)
+  - [Scores sensors](#scores-sensors)
+    - [Attributes available](#attributes-available)
 - [Getting started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [HACS installation (Recommended)](#hacs-installation--recommended-)
@@ -61,6 +63,7 @@ See [here](https://github.com/widewing/ha-toyota-na) for North America.
 - VIN (Vehicle Identification Number) sensor
 - Fuel, battery and odometer information
 - Current day, week, month and year statistics.
+- Last trip scores.
 - Door and door lock sensors, including hood and trunk sensor.
 
 ### Binary sensor(s)
@@ -94,6 +97,7 @@ See [here](https://github.com/widewing/ha-toyota-na) for North America.
 | `sensor.<you_car_alias>_current_week_stats`  | Statistics for current week.                       |
 | `sensor.<you_car_alias>_current_month_stats` | Statistics for current month.                      |
 | `sensor.<you_car_alias>_current_year_stats`  | Statistics for current year.                       |
+| `sensor.<you_car_alias>_score`               | Global score for the last trip.                    |
 
 ### Statistics sensors
 
@@ -108,18 +112,32 @@ Due to this, this integration will list sensors as unavailable when no data is a
 
 All values will show `None` if no data is available for the period.
 
-| Attribute               | Description                                                                     |
-| ----------------------- | ------------------------------------------------------------------------------- |
-| `Distance`              | Distance driven (Displayed as sensor value).                                    |
-| `Average_speed`         | The average speed in the respective period (can be km/h or mph).                |
-| `Countries`             | The countries travelled through in the respective period.                       |
-| `Duration`              | The total driving time in the respective period.                                |
-| `Total_fuel_consumed`   | The total fuel consumption in the respective period (can be litres or gallons). |
-| `Average_fuel_consumed` | The average fuel consumption in the respective period (can be l/100km or mpg).  |
-| `EV_distance`           | The driving distiance in EV mode in the respective period .                     |
-| `EV_duration`           | The driving time in EV mode in the respective period .                          |
-| `From_date`             | Start date of the calculation period.                                           |
-| `To_date`               | End date of the calculation period.                                             |
+| Attribute               | Description                                                                    |
+| ----------------------- | ------------------------------------------------------------------------------ |
+| `Distance`              | Distance driven (Displayed as sensor value).                                   |
+| `Average_speed`         | The average speed in the respective period (can be km/h or mph).               |
+| `Countries`             | The countries travelled through in the respective period.                      |
+| `Duration`              | The total driving time in the respective period.                               |
+| `Total_fuel_consumed`   | The total fuel consumption in the respective period (can be litres or gallons).|
+| `Average_fuel_consumed` | The average fuel consumption in the respective period (can be l/100km or mpg). |
+| `EV_distance`           | The driving distiance in EV mode in the respective period .                    |
+| `EV_duration`           | The driving time in EV mode in the respective period .                         |
+| `EV_percentage`         | The percentage distance in EV mode / total distance in the respective period.  |
+| `From_date`             | Start date of the calculation period.                                          |
+| `To_date`               | End date of the calculation period.                                            |
+
+### Scores sensors
+
+#### Attributes available
+
+**Disclaimer: Attributes available depends on your car model and year.**
+
+| Attribute              | Description                   |
+| ---------------------- | ----------------------------- |
+| `score_acceleration`   | The acceleration score (%).   |
+| `score_braking`        | The braking score (%).        |
+| `score_advice`         | The advice score (%).         |
+| `score_constant_speed` | The constant speed score (%). |
 
 ## Getting started
 

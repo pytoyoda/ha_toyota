@@ -18,6 +18,7 @@ You should then perform a reboot and can then reinstall the custom component via
 - See your vin and other details about your car.
 - Daily, weekly, monthly and yearly statistics.
 - Door and door lock sensors, including hood and trunk sensor.
+- Scores sensors of the last trip
 - And more...
 
 See [features](https://github.com/DurgNomis-drol/ha_toyota#binary-sensors) section for more details

@@ -2,7 +2,7 @@ ci:
   autofix_prs: true
 repos:
   - repo: https://github.com/python-poetry/poetry
-    rev: 2.1.3
+    rev: 2.2.1
     hooks:
       - id: poetry-check
         name: 📜 Check pyproject with Poetry
@@ -14,7 +14,7 @@ repos:
         args: [--write-changes, --skip="./*, translations/*", -L hass]
         exclude: (pyproject.toml|poetry.lock|)
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v5.0.0
+    rev: v6.0.0
     hooks:
       - id: check-json
         name: "✅ Check JSON files"
@@ -35,7 +35,7 @@ repos:
       - id: trailing-whitespace
         name: "⬜ Fix trailing whitespaces"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.2
+    rev: v0.13.1
     hooks:
       - id: ruff
         name: "🐶 Ruff Linter"

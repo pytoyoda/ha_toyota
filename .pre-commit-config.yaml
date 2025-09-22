@@ -2,7 +2,7 @@ ci:
   autofix_prs: true
 repos:
   - repo: https://github.com/python-poetry/poetry
-    rev: 2.1.3
+    rev: 2.2.1
     hooks:
       - id: poetry-check
         name: 📜 Check pyproject with Poetry

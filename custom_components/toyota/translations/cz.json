@@ -1,0 +1,141 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Prosím vložte níže váš email a heslo pro MyT.",
+        "data": {
+          "email": "Email",
+          "password": "Heslo",
+          "use_metric_values": "Použít metrické jednotky (např. km místo mil)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "Email musí obsahovat @.",
+      "invalid_auth": "Email/Heslo nejsou správné.",
+      "unknown": "Neočekáváná chyba."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "use_liters": "Použít litry (L/100 mil) místo MPG. Platí pouze v případě, že vaše auto hlásí data v mílích (Imperiální systém jednotek)."
+        }
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Parkovací místo"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Identifikační číslo vozidla (VIN)"
+      },
+      "odometer": {
+        "name": "Počítadlo kilometrů"
+      },
+      "fuel_level": {
+        "name": "Hladina paliva"
+      },
+      "fuel_range": {
+        "name": "Dojezd km"
+      },
+      "battery_level": {
+        "name": "Stav baterie"
+      },
+      "battery_range_ac": {
+        "name": "Dojezd baterie s AC"
+      },
+      "battery_range": {
+        "name": "Dojezd km"
+      },
+      "total_range": {
+        "name": "Celkový dojezd"
+      },
+      "current_day_statistics": {
+        "name": "Statistiky aktuálního dne"
+      },
+      "current_week_statistics": {
+        "name": "Statistiky aktuálního týdne"
+      },
+      "current_month_statistics": {
+        "name": "Statistiky aktuálního měsíce"
+      },
+      "current_year_statistics": {
+        "name": "Statistiky aktuálního roku"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Celkový stav"
+      },
+      "hood": {
+        "name": "Kapota"
+      },
+      "key_in_car": {
+        "name": "Klíč v autě"
+      },
+      "front_defogger": {
+        "name": "Přední odmlžovač"
+      },
+      "rear_defogger": {
+        "name": "Zadní odmlžovač"
+      },
+      "driverseat_window": {
+        "name": "Okno řidiče"
+      },
+      "passengerseat_window": {
+        "name": "Okno spolujezdce"
+      },
+      "leftrearseat_window": {
+        "name": "Levé zadní okno"
+      },
+      "rightrearseat_window": {
+        "name": "Pravé zadní okno"
+      },
+      "driverseat_door": {
+        "name": "Dveře u řidiče"
+      },
+      "driverseat_lock": {
+        "name": "Zámek u řidiče"
+      },
+      "passengerseat_door": {
+        "name": "Dveře u spolujezdce"
+      },
+      "passengerseat_lock": {
+        "name": "Zámek u spolujezdce"
+      },
+      "leftrearseat_door": {
+        "name": "Levé zadní dveře"
+      },
+      "leftrearseat_lock": {
+        "name": "Zámek u levých zadních dveří"
+      },
+      "rightrearseat_door": {
+        "name": "Pravé zadní dveře"
+      },
+      "rightrearseat_lock": {
+        "name": "Zámek u pravých zadních dveří"
+      },
+      "trunk_door": {
+        "name": "Kufr"
+      },
+      "trunk_lock": {
+        "name": "Zámek u kufru"
+      },
+      "hazardlights": {
+        "name": "Výstražná světla"
+      },
+      "headlights": {
+        "name": "Světlomety"
+      },
+      "taillights": {
+        "name": "Zadní světla"
+      }
+    }
+  }
+}

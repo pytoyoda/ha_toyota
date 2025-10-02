@@ -35,6 +35,9 @@
       "vin": {
         "name": "Fahrzeug-Identifizierungsnummer"
       },
+      "score": {
+        "name": "Score"
+      },
       "odometer": {
         "name": "Kilometerzähler"
       },

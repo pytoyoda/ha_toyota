@@ -51,7 +51,7 @@
         "name": "Dojezd baterie s AC"
       },
       "battery_range": {
-        "name": "Dojezd km"
+        "name": "Dojezd na baterii"
       },
       "total_range": {
         "name": "Celkový dojezd"

@@ -142,17 +142,20 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                             # Use parallel request to get car statistics.
                             driving_statistics = await asyncio.gather(
                                 hass.async_add_executor_job(
-                                    _run_pytoyoda_sync, vehicle.get_current_day_summary
-                                ),
-                                hass.async_add_executor_job(
-                                    _run_pytoyoda_sync, vehicle.get_current_week_summary
+                                    _run_pytoyoda_sync,
+                                    vehicle.get_current_day_summary(),
                                 ),
                                 hass.async_add_executor_job(
                                     _run_pytoyoda_sync,
-                                    vehicle.get_current_month_summary,
+                                    vehicle.get_current_week_summary(),
                                 ),
                                 hass.async_add_executor_job(
-                                    _run_pytoyoda_sync, vehicle.get_current_year_summary
+                                    _run_pytoyoda_sync,
+                                    vehicle.get_current_month_summary(),
+                                ),
+                                hass.async_add_executor_job(
+                                    _run_pytoyoda_sync,
+                                    vehicle.get_current_year_summary(),
                                 ),
                             )
 

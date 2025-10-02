@@ -29,40 +29,10 @@ jobs:
         run: "poetry install"
       - name: "🚀 Run pytest with coverage"
         run: |
-          poetry run pytest tests --junitxml=pytest${{ matrix.python-version }}.xml --cov-report=term-missing:skip-covered --cov=custom_components/toyota | tee pytest-coverage${{ matrix.python-version }}.txt
-      - name: "⬆️ Archive pytest junitxml results"
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest${{ matrix.python-version }}
-          path: ./pytest${{ matrix.python-version }}.xml
-          retention-days: 1
-      - name: "⬆️ Archive pytest coverage results"
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-coverage${{ matrix.python-version }}
-          path: ./pytest-coverage${{ matrix.python-version }}.txt
-          retention-days: 1
-  coverage_comment:
-    name: "Pytest coverage comment"
-    needs: pytest
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: "⤵️ Check out code from GitHub"
-        uses: "actions/checkout@v5"
-        with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
-      - name: "⤵️ Download pytest junitxml artifact"
-        uses: actions/download-artifact@v5
-        with:
-          name: pytest3.10
-      - name: "⤵️ Download pytest coverage artifact"
-        uses: actions/download-artifact@v5
-        with:
-          name: pytest-coverage3.10
+          poetry run pytest tests --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=custom_components/toyota | tee pytest-coverage.txt
       - name: Add pytest coverage comment to PR
+        if: github.event_name == 'pull_request'
         uses: MishaKav/pytest-coverage-comment@main
         with:
-          pytest-coverage-path: pytest-coverage3.10.txt
-          junitxml-path: pytest3.10.xml
+          pytest-coverage-path: pytest-coverage.txt
+          junitxml-path: pytest.xml

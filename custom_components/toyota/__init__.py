@@ -132,7 +132,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                 for vehicle in vehicles:
                     if vehicle:
                         await hass.async_add_executor_job(
-                            _run_pytoyoda_sync, vehicle.update
+                            _run_pytoyoda_sync, vehicle.update()
                         )
                         vehicle_data = VehicleData(
                             data=vehicle, statistics=None, metric_values=metric_values

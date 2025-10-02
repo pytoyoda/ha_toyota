@@ -36,24 +36,3 @@ jobs:
           name: test-coverage
           path: coverage.xml
           retention-days: 1
-  codacy:
-    if: github.repository_owner == 'pytoyoda'
-    name: "Codacy coverage reporter"
-    needs: pytest
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: "⤵️ Check out code from GitHub"
-        uses: "actions/checkout@v5"
-        with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
-      - name: "⤵️ Download test coverage artifact"
-        uses: actions/download-artifact@v5
-        with:
-          name: test-coverage
-      - name: "🚀 Run codacy-coverage-reporter"
-        uses: codacy/codacy-coverage-reporter-action@v1.3.0
-        with:
-          api-token: ${{ secrets.CODACY_API_TOKEN }}
-          coverage-reports: coverage.xml

@@ -48,7 +48,7 @@
         "name": "Akkumulátor szint"
       },
       "battery_range_ac": {
-        "name": "Akkumulátor hatótávolság váltakozó árammal"
+        "name": "Akkumulátor hatótávolság klímával"
       },
       "battery_range": {
         "name": "Akkumulátor hatótávolság"

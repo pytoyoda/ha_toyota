@@ -52,6 +52,8 @@ from pytoyoda.exceptions import (  # noqa: E402
 )
 
 if TYPE_CHECKING:
+    from collections.abc import Coroutine
+
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from pytoyoda.models.summary import Summary
@@ -84,6 +86,15 @@ class VehicleData(TypedDict):
     data: Vehicle
     statistics: StatisticsData | None
     metric_values: bool
+
+
+def _run_pytoyoda_sync(coro: Coroutine) -> Any:  # noqa : ANN401
+    """Run a pytoyoda coroutine in a new event loop."""
+    loop = asyncio.new_event_loop()
+    try:
+        return loop.run_until_complete(coro)
+    finally:
+        loop.close()
 
 
 async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0915, C901
@@ -123,12 +134,17 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     async def async_get_vehicle_data() -> list[VehicleData] | None:  # noqa: C901
         """Fetch vehicle data from Toyota API."""
         try:
-            vehicles = await asyncio.wait_for(client.get_vehicles(), 15)
+            vehicles = await asyncio.wait_for(
+                hass.async_add_executor_job(_run_pytoyoda_sync, client.get_vehicles()),
+                15,
+            )
             vehicle_informations: list[VehicleData] = []
             if vehicles:
                 for vehicle in vehicles:
                     if vehicle:
-                        await vehicle.update()
+                        await hass.async_add_executor_job(
+                            _run_pytoyoda_sync, vehicle.update()
+                        )
                         vehicle_data = VehicleData(
                             data=vehicle, statistics=None, metric_values=metric_values
                         )
@@ -136,10 +152,22 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                         if vehicle.vin is not None:
                             # Use parallel request to get car statistics.
                             driving_statistics = await asyncio.gather(
-                                vehicle.get_current_day_summary(),
-                                vehicle.get_current_week_summary(),
-                                vehicle.get_current_month_summary(),
-                                vehicle.get_current_year_summary(),
+                                hass.async_add_executor_job(
+                                    _run_pytoyoda_sync,
+                                    vehicle.get_current_day_summary(),
+                                ),
+                                hass.async_add_executor_job(
+                                    _run_pytoyoda_sync,
+                                    vehicle.get_current_week_summary(),
+                                ),
+                                hass.async_add_executor_job(
+                                    _run_pytoyoda_sync,
+                                    vehicle.get_current_month_summary(),
+                                ),
+                                hass.async_add_executor_job(
+                                    _run_pytoyoda_sync,
+                                    vehicle.get_current_year_summary(),
+                                ),
                             )
 
                             vehicle_data["statistics"] = StatisticsData(

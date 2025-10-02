@@ -4,9 +4,9 @@ env:
   COLUMNS: 120
 
 on:
+  push:
+    branches: ["main"]
   pull_request:
-    branches:
-      - "*"
 
 jobs:
   pytest:

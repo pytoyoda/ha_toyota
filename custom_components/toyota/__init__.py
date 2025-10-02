@@ -112,12 +112,14 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     async def async_get_vehicle_data() -> list[VehicleData] | None:  # noqa: C901
         """Fetch vehicle data from Toyota API."""
         try:
-            vehicles = await asyncio.wait_for(client.get_vehicles(), 15)
+            vehicles = await asyncio.wait_for(
+                hass.async_add_executor_job(client.get_vehicles), 15
+            )
             vehicle_informations: list[VehicleData] = []
             if vehicles:
                 for vehicle in vehicles:
                     if vehicle:
-                        await vehicle.update()
+                        await hass.async_add_executor_job(vehicle.update)
                         vehicle_data = VehicleData(
                             data=vehicle, statistics=None, metric_values=metric_values
                         )
@@ -125,10 +127,18 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                         if vehicle.vin is not None:
                             # Use parallel request to get car statistics.
                             driving_statistics = await asyncio.gather(
-                                vehicle.get_current_day_summary(),
-                                vehicle.get_current_week_summary(),
-                                vehicle.get_current_month_summary(),
-                                vehicle.get_current_year_summary(),
+                                hass.async_add_executor_job(
+                                    vehicle.get_current_day_summary
+                                ),
+                                hass.async_add_executor_job(
+                                    vehicle.get_current_week_summary
+                                ),
+                                hass.async_add_executor_job(
+                                    vehicle.get_current_month_summary
+                                ),
+                                hass.async_add_executor_job(
+                                    vehicle.get_current_year_summary
+                                ),
                             )
 
                             vehicle_data["statistics"] = StatisticsData(

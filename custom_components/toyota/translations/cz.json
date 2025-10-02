@@ -42,7 +42,7 @@
         "name": "Hladina paliva"
       },
       "fuel_range": {
-        "name": "Dojezd km"
+        "name": "Dojezd na palivo"
       },
       "battery_level": {
         "name": "Stav baterie"

@@ -77,7 +77,7 @@ class VehicleData(TypedDict):
     metric_values: bool
 
 
-def _run_pytoyoda_sync(coro: Coroutine) -> Coroutine:
+def _run_pytoyoda_sync(coro: Coroutine) -> Any:  # noqa : ANN401
     """Run a pytoyoda coroutine in a new event loop."""
     loop = asyncio.new_event_loop()
     try:

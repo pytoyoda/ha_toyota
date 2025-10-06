@@ -1,0 +1,141 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Kérjük, adja meg e-mail címét és jelszavát a MyT-hez",
+        "data": {
+          "email": "Email cím",
+          "password": "Jelszó",
+          "use_metric_values": "Használjon metrikus mértékegységeket (pl. mérföld helyett km)."
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "Az e-mailnek tartalmaznia kell a @ jelet.",
+      "invalid_auth": "Az e-mail cím/jelszó helytelen.",
+      "unknown": "Váratlan hiba."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "use_liters": "Használjon literben (L/100 mérföld) kifejezést MPG helyett. Csak akkor alkalmazható, ha az autója mérföldben (angolszász mértékegységrendszer) jeleníti meg az adatokat."
+        }
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Parkolási hely"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Járműazonosító szám"
+      },
+      "odometer": {
+        "name": "Óraállás"
+      },
+      "fuel_level": {
+        "name": "Üzemanyag szint"
+      },
+      "fuel_range": {
+        "name": "Üzemanyag hatótávolság"
+      },
+      "battery_level": {
+        "name": "Akkumulátor szint"
+      },
+      "battery_range_ac": {
+        "name": "Akkumulátor hatótávolság klímával"
+      },
+      "battery_range": {
+        "name": "Akkumulátor hatótávolság"
+      },
+      "total_range": {
+        "name": "Teljes hatótávolság"
+      },
+      "current_day_statistics": {
+        "name": "Mai napi statisztika"
+      },
+      "current_week_statistics": {
+        "name": "Heti statisztika"
+      },
+      "current_month_statistics": {
+        "name": "Havi statisztika"
+      },
+      "current_year_statistics": {
+        "name": "Éves statisztika"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Összes állapot"
+      },
+      "hood": {
+        "name": "Motorháztető"
+      },
+      "key_in_car": {
+        "name": "Kulcs az autóban"
+      },
+      "front_defogger": {
+        "name": "Első ablakfűtés"
+      },
+      "rear_defogger": {
+        "name": "Hátsó ablakfűtés"
+      },
+      "driverseat_window": {
+        "name": "Vezetőülés ablaka"
+      },
+      "passengerseat_window": {
+        "name": "Utasülés ablaka"
+      },
+      "leftrearseat_window": {
+        "name": "Bal hátsó ablak"
+      },
+      "rightrearseat_window": {
+        "name": "Jobb hátsó ablak"
+      },
+      "driverseat_door": {
+        "name": "Vezetőülés ajtó"
+      },
+      "driverseat_lock": {
+        "name": "Vezetőülés zár"
+      },
+      "passengerseat_door": {
+        "name": "Utasoldali ajtó"
+      },
+      "passengerseat_lock": {
+        "name": "Utasoldali zár"
+      },
+      "leftrearseat_door": {
+        "name": "Bal hátsó ajtó"
+      },
+      "leftrearseat_lock": {
+        "name": "Bal hátsó zár"
+      },
+      "rightrearseat_door": {
+        "name": "Jobb hátsó ajtó"
+      },
+      "rightrearseat_lock": {
+        "name": "Jobb hátsó zár"
+      },
+      "trunk_door": {
+        "name": "Csomagtartó"
+      },
+      "trunk_lock": {
+        "name": "Csomagtartó zár"
+      },
+      "hazardlights": {
+        "name": "Vészjelző lámpák"
+      },
+      "headlights": {
+        "name": "Fényszórók"
+      },
+      "taillights": {
+        "name": "Hátsó lámpák"
+      }
+    }
+  }
+}

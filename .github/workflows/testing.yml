@@ -14,13 +14,14 @@ jobs:
     runs-on: "ubuntu-latest"
     permissions:
       contents: read
+      pull-requests: write
     steps:
       - name: "⤵️ Check out code from GitHub"
-        uses: "actions/checkout@v4"
+        uses: "actions/checkout@v5"
         with:
           fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
       - name: "🐍 Set up Python"
-        uses: "actions/setup-python@v5"
+        uses: "actions/setup-python@v6"
         with:
           python-version: "3.13"
       - name: "⚙️ Install Poetry"
@@ -29,31 +30,10 @@ jobs:
         run: "poetry install"
       - name: "🚀 Run pytest with coverage"
         run: |
-          poetry run pytest tests --cov=custom_components/toyota --cov-report term --cov-report xml:coverage.xml
-      - name: "⬆️ Archive code coverage results"
-        uses: actions/upload-artifact@v4
+          poetry run pytest tests --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=custom_components/toyota | tee pytest-coverage.txt
+      - name: Add pytest coverage comment to PR
+        if: github.event_name == 'pull_request'
+        uses: MishaKav/pytest-coverage-comment@main
         with:
-          name: test-coverage
-          path: coverage.xml
-          retention-days: 1
-  codacy:
-    if: github.repository_owner == 'pytoyoda'
-    name: "Codacy coverage reporter"
-    needs: pytest
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: "⤵️ Check out code from GitHub"
-        uses: "actions/checkout@v4"
-        with:
-          fetch-depth: 0 # Shallow clones should be disabled for a better relevancy of analysis
-      - name: "⤵️ Download test coverage artifact"
-        uses: actions/download-artifact@v4
-        with:
-          name: test-coverage
-      - name: "🚀 Run codacy-coverage-reporter"
-        uses: codacy/codacy-coverage-reporter-action@v1.3.0
-        with:
-          api-token: ${{ secrets.CODACY_API_TOKEN }}
-          coverage-reports: coverage.xml
+          pytest-coverage-path: pytest-coverage.txt
+          junitxml-path: pytest.xml

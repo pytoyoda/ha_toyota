@@ -30,9 +30,7 @@ BRAND_API_MAP = {
 }
 
 
-class ToyotaConfigFlow(
-    config_entries.ConfigFlow, domain=DOMAIN
-):  # pylint: disable=W0223
+class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: disable=W0223
     """Handle a config flow for Toyota Connected Services."""
 
     VERSION = 1
@@ -44,9 +42,7 @@ class ToyotaConfigFlow(
         self._metric_values = True
         self._brand = "toyota"
 
-    async def async_step_user(
-        self, user_input: dict | None = None
-    ) -> Any:  # noqa : ANN401
+    async def async_step_user(self, user_input: dict | None = None) -> Any:  # noqa : ANN401
         """Handle the initial step."""
         errors = {}
 
@@ -100,9 +96,7 @@ class ToyotaConfigFlow(
                 )
                 # Reload the config entry otherwise devices will remain unavailable
                 self.hass.async_create_task(
-                    self.hass.config_entries.async_reload(
-                        self._reauth_entry.entry_id
-                    )
+                    self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
                 )
                 return self.async_abort(reason="reauth_successful")
 
@@ -115,9 +109,7 @@ class ToyotaConfigFlow(
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[
-                                selector.SelectOptionDict(
-                                    value=key, label=value
-                                )
+                                selector.SelectOptionDict(value=key, label=value)
                                 for key, value in BRAND_OPTIONS.items()
                             ],
                             translation_key=CONF_BRAND,
@@ -133,9 +125,7 @@ class ToyotaConfigFlow(
             errors=errors,
         )
 
-    async def async_step_reauth(
-        self, entry_data: Mapping[str, Any]
-    ) -> FlowResult:
+    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> FlowResult:
         """Perform reauth if the user credentials have changed."""
         if "entry_id" in self.context:
             self._reauth_entry = self.hass.config_entries.async_get_entry(

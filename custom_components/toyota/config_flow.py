@@ -55,8 +55,8 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
             # Convert brand selection to API code
             brand_code = BRAND_API_MAP.get(self._brand, "T")
 
-            _LOGGER.info(f"Testing login for {self._brand} (brand code: {brand_code})")
-
+           _LOGGER.info("Testing login for %s (brand code: %s)", self._brand, brand_code)
+        
             client = MyT(
                 username=user_input[CONF_EMAIL],
                 password=user_input[CONF_PASSWORD],
@@ -129,3 +129,4 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
         self._metric_values = entry_data[CONF_METRIC_VALUES]
         self._brand = entry_data.get(CONF_BRAND, "toyota")
         return await self.async_step_user()
+

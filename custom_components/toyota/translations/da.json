@@ -2,8 +2,9 @@
   "config": {
     "step": {
       "user": {
-        "description": "Angiv venligst din email og adgangskode til MyT nedenfor.",
+        "description": "Vælg venligst dit køretøjs brand og angiv din email og adgangskode til MyT/Lexus Link nedenfor.",
         "data": {
+          "brand": "Køretøjs brand",
           "email": "Email",
           "password": "Adgangskode",
           "use_metric_values": "Brug metriske enheder (f.eks. km i stedet for miles)"
@@ -22,6 +23,14 @@
         "data": {
           "use_liters": "Vis i liter (L/100 mil) i stedet for MPG. Gælder kun for biler der reportere deres data i mil."
         }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
       }
     }
   },

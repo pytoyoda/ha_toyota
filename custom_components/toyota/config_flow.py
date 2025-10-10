@@ -30,7 +30,9 @@ BRAND_API_MAP = {
 }
 
 
-class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: disable=W0223
+class ToyotaConfigFlow(
+    config_entries.ConfigFlow, domain=DOMAIN
+):  # pylint: disable=W0223
     """Handle a config flow for Toyota Connected Services."""
 
     VERSION = 1
@@ -42,7 +44,9 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
         self._metric_values = True
         self._brand = "toyota"
 
-    async def async_step_user(self, user_input: dict | None = None) -> Any:  # noqa : ANN401
+    async def async_step_user(
+        self, user_input: dict | None = None
+    ) -> Any:  # noqa : ANN401
         """Handle the initial step."""
         errors = {}
 
@@ -55,7 +59,9 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
             # Convert brand selection to API code
             brand_code = BRAND_API_MAP.get(self._brand, "T")
 
-           _LOGGER.info("Testing login for %s (brand code: %s)", self._brand, brand_code)
+            _LOGGER.info(
+                "Testing login for %s (brand code: %s)", self._brand, brand_code
+            )
 
             client = MyT(
                 username=user_input[CONF_EMAIL],
@@ -79,16 +85,24 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
                 _LOGGER.exception("An unknown error occurred during login request.")
             else:
                 if not self._reauth_entry:
+                    entry_title = "%s - %s" % (
+                        BRAND_OPTIONS[self._brand],
+                        user_input[CONF_EMAIL],
+                    )
                     return self.async_create_entry(
-                        title=f"{BRAND_OPTIONS[self._brand]} - {user_input[CONF_EMAIL]}",
+                        title=entry_title,
                         data=user_input,
                     )
                 self.hass.config_entries.async_update_entry(
-                    self._reauth_entry, data=user_input, unique_id=unique_id
+                    self._reauth_entry,
+                    data=user_input,
+                    unique_id=unique_id,
                 )
                 # Reload the config entry otherwise devices will remain unavailable
                 self.hass.async_create_task(
-                    self.hass.config_entries.async_reload(self._reauth_entry.entry_id)
+                    self.hass.config_entries.async_reload(
+                        self._reauth_entry.entry_id
+                    )
                 )
                 return self.async_abort(reason="reauth_successful")
 
@@ -101,7 +115,9 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[
-                                selector.SelectOptionDict(value=key, label=value)
+                                selector.SelectOptionDict(
+                                    value=key, label=value
+                                )
                                 for key, value in BRAND_OPTIONS.items()
                             ],
                             translation_key=CONF_BRAND,
@@ -117,7 +133,9 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
             errors=errors,
         )
 
-    async def async_step_reauth(self, entry_data: Mapping[str, Any]) -> FlowResult:
+    async def async_step_reauth(
+        self, entry_data: Mapping[str, Any]
+    ) -> FlowResult:
         """Perform reauth if the user credentials have changed."""
         if "entry_id" in self.context:
             self._reauth_entry = self.hass.config_entries.async_get_entry(

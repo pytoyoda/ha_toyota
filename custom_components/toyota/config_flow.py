@@ -54,7 +54,7 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
 
             # Convert brand selection to API code
             brand_code = BRAND_API_MAP.get(self._brand, "T")
-            
+
             _LOGGER.info(f"Testing login for {self._brand} (brand code: {brand_code})")
 
             client = MyT(
@@ -96,12 +96,12 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_BRAND, default=self._brand): selector.SelectSelector(
+                    vol.Required(
+                        CONF_BRAND, default=self._brand
+                    ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[
-                                selector.SelectOptionDict(
-                                    value=key, label=value
-                                )
+                                selector.SelectOptionDict(value=key, label=value)
                                 for key, value in BRAND_OPTIONS.items()
                             ],
                             translation_key=CONF_BRAND,

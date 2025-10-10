@@ -97,13 +97,12 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     email = entry.data[CONF_EMAIL]
     password = entry.data[CONF_PASSWORD]
     metric_values = entry.data[CONF_METRIC_VALUES]
-    brand = entry.data.get(CONF_BRAND, "toyota")  # Get brand from config, default to toyota
+    brand = entry.data.get(
+        CONF_BRAND, "toyota"
+    )  # Get brand from config, default to toyota
 
     # Map brand selection to API brand code
-    brand_map = {
-        "toyota": "T",
-        "lexus": "L"
-    }
+    brand_map = {"toyota": "T", "lexus": "L"}
     brand_code = brand_map.get(brand, "T")
 
     _LOGGER.info(f"Setting up {brand} integration (brand code: {brand_code})")
@@ -114,7 +113,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             username=email,
             password=password,
             use_metric=metric_values,
-            brand=brand_code  # Pass brand code to API client
+            brand=brand_code,  # Pass brand code to API client
         )
     )
 

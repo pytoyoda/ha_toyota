@@ -105,7 +105,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     brand_map = {"toyota": "T", "lexus": "L"}
     brand_code = brand_map.get(brand, "T")
 
-   _LOGGER.info("Setting up %s integration (brand code: %s)", brand, brand_code)
+    _LOGGER.info("Setting up %s integration (brand code: %s)", brand, brand_code)
 
     client = await hass.async_add_executor_job(
         partial(
@@ -234,3 +234,4 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data[DOMAIN].pop(entry.entry_id)
 
     return unload_ok
+

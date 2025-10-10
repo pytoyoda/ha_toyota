@@ -2,8 +2,9 @@
   "config": {
     "step": {
       "user": {
-        "description": "Voer uw e-mailadres en wachtwoord voor MyT in hieronder.",
+        "description": "Selecteer uw voertuigmerk en voer uw e-mailadres en wachtwoord voor MyT/Lexus Link in hieronder.",
         "data": {
+          "brand": "Voertuigmerk",
           "email": "E-mail",
           "password": "Wachtwoord",
           "use_metric_values": "Gebruik metrische eenheden (bijv. km in plaats van mijlen)"
@@ -14,6 +15,14 @@
       "invalid_username": "E-mail moet een @ bevatten.",
       "invalid_auth": "E-mail/wachtwoord is ongeldig.",
       "unknown": "Onverwachte fout."
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
     }
   },
   "entity": {

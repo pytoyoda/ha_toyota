@@ -19,7 +19,7 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from loguru import logger
 from pydantic import ValidationError
 
-from .const import CONF_METRIC_VALUES, DOMAIN, PLATFORMS, STARTUP_MESSAGE
+from .const import CONF_BRAND, CONF_METRIC_VALUES, DOMAIN, PLATFORMS, STARTUP_MESSAGE
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -97,9 +97,25 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     email = entry.data[CONF_EMAIL]
     password = entry.data[CONF_PASSWORD]
     metric_values = entry.data[CONF_METRIC_VALUES]
+    brand = entry.data.get(CONF_BRAND, "toyota")  # Get brand from config, default to toyota
+
+    # Map brand selection to API brand code
+    brand_map = {
+        "toyota": "T",
+        "lexus": "L"
+    }
+    brand_code = brand_map.get(brand, "T")
+
+    _LOGGER.info(f"Setting up {brand} integration (brand code: {brand_code})")
 
     client = await hass.async_add_executor_job(
-        partial(MyT, username=email, password=password, use_metric=metric_values)
+        partial(
+            MyT,
+            username=email,
+            password=password,
+            use_metric=metric_values,
+            brand=brand_code  # Pass brand code to API client
+        )
     )
 
     try:

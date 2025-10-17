@@ -26,6 +26,9 @@
       "vin": {
         "name": "Vehicle-Identify-Number"
       },
+      "score": {
+        "name": "Score"
+      },
       "odometer": {
         "name": "Odómetro"
       },

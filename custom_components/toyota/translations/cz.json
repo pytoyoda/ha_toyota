@@ -2,8 +2,9 @@
   "config": {
     "step": {
       "user": {
-        "description": "Prosím vložte níže váš email a heslo pro MyT.",
+        "description": "Prosím vyberte značku vozidla a vložte níže váš email a heslo pro MyT/Lexus Link.",
         "data": {
+          "brand": "Značka vozidla",
           "email": "Email",
           "password": "Heslo",
           "use_metric_values": "Použít metrické jednotky (např. km místo mil)"
@@ -22,6 +23,14 @@
         "data": {
           "use_liters": "Použít litry (L/100 mil) místo MPG. Platí pouze v případě, že vaše auto hlásí data v mílích (Imperiální systém jednotek)."
         }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
       }
     }
   },

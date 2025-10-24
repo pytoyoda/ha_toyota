@@ -2,8 +2,9 @@
   "config": {
     "step": {
       "user": {
-        "description": "Ingrese su dirección de correo electrónico y contraseña para la aplicación de MyT abajo",
+        "description": "Por favor, seleccione la marca de su vehículo e introduzca su dirección de correo electrónico y contraseña para MyT/Lexus Link a continuación.",
         "data": {
+          "brand": "Marca del vehículo",
           "email": "Dirección de correo electrónico",
           "password": "Contraseña",
           "use_metric_values": "Utilizar unidades métricas (por ejemplo, km en lugar de millas)"
@@ -14,6 +15,14 @@
       "invalid_username": "La dirección de correo electrónico debe contener un @",
       "invalid_auth": "Correo electrónico/Contraseña incorrecta.",
       "unknown": "Error inesperado."
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
     }
   },
   "entity": {

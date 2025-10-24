@@ -2,8 +2,9 @@
   "config": {
     "step": {
       "user": {
-        "description": "Per favore inserisci la tua mail e password per MyT di seguito.",
+        "description": "Per favore seleziona il brand del tuo veicolo e inserisci la tua mail e password per MyT/Lexus Link di seguito.",
         "data": {
+          "brand": "Brand del veicolo",
           "email": "Email",
           "password": "Password",
           "use_metric_values": "Usa unità di misura (es. km al posto di miglia)"
@@ -22,6 +23,14 @@
         "data": {
           "use_liters": "Usa Litri (L/100 miglia) al posto di MPG. Applicabile solo se la tua auto risporta i dati in miglia (Sistema di misura Imperiale)."
         }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
       }
     }
   },

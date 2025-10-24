@@ -2,8 +2,9 @@
   "config": {
     "step": {
       "user": {
-        "description": "Kérjük, adja meg e-mail címét és jelszavát a MyT-hez",
+        "description": "Kérjük, válassza ki a járműmárkát és adja meg e-mail címét és jelszavát a MyT/Lexus Link-hez.",
         "data": {
+          "brand": "Járműmárka",
           "email": "Email cím",
           "password": "Jelszó",
           "use_metric_values": "Használjon metrikus mértékegységeket (pl. mérföld helyett km)."
@@ -22,6 +23,14 @@
         "data": {
           "use_liters": "Használjon literben (L/100 mérföld) kifejezést MPG helyett. Csak akkor alkalmazható, ha az autója mérföldben (angolszász mértékegységrendszer) jeleníti meg az adatokat."
         }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
       }
     }
   },

@@ -44,6 +44,9 @@
       "vin": {
         "name": "Numer identyfikacyjny pojazdu"
       },
+      "score": {
+        "name": "Score"
+      },
       "odometer": {
         "name": "Licznik przebiegu"
       },

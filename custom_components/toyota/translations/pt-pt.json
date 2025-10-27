@@ -44,6 +44,9 @@
       "vin": {
         "name": "Número de Indentificação do Veículo (VIN)"
       },
+      "score": {
+        "name": "Score"
+      },
       "odometer": {
         "name": "Conta Quilómetros"
       },

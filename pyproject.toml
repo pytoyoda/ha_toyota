@@ -23,7 +23,7 @@ pytoyoda = "^4.1.0"
 homeassistant-stubs = "^2025.0"
 pre-commit = "^4.1"
 voluptuous-stubs = "^0.1"
-pytest = "^8.3"
+pytest = "^9.0.0"
 pytest-asyncio = "^0.26"
 pytest-homeassistant-custom-component = "^0.13"
 

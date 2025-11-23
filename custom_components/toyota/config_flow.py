@@ -95,7 +95,9 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
                 _LOGGER.exception("An unknown error occurred during login request.")
             else:
                 if not self._reauth_entry:
-                    entry_title = f"{BRAND_OPTIONS[self._brand]} - {user_input[CONF_EMAIL]}"
+                    entry_title = (
+                        f"{BRAND_OPTIONS[self._brand]} - {user_input[CONF_EMAIL]}"
+                    )
                     return self.async_create_entry(
                         title=entry_title,
                         data=user_input,

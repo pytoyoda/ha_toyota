@@ -76,7 +76,7 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
                 self._abort_if_unique_id_configured()
             try:
                 # Run login in executor with new event loop
-                def _sync_login() -> Any:
+                def _sync_login() -> None:
                     loop = asyncio.new_event_loop()
                     try:
                         return loop.run_until_complete(client.login())

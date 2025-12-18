@@ -79,6 +79,16 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         self._attr_target_temperature = 21
         self._attr_preset_mode = "none"
 
+    def _get_defrost_parameter(
+        self,
+        param: ACParameters,
+        *,
+        enable: bool | None = None,
+    ) -> ACParameters:
+        return ACParameters(
+            enabled=enable if enable is not None else param.enabled, name=param.name
+        )
+
     def _create_climate_settings(
         self,
         *,
@@ -98,44 +108,32 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         Returns:
             ClimateSettingsModel configured with the specified settings
         """
-        current_settings = self.vehicle.climate_settings
+        ac_parameters = []
 
-        # Get current defrost settings if not explicitly provided
-        current_front_defrost = False
-        current_rear_defrost = False
-
-        for operation in current_settings.operations:
-            if operation.category_name == "defrost":
-                for param in operation.parameters:
-                    if param.name == "frontDefrost":
-                        current_front_defrost = param.enabled
-                    elif param.name == "rearDefrost":
-                        current_rear_defrost = param.enabled
-
-        # Use provided values or fall back to current settings
-        final_front_defrost = (
-            front_defrost if front_defrost is not None else current_front_defrost
-        )
-        final_rear_defrost = (
-            rear_defrost if rear_defrost is not None else current_rear_defrost
-        )
+        for operation in filter(
+            lambda x: x.category_name == "defrost",
+            self.vehicle.climate_settings.operations,
+        ):
+            for param in operation.parameters:
+                if param.name == "frontDefrost":
+                    ac_parameters.append(
+                        self._get_defrost_parameter(param, enable=front_defrost)
+                    )
+                elif param.name == "rearDefrost":
+                    ac_parameters.append(
+                        self._get_defrost_parameter(param, enable=rear_defrost)
+                    )
 
         return ClimateSettingsModel(
             settingsOn=settings_on
             if settings_on is not None
-            else current_settings.settings_on,
+            else self.vehicle.climate_settings.settings_on,
             temperature=temperature
             if temperature is not None
-            else current_settings.temperature.value,
+            else self.vehicle.climate_settings.temperature.value,
             temperatureUnit="C",
             acOperations=[
-                ACOperations(
-                    categoryName="defrost",
-                    acParameters=[
-                        ACParameters(enabled=final_front_defrost, name="frontDefrost"),
-                        ACParameters(enabled=final_rear_defrost, name="rearDefrost"),
-                    ],
-                )
+                ACOperations(categoryName="defrost", acParameters=ac_parameters)
             ],
         )
 

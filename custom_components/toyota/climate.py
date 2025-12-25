@@ -212,23 +212,21 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     async def async_update(self) -> None:
         """Update climate settings from the car."""
         if not self.climate_settings_on:
-            _LOGGER.warning("Climate device is off, skip status update")
             return
 
         try:
-            _LOGGER.warning("Periodic async update")
             if await self.vehicle.refresh_climate_status():
-                _LOGGER.warning("Climate status refreshed from car")
+                _LOGGER.debug("Climate status refreshed from car")
                 # vehicle.climate_status does not seem to work for some reason
                 response = await self.vehicle._api.get_climate_status(  # noqa: SLF001
                     self.vehicle.vin
                 )
-                _LOGGER.warning("Climate status fetched %s", response)
+                _LOGGER.debug("Climate status fetched %s", response)
                 climate_status = response.payload
                 # sync on/off and current temperature
                 # Decide about syncing the other settings as well
                 if climate_status.status:
-                    _LOGGER.warning(
+                    _LOGGER.debug(
                         "Climate is on updating hvac mode and current temperature"
                     )
                     self._attr_climate_status = True
@@ -238,7 +236,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                     )
 
                 elif self._attr_climate_status:
-                    _LOGGER.warning("Climate is off")
+                    _LOGGER.debug("Climate is off")
                     # turn off the climate device
                     self._attr_hvac_mode = HVACMode.OFF
                     self._attr_current_temperature = None
@@ -264,12 +262,12 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         try:
             # Only send to API if climate is on
             if climate_settings.settings_on:
-                _LOGGER.warning("Sending climate settings to car: %s", climate_settings)
+                _LOGGER.debug("Sending climate settings to car: %s", climate_settings)
                 status = await self.vehicle._api.update_climate_settings(  # noqa: SLF001
                     self.vehicle.vin, climate_settings
                 )
 
-                _LOGGER.warning("API response status: %s", status)
+                _LOGGER.debug("API response status: %s", status)
 
                 # Check if the update was successful
                 if not status or (hasattr(status, "status") and status.status == 0):
@@ -279,11 +277,11 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                     )
                     return False
 
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "%s for %s", action_description.capitalize(), self.vehicle.alias
                 )
             else:
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "%s updated for %s (will apply when turned on)",
                     action_description.capitalize(),
                     self.vehicle.alias,
@@ -331,7 +329,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     async def _turn_on_climate(self) -> None:
         """Turn on the climate control."""
         try:
-            _LOGGER.warning("Attempting to turn on climate for %s", self.vehicle.alias)
+            _LOGGER.debug("Attempting to turn on climate for %s", self.vehicle.alias)
 
             climate_settings = self._create_climate_settings(settings_on=True)
 
@@ -340,7 +338,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                 climate_settings, "set climate settings to on"
             ):
                 # Now send the engine-start command to actually turn on climate
-                _LOGGER.warning(
+                _LOGGER.debug(
                     "Sending engine-start command to %s", self.vehicle.alias
                 )
 
@@ -351,7 +349,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                     self._attr_hvac_mode = HVACMode.HEAT_COOL
                     self.async_write_ha_state()
 
-                    _LOGGER.warning(
+                    _LOGGER.debug(
                         "Climate control turned on for %s", self.vehicle.alias
                     )
 
@@ -361,7 +359,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     async def _turn_off_climate(self) -> None:
         """Turn off the climate control."""
         try:
-            _LOGGER.warning("Attempting to turn off climate for %s", self.vehicle.alias)
+            _LOGGER.debug("Attempting to turn off climate for %s", self.vehicle.alias)
 
             # Send the engine-stop command to turn off climate
             if await self.vehicle._api.send_climate_control_command(  # noqa: SLF001
@@ -370,7 +368,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                 self._attr_hvac_mode = HVACMode.OFF
                 self.async_write_ha_state()
 
-                _LOGGER.warning("Climate control turned off for %s", self.vehicle.alias)
+                _LOGGER.debug("Climate control turned off for %s", self.vehicle.alias)
 
         except Exception:  # pylint: disable=W0718
             _LOGGER.exception("Error turning off climate")

@@ -120,7 +120,9 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         enable: bool | None = None,
     ) -> ACParameters:
         return ACParameters(
-            enabled=enable if enable is not None else param.enabled, name=param.name
+            available=True,
+            enabled=enable if enable is not None else param.enabled,
+            name=param.name,
         )
 
     def _create_climate_settings(
@@ -143,6 +145,9 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             ClimateSettingsModel configured with the specified settings
         """
         ac_parameters = []
+
+        if front_defrost is None or rear_defrost is None:
+            front_defrost, rear_defrost = self._get_defrost_settings()
 
         for operation in filter(
             lambda x: x.category_name == "defrost",
@@ -167,20 +172,31 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             else self.target_temperature,
             temperatureUnit="C",
             acOperations=[
-                ACOperations(categoryName="defrost", acParameters=ac_parameters)
+                ACOperations(
+                    available=True, categoryName="defrost", acParameters=ac_parameters
+                )
             ],
+        )
+
+    def _get_defrost_settings(self, preset_mode: str | None = None) -> tuple:
+        """Get defrost settings based on preset mode."""
+        if preset_mode is None:
+            preset_mode = self._attr_preset_mode
+
+        return (
+            preset_mode in ["front_defrost", "both_defrost"],
+            preset_mode in ["rear_defrost", "both_defrost"],
         )
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode."""
         try:
             # Determine defrost settings based on preset
-            front_enabled = preset_mode in ["front_defrost", "both_defrost"]
-            rear_enabled = preset_mode in ["rear_defrost", "both_defrost"]
+            front_defrost, rear_defrost = self._get_defrost_settings(preset_mode)
 
             climate_settings = self._create_climate_settings(
-                front_defrost=front_enabled,
-                rear_defrost=rear_enabled,
+                front_defrost=front_defrost,
+                rear_defrost=rear_defrost,
             )
 
             # Send update

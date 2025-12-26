@@ -194,7 +194,6 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             True if settings were sent (or climate was off), False on error
         """
         try:
-
             # Only send to API if climate is on
             if self.climate_settings_on:
                 climate_settings = self._create_climate_settings()

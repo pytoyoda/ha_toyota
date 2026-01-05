@@ -3805,14 +3805,14 @@ unidecode = ["Unidecode (>=1.1.1)"]
 
 [[package]]
 name = "pytoyoda"
-version = "4.1.0"
+version = "4.2.0"
 description = "Python client for Toyota Connected Services Europe."
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
 files = [
-    {file = "pytoyoda-4.1.0-py3-none-any.whl", hash = "sha256:bb475838099e3d3767964130f28527490b549c1a4496e8820f5528b8a48305a4"},
-    {file = "pytoyoda-4.1.0.tar.gz", hash = "sha256:4a4f6385153a918c60c27e07861cd4c1edce60f3c31b5f10660d36725f05486b"},
+    {file = "pytoyoda-4.2.0-py3-none-any.whl", hash = "sha256:9a849184276710dcdad7698828ea0334cc4b6c4d395d0dac6c1f3f14735733b1"},
+    {file = "pytoyoda-4.2.0.tar.gz", hash = "sha256:8ca3dce4e2bbc26cd130df118a76800aeda46a75e8a68a561637d662e48fe0a5"},
 ]
 
 [package.dependencies]

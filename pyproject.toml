@@ -20,7 +20,7 @@ homeassistant = "^2025.0.0"
 pytoyoda = "^4.1.0"
 
 [tool.poetry.group.dev.dependencies]
-homeassistant-stubs = "^2025.0"
+homeassistant-stubs = "^2026.0.0"
 pre-commit = "^4.1"
 voluptuous-stubs = "^0.1"
 pytest = "^8.3"

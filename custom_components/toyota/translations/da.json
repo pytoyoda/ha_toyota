@@ -65,6 +65,22 @@
       "total_range": {
         "name": "Total range"
       },
+      "charging_status": {
+        "name": "Opladningsstatus",
+        "state": {
+          "charging": "Oplader",
+          "none": "Ikke forbundet",
+          "plugged": "Tilsluttet"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutter til fuld"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Resterende opladningstid"
+      },
       "current_day_statistics": {
         "name": "Statistik for denne dag"
       },

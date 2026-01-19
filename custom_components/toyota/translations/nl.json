@@ -56,6 +56,22 @@
       "total_range": {
         "name": "Total range"
       },
+      "charging_status": {
+        "name": "Laadstatus",
+        "state": {
+          "charging": "Laden",
+          "none": "Niet verbonden",
+          "plugged": "Aangesloten"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuten tot vol"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Resterende laadtijd"
+      },
       "current_day_statistics": {
         "name": "Current day statistics"
       },

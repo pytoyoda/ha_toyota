@@ -65,6 +65,22 @@
       "total_range": {
         "name": "Całkowity zasięg"
       },
+      "charging_status": {
+        "name": "Stan ładowania",
+        "state": {
+          "charging": "Ładowanie",
+          "none": "Niepodłączony",
+          "plugged": "Podłączony"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuty do pełnego naładowania"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Pozostały czas ładowania"
+      },
       "current_day_statistics": {
         "name": "Statystyki bieżącego dnia"
       },

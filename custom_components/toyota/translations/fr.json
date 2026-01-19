@@ -65,6 +65,22 @@
       "total_range": {
         "name": "Autonomie totale"
       },
+      "charging_status": {
+        "name": "État de charge",
+        "state": {
+          "charging": "En charge",
+          "none": "Non connecté",
+          "plugged": "Branché"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutes jusqu'à plein"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Temps de charge restant"
+      },
       "current_day_statistics": {
         "name": "Statistiques aujourd'hui"
       },

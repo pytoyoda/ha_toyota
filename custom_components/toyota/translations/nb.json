@@ -65,6 +65,22 @@
       "total_range": {
         "name": "Total range"
       },
+      "charging_status": {
+        "name": "Ladestatus",
+        "state": {
+          "charging": "Lader",
+          "none": "Ikke tilkoblet",
+          "plugged": "Tilkoblet"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutter til fullt"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Gjenværende ladetid"
+      },
       "current_day_statistics": {
         "name": "Current day statistics"
       },

@@ -65,6 +65,22 @@
       "total_range": {
         "name": "Percorrenza Totale"
       },
+      "charging_status": {
+        "name": "Stato di carica",
+        "state": {
+          "charging": "In carica",
+          "none": "Non collegato",
+          "plugged": "Collegato"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuti al completamento"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Tempo di ricarica rimanente"
+      },
       "current_day_statistics": {
         "name": "Statistiche di oggi"
       },

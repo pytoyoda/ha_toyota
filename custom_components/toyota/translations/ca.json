@@ -56,6 +56,22 @@
       "total_range": {
         "name": "Total range"
       },
+      "charging_status": {
+        "name": "Estat de càrrega",
+        "state": {
+          "charging": "Carregant",
+          "none": "No connectat",
+          "plugged": "Endollat"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuts fins a ple"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Temps de càrrega restant"
+      },
       "current_day_statistics": {
         "name": "Current day statistics"
       },

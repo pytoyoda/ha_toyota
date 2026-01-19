@@ -65,6 +65,22 @@
       "total_range": {
         "name": "Teljes hatótávolság"
       },
+      "charging_status": {
+        "name": "Töltési állapot",
+        "state": {
+          "charging": "Töltés",
+          "none": "Nincs csatlakoztatva",
+          "plugged": "Csatlakoztatva"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Perc a teljes töltésig"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Hátralévő töltési idő"
+      },
       "current_day_statistics": {
         "name": "Mai napi statisztika"
       },

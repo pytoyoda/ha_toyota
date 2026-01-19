@@ -56,6 +56,22 @@
       "total_range": {
         "name": "Total range"
       },
+      "charging_status": {
+        "name": "Estado de carga",
+        "state": {
+          "charging": "Cargando",
+          "none": "No conectado",
+          "plugged": "Enchufado"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutos hasta lleno"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Tiempo de carga restante"
+      },
       "current_day_statistics": {
         "name": "Estadísticas de hoy"
       },

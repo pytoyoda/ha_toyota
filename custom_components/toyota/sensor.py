@@ -182,7 +182,7 @@ CHARGING_STATUS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     options=["charging", "none", "plugged"],
     value_fn=lambda vehicle: None
     if vehicle.dashboard is None
-    else (vehicle.dashboard.charging_status),
+    else vehicle.dashboard.charging_status,
     attributes_fn=lambda vehicle: None
     if vehicle.dashboard is None
     else {

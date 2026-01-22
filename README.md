@@ -80,23 +80,25 @@ See [here](https://github.com/widewing/ha-toyota-na) for North America.
 
 ### Sensor(s)
 
-| <div style="width:250px">Name</div>            | Description                                            |
-| ---------------------------------------------- | ------------------------------------------------------ |
-| `sensor.<you_car_alias>_vin`                   | Static data about your car.                            |
-| `sensor.<you_car_alias>_odometer`              | Odometer information.                                  |
-| `sensor.<you_car_alias>_fuel_level`            | Fuel level information.                                |
-| `sensor.<you_car_alias>_fuel_range`            | Fuel range information.                                |
-| `sensor.<you_car_alias>_battery_level`         | Battery level information.                             |
-| `sensor.<you_car_alias>_battery_range`         | Battery range information.                             |
-| `sensor.<you_car_alias>_battery_range_ac`      | Battery range information when AC is on.               |
-| `sensor.<you_car_alias>_total_range`           | Information about combined fuel and battery range.     |
-| `sensor.<you_car_alias>_charging_status`       | Charging status (Charging, Not connected, Plugged in). |
-| `sensor.<you_car_alias>_remaining_charge_time` | Remaining minutes until charging is complete.          |
-| `sensor.<you_car_alias>_current_day_stats`     | Statistics for current day.                            |
-| `sensor.<you_car_alias>_current_week_stats`    | Statistics for current week.                           |
-| `sensor.<you_car_alias>_current_month_stats`   | Statistics for current month.                          |
-| `sensor.<you_car_alias>_current_year_stats`    | Statistics for current year.                           |
+| <div style="width:250px">Name</div>            | Description                                                             |
+| ---------------------------------------------- | ----------------------------------------------------------------------- |
+| `sensor.<you_car_alias>_vin`                   | Static data about your car.                                             |
+| `sensor.<you_car_alias>_odometer`              | Odometer information.                                                   |
+| `sensor.<you_car_alias>_fuel_level`            | Fuel level information.                                                 |
+| `sensor.<you_car_alias>_fuel_range`            | Fuel range information.                                                 |
+| `sensor.<you_car_alias>_battery_level`         | Battery level information.                                              |
+| `sensor.<you_car_alias>_battery_range`         | Battery range information.                                              |
+| `sensor.<you_car_alias>_battery_range_ac`      | Battery range information when AC is on.                                |
+| `sensor.<you_car_alias>_total_range`           | Information about combined fuel and battery range.                      |
+| `sensor.<you_car_alias>_charging_status`       | Charging status\* |
+| `sensor.<you_car_alias>_remaining_charge_time` | Remaining minutes until charging is complete.                           |
+| `sensor.<you_car_alias>_current_day_stats`     | Statistics for current day.                                             |
+| `sensor.<you_car_alias>_current_week_stats`    | Statistics for current week.                                            |
+| `sensor.<you_car_alias>_current_month_stats`   | Statistics for current month.                                           |
+| `sensor.<you_car_alias>_current_year_stats`    | Statistics for current year.                                            |
 
+
+\* *Possible charging states*: `Charge complete` | `Charging` | `Not connected` | `Plugged in`
 ### Statistics sensors
 
 #### Important

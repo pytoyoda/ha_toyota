@@ -68,6 +68,7 @@
       "charging_status": {
         "name": "Ladestatus",
         "state": {
+          "chargeComplete": "Lading fullført",
           "charging": "Lader",
           "none": "Ikke tilkoblet",
           "plugged": "Tilkoblet"

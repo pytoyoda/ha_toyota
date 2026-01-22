@@ -76,6 +76,18 @@
         "state_attributes": {
           "remaining_minutes": {
             "name": "Minut do plného nabití"
+          },
+          "has_charging_schedule": {
+            "name": "Má plán nabíjení"
+          },
+          "scheduled_charging_start": {
+            "name": "Plánovaný začátek nabíjení"
+          },
+          "scheduled_charging_end": {
+            "name": "Plánovaný konec nabíjení"
+          },
+          "scheduled_charging_duration": {
+            "name": "Doba trvání plánovaného nabíjení"
           }
         }
       },

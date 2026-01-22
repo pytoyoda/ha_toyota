@@ -76,6 +76,18 @@
         "state_attributes": {
           "remaining_minutes": {
             "name": "Minutter til fuld"
+          },
+          "has_charging_schedule": {
+            "name": "Har opladningsplan"
+          },
+          "scheduled_charging_start": {
+            "name": "Planlagt start for opladning"
+          },
+          "scheduled_charging_end": {
+            "name": "Planlagt afslutning af opladning"
+          },
+          "scheduled_charging_duration": {
+            "name": "Varighed af planlagt opladning"
           }
         }
       },

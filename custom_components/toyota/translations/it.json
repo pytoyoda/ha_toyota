@@ -76,6 +76,18 @@
         "state_attributes": {
           "remaining_minutes": {
             "name": "Minuti al completamento"
+          },
+          "has_charging_schedule": {
+            "name": "Ha orario di ricarica"
+          },
+          "scheduled_charging_start": {
+            "name": "Inizio ricarica programmata"
+          },
+          "scheduled_charging_end": {
+            "name": "Fine ricarica programmata"
+          },
+          "scheduled_charging_duration": {
+            "name": "Durata ricarica programmata"
           }
         }
       },

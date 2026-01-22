@@ -76,6 +76,18 @@
         "state_attributes": {
           "remaining_minutes": {
             "name": "Minutes jusqu'à plein"
+          },
+          "has_charging_schedule": {
+            "name": "A un planning de charge"
+          },
+          "scheduled_charging_start": {
+            "name": "Début de la charge planifiée"
+          },
+          "scheduled_charging_end": {
+            "name": "Fin de la charge planifiée"
+          },
+          "scheduled_charging_duration": {
+            "name": "Durée de la charge planifiée"
           }
         }
       },

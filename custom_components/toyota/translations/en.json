@@ -76,6 +76,18 @@
         "state_attributes": {
           "remaining_minutes": {
             "name": "Minutes until full"
+          },
+          "has_charging_schedule": {
+            "name": "Has charging schedule"
+          },
+          "scheduled_charging_start": {
+            "name": "Scheduled charging start"
+          },
+          "scheduled_charging_end": {
+            "name": "Scheduled charging end"
+          },
+          "scheduled_charging_duration": {
+            "name": "Scheduled charging duration"
           }
         }
       },

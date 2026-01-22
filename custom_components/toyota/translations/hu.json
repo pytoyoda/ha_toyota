@@ -76,6 +76,18 @@
         "state_attributes": {
           "remaining_minutes": {
             "name": "Perc a teljes töltésig"
+          },
+          "has_charging_schedule": {
+            "name": "Van töltési ütemezés"
+          },
+          "scheduled_charging_start": {
+            "name": "Ütemezett töltés kezdete"
+          },
+          "scheduled_charging_end": {
+            "name": "Ütemezett töltés vége"
+          },
+          "scheduled_charging_duration": {
+            "name": "Ütemezett töltés időtartama"
           }
         }
       },

@@ -9,8 +9,19 @@ from typing import TYPE_CHECKING
 from .const import CONF_BRAND_MAPPING
 
 if TYPE_CHECKING:
+    from datetime import timedelta
+
     from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
     from pytoyoda.models.summary import Summary
+
+
+def td_to_hoursminutes(td: timedelta | None) -> str | None:
+    """Convert a timedelta to hours and minutes string."""
+    if td is None:
+        return None
+    total_minutes = int(td.total_seconds()) // 60
+    hours, minutes = divmod(total_minutes, 60)
+    return f"{hours}:{minutes}"
 
 
 def round_number(number: float | None, places: int = 0) -> int | float | None:

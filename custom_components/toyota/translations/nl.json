@@ -67,6 +67,18 @@
         "state_attributes": {
           "remaining_minutes": {
             "name": "Minuten tot vol"
+          },
+          "has_charging_schedule": {
+            "name": "Heeft laadplanning"
+          },
+          "scheduled_charging_start": {
+            "name": "Geplande laadstart"
+          },
+          "scheduled_charging_end": {
+            "name": "Geplande laad-einde"
+          },
+          "scheduled_charging_duration": {
+            "name": "Duur van geplande lading"
           }
         }
       },

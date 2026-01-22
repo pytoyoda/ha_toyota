@@ -22,6 +22,7 @@ from .utils import (
     format_statistics_attributes,
     format_vin_sensor_attributes,
     round_number,
+    td_to_hoursminutes,
 )
 
 if TYPE_CHECKING:
@@ -186,10 +187,35 @@ CHARGING_STATUS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     attributes_fn=lambda vehicle: None
     if vehicle.dashboard is None
     else {
-        "remaining_minutes": (
-            vehicle.dashboard.remaining_charge_time.total_seconds() // 60
+        **(
+            {
+                "remaining_minutes": int(
+                    vehicle.dashboard.remaining_charge_time.total_seconds() // 60
+                )
+            }
             if vehicle.dashboard.remaining_charge_time is not None
-            else None
+            else {}
+        ),
+        "has_charging_schedule": vehicle.electric_status.has_active_charging_schedule
+        if hasattr(vehicle.electric_status, "has_active_charging_schedule")
+        else None,
+        **(
+            {
+                "scheduled_charging_start": (
+                    vehicle.electric_status.active_scheduled_charging.start
+                ),
+                "scheduled_charging_end": (
+                    vehicle.electric_status.active_scheduled_charging.end
+                ),
+                "scheduled_charging_duration": None
+                if vehicle.electric_status.active_scheduled_charging.duration is None
+                else td_to_hoursminutes(
+                    vehicle.electric_status.active_scheduled_charging.duration
+                ),
+            }
+            if hasattr(vehicle.electric_status, "has_active_charging_schedule")
+            and vehicle.electric_status.has_active_charging_schedule is not None
+            else {}
         ),
     },
 )

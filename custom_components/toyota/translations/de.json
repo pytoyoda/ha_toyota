@@ -76,6 +76,18 @@
         "state_attributes": {
           "remaining_minutes": {
             "name": "Minuten bis voll"
+          },
+          "has_charging_schedule": {
+            "name": "Ladeplan aktiv"
+          },
+          "scheduled_charging_start": {
+            "name": "Geplanter Ladebeginn"
+          },
+          "scheduled_charging_end": {
+            "name": "Geplantes Ladeende"
+          },
+          "scheduled_charging_duration": {
+            "name": "Geplante Ladedauer"
           }
         }
       },

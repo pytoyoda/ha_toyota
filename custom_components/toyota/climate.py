@@ -82,28 +82,15 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             "temp_interval", 1
         )
         self._attr_hvac_mode = HVACMode.OFF
-
-        front_defrost = False
-        rear_defrost = False
-
-        for operation in filter(lambda x: x.category_name == "defrost", self.vehicle.climate_settings.operations):
-            for param in operation.parameters:
-                if param.name == "frontDefrost":
-                    front_defrost = param.enabled
-                elif param.name == "rearDefrost":
-                    rear_defrost = param.enabled
-
-        preset_mode = "none"
-        if front_defrost and rear_defrost:
-            preset_mode = "both_defrost"
-        elif front_defrost:
-            preset_mode = "front_defrost"
-        elif rear_defrost:
-            preset_mode = "rear_defrost"
-
-        self._attr_preset_mode = preset_mode
         self._attr_current_temperature = None
         self._attr_climate_status = False
+
+        for operation in self.defrost_ac_operations:
+            for param in operation.parameters:
+                if param.name == "frontDefrost":
+                    self._attr_front_defrost = param.enabled
+                elif param.name == "rearDefrost":
+                    self._attr_rear_defrost = param.enabled
 
     @property
     def should_poll(self) -> bool:
@@ -131,9 +118,33 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         return self._attr_target_temperature
 
     @property
-    def preset_mode(self) -> str | None:
+    def front_defrost(self) -> bool | None:
+        """Return front_defrost."""
+        return self._attr_front_defrost
+
+    @property
+    def rear_defrost(self) -> bool | None:
+        """Return rear_defrost."""
+        return self._attr_rear_defrost
+
+    @property
+    def preset_mode(self) -> str:
         """Return the current preset mode."""
-        return self._attr_preset_mode
+        if self.front_defrost and self.rear_defrost:
+            return "both_defrost"
+        if self.front_defrost:
+            return "front_defrost"
+        if self.rear_defrost:
+            return "rear_defrost"
+        return "none"
+
+    @property
+    def defrost_ac_operations(self) -> list:
+        """Return the currnt defrost AC operations."""
+        return [
+            op for op in self.vehicle.climate_settings.operations
+            if op.category_name == "defrost"
+        ]
 
     def _create_climate_settings(self) -> ClimateSettingsModel:
         """Create a ClimateSettingsModel with current or provided values.
@@ -141,31 +152,36 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         Returns:
             ClimateSettingsModel configured with the specified settings
         """
-        ac_operations = self.vehicle.climate_settings.operations
-        for operation in filter(lambda x: x.category_name == "defrost", ac_operations):
+        for operation in self.defrost_ac_operations:
             for param in operation.parameters:
                 if param.name == "frontDefrost":
-                    param.enabled = self._attr_preset_mode in [
-                        "front_defrost",
-                        "both_defrost",
-                    ]
+                    param.enabled = self.front_defrost
                 elif param.name == "rearDefrost":
-                    param.enabled = self._attr_preset_mode in [
-                        "rear_defrost",
-                        "both_defrost",
-                    ]
+                    param.enabled = self.rear_defrost
 
         return ClimateSettingsModel(
             settingsOn=self.climate_settings_on,
             temperature=self.target_temperature,
             temperatureUnit="C",
-            acOperations=ac_operations,
+            acOperations=self.vehicle.climate_settings.operations,
         )
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode."""
         try:
-            self._attr_preset_mode = preset_mode
+            if preset_mode == "both_defrost":
+                self._attr_front_defrost = True
+                self._attr_rear_defrost = True
+            elif preset_mode == "front_defrost":
+                self._attr_front_defrost = True
+                self._attr_rear_defrost = False
+            elif preset_mode == "rear_defrost":
+                self._attr_front_defrost = False
+                self._attr_rear_defrost = True
+            else:  # "none"
+                self._attr_front_defrost = False
+                self._attr_rear_defrost = False
+
             self.async_write_ha_state()
             await self._send_climate_settings()
 

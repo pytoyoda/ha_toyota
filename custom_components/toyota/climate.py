@@ -14,8 +14,6 @@ from homeassistant.components.climate import (
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.helpers.entity import EntityDescription
 from pytoyoda.models.endpoints.climate import (
-    ACOperations,
-    ACParameters,
     ClimateControlModel,
     ClimateSettingsModel,
 )
@@ -63,9 +61,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         | ClimateEntityFeature.TURN_OFF
         | ClimateEntityFeature.PRESET_MODE
     )
-    _attr_min_temp = 18
-    _attr_max_temp = 29
-    _attr_target_temperature_step = 1
+
     _attr_preset_modes = ("none", "front_defrost", "rear_defrost", "both_defrost")
 
     def __init__(
@@ -77,9 +73,35 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     ) -> None:
         """Initialize the climate entity."""
         super().__init__(coordinator, entry_id, vehicle_index, description)
+        self._attr_target_temperature = self.vehicle.climate_settings.get(
+            "temperature", 21
+        )
+        self._attr_min_temp = self.vehicle.climate_settings.get("min_temp", 18)
+        self._attr_max_temp = self.vehicle.climate_settings.get("max_temp", 29)
+        self._attr_target_temperature_step = self.vehicle.climate_settings.get(
+            "temp_interval", 1
+        )
         self._attr_hvac_mode = HVACMode.OFF
-        self._attr_target_temperature = 21
-        self._attr_preset_mode = "none"
+
+        front_defrost = False
+        rear_defrost = False
+
+        for operation in filter(lambda x: x.category_name == "defrost", self.vehicle.climate_settings.operations):
+            for param in operation.parameters:
+                if param.name == "frontDefrost":
+                    front_defrost = param.enabled
+                elif param.name == "rearDefrost":
+                    rear_defrost = param.enabled
+
+        preset_mode = "none"
+        if front_defrost and rear_defrost:
+            preset_mode = "both_defrost"
+        elif front_defrost:
+            preset_mode = "front_defrost"
+        elif rear_defrost:
+            preset_mode = "rear_defrost"
+
+        self._attr_preset_mode = preset_mode
         self._attr_current_temperature = None
         self._attr_climate_status = False
 
@@ -119,27 +141,25 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         Returns:
             ClimateSettingsModel configured with the specified settings
         """
+        ac_operations = self.vehicle.climate_settings.operations
+        for operation in filter(lambda x: x.category_name == "defrost", ac_operations):
+            for param in operation.parameters:
+                if param.name == "frontDefrost":
+                    param.enabled = self._attr_preset_mode in [
+                        "front_defrost",
+                        "both_defrost",
+                    ]
+                elif param.name == "rearDefrost":
+                    param.enabled = self._attr_preset_mode in [
+                        "rear_defrost",
+                        "both_defrost",
+                    ]
+
         return ClimateSettingsModel(
             settingsOn=self.climate_settings_on,
             temperature=self.target_temperature,
             temperatureUnit="C",
-            acOperations=[
-                ACOperations(
-                    categoryName="defrost",
-                    acParameters=[
-                        ACParameters(
-                            enabled=self._attr_preset_mode
-                            in ["front_defrost", "both_defrost"],
-                            name="frontDefrost",
-                        ),
-                        ACParameters(
-                            enabled=self._attr_preset_mode
-                            in ["rear_defrost", "both_defrost"],
-                            name="rearDefrost",
-                        ),
-                    ],
-                )
-            ],
+            acOperations=ac_operations,
         )
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:
@@ -194,7 +214,6 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             True if settings were sent (or climate was off), False on error
         """
         try:
-
             # Only send to API if climate is on
             if self.climate_settings_on:
                 climate_settings = self._create_climate_settings()
@@ -260,9 +279,26 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                 # Now send the engine-start command to actually turn on climate
                 _LOGGER.debug("Sending engine-start command to %s", self.vehicle.alias)
 
-                if await self.vehicle._api.send_climate_control_command(  # noqa: SLF001
+                status = await self.vehicle._api.send_climate_control_command(  # noqa: SLF001
                     self.vehicle.vin, ClimateControlModel(command="engine-start")
-                ):
+                )
+
+                # Check if the update was successful
+                if not status or (hasattr(status, "status") and status.status == 0):
+                    _LOGGER.debug("Failed to start engine: %s", status)
+                    # The official app sends a notification to the user
+                    # Should we send a notification to the user?
+                    # Potential reasons:
+                    # Car unreachable
+                    # Car is unlocked
+                    # One or more windows, doors or trunk open
+                    # Key detected inside the car
+                    # Climate was already started once for 20 minutes since
+                    # last engine ignition
+                    self._attr_hvac_mode = HVACMode.OFF
+                    self.async_write_ha_state()
+
+                else:
                     _LOGGER.debug(
                         "Climate control turned on for %s", self.vehicle.alias
                     )

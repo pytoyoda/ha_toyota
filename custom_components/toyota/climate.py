@@ -12,7 +12,9 @@ from homeassistant.components.climate import (
     HVACMode,
 )
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
+from homeassistant.core import callback
 from homeassistant.helpers.entity import EntityDescription
+from homeassistant.helpers.event import async_call_later
 from pytoyoda.models.endpoints.climate import (
     ACOperations,
     ACParameters,
@@ -31,6 +33,9 @@ from .entity import ToyotaBaseEntity
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=120)
+
+# Debounce delay for API calls (in seconds)
+SETTINGS_DEBOUNCE_DELAY = 5.0
 
 
 async def async_setup_entry(
@@ -98,6 +103,10 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                 elif param.name == "rearDefrost":
                     self._attr_rear_defrost = param.enabled
 
+        # Debouncing state - using HA's task cancellation
+        self._pending_settings_cancel = None
+        self._settings_changed = False
+
     @property
     def should_poll(self) -> bool:
         """Return True to enable polling."""
@@ -124,12 +133,12 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         return self._attr_target_temperature
 
     @property
-    def front_defrost(self) -> bool | None:
+    def front_defrost(self) -> bool:
         """Return front_defrost."""
         return self._attr_front_defrost
 
     @property
-    def rear_defrost(self) -> bool | None:
+    def rear_defrost(self) -> bool:
         """Return rear_defrost."""
         return self._attr_rear_defrost
 
@@ -145,7 +154,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         return "none"
 
     def _create_climate_settings(self) -> ClimateSettingsModel:
-        """Create a ClimateSettingsModel with current or provided values.
+        """Create a ClimateSettingsModel with current defrost settings.
 
         Returns:
             ClimateSettingsModel configured with the specified settings
@@ -176,6 +185,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     async def async_set_preset_mode(self, preset_mode: str) -> None:
         """Set new preset mode."""
         try:
+            # Update the underlying defrost attributes based on preset mode
             if preset_mode == "both_defrost":
                 self._attr_front_defrost = True
                 self._attr_rear_defrost = True
@@ -190,7 +200,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                 self._attr_rear_defrost = False
 
             self.async_write_ha_state()
-            await self._send_climate_settings()
+            self._debounce_send_climate_settings()
 
         except Exception:  # pylint: disable=W0718
             _LOGGER.exception("Error setting preset mode")
@@ -230,27 +240,52 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         except Exception:  # pylint: disable=W0718
             _LOGGER.exception("Error updating climate settings")
 
+    @callback
+    def _debounce_send_climate_settings(self) -> None:
+        """Debounce climate settings updates to avoid excessive API calls."""
+        # Cancel any pending scheduled call
+        if self._pending_settings_cancel is not None:
+            self._pending_settings_cancel()
+            self._pending_settings_cancel = None
+
+        # Mark that settings have changed
+        self._settings_changed = True
+
+        # Schedule the actual send after a delay using HA's event loop
+        self._pending_settings_cancel = async_call_later(
+            self.hass, SETTINGS_DEBOUNCE_DELAY, self._delayed_send_climate_settings
+        )
+
+    async def _delayed_send_climate_settings(self, _now) -> None:
+        """Send settings after debounce delay.
+
+        Args:
+            _now: Current time (required by async_call_later, unused)
+        """
+        self._pending_settings_cancel = None
+        if self._settings_changed:
+            await self._send_climate_settings()
+            self._settings_changed = False
+
     async def _send_climate_settings(self) -> bool:
-        """Send climate settings to car if climate is on.
+        """Send climate settings to car.
 
         Returns:
-            True if settings were sent (or climate was off), False on error
+            True if settings were sent successfully, False on error
         """
         try:
-            # Only send to API if climate is on
-            if self.climate_settings_on:
-                climate_settings = self._create_climate_settings()
-                _LOGGER.debug("Sending climate settings to car: %s", climate_settings)
-                status = await self.vehicle._api.update_climate_settings(  # noqa: SLF001
-                    self.vehicle.vin, climate_settings
-                )
+            climate_settings = self._create_climate_settings()
+            _LOGGER.debug("Sending climate settings to car: %s", climate_settings)
+            status = await self.vehicle._api.update_climate_settings(  # noqa: SLF001
+                self.vehicle.vin, climate_settings
+            )
 
-                _LOGGER.debug("API response status: %s", status)
+            _LOGGER.debug("API response status: %s", status)
 
-                # Check if the update was successful
-                if not status or (hasattr(status, "status") and status.status == 0):
-                    _LOGGER.exception("Failed to send climate settings")
-                    return False
+            # Check if the update was successful
+            if not status or (hasattr(status, "status") and status.status == 0):
+                _LOGGER.exception("Failed to send climate settings")
+                return False
 
         except Exception:  # pylint: disable=W0718
             _LOGGER.exception("Error sending climate settings")
@@ -275,7 +310,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             self._attr_target_temperature = temperature
             self.async_write_ha_state()
 
-            await self._send_climate_settings()
+            self._debounce_send_climate_settings()
 
         except Exception:  # pylint: disable=W0718
             _LOGGER.exception("Error setting climate temperature")
@@ -297,7 +332,13 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
 
             _LOGGER.debug("Attempting to turn on climate for %s", self.vehicle.alias)
 
-            # First, update the settings
+            # Cancel any pending debounced updates
+            if self._pending_settings_cancel is not None:
+                self._pending_settings_cancel()
+                self._pending_settings_cancel = None
+            self._settings_changed = False
+
+            # Send settings immediately when turning on
             if await self._send_climate_settings():
                 # Now send the engine-start command to actually turn on climate
                 _LOGGER.debug("Sending engine-start command to %s", self.vehicle.alias)
@@ -346,3 +387,10 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
 
         except Exception:  # pylint: disable=W0718
             _LOGGER.exception("Error turning off climate")
+
+    async def async_will_remove_from_hass(self) -> None:
+        """Clean up when entity is removed."""
+        # Cancel any pending scheduled calls
+        if self._pending_settings_cancel is not None:
+            self._pending_settings_cancel()
+            self._pending_settings_cancel = None

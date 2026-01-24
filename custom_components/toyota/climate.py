@@ -80,32 +80,69 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     ) -> None:
         """Initialize the climate entity."""
         super().__init__(coordinator, entry_id, vehicle_index, description)
-        # is vehicle initialized and climate settings fetched already?
-        self._attr_target_temperature = getattr(
-            self.vehicle.climate_settings, "target_temperature", 21
-        )
-        self._attr_min_temp = getattr(self.vehicle.climate_settings, "min_temp", 18)
-        self._attr_max_temp = getattr(self.vehicle.climate_settings, "max_temp", 29)
-        self._attr_target_temperature_step = getattr(
-            self.vehicle.climate_settings, "temp_interval", 1
-        )
+
+        # Initialize with defaults first
+        self._attr_target_temperature = 21
+        self._attr_min_temp = 18
+        self._attr_max_temp = 29
+        self._attr_target_temperature_step = 1
         self._attr_hvac_mode = HVACMode.OFF
+        self._attr_front_defrost = False
+        self._attr_rear_defrost = False
         self._attr_current_temperature = None
         self._attr_climate_status = False
-
-        for operation in filter(
-            lambda o: o.category_name == "defrost",
-            self.vehicle.climate_settings.operations,
-        ):
-            for param in operation.parameters:
-                if param.name == "frontDefrost":
-                    self._attr_front_defrost = param.enabled
-                elif param.name == "rearDefrost":
-                    self._attr_rear_defrost = param.enabled
 
         # Debouncing state - using HA's task cancellation
         self._pending_settings_cancel = None
         self._settings_changed = False
+
+        # Load settings from coordinator if available
+        self._load_climate_settings_from_coordinator()
+
+    def _load_climate_settings_from_coordinator(self) -> None:
+        """Load climate settings from coordinator data if available."""
+        try:
+            if not self.vehicle or not hasattr(self.vehicle, "climate_settings"):
+                _LOGGER.debug("Vehicle climate_settings not yet available")
+                return
+
+            climate_settings = self.vehicle.climate_settings
+
+            # Update temperature settings
+            target_temperature = climate_settings.temperature
+            if target_temperature is not None:
+                self._attr_target_temperature = target_temperature.value
+            self._attr_min_temp = getattr(climate_settings, "min_temp", 18)
+            self._attr_max_temp = getattr(climate_settings, "max_temp", 29)
+            self._attr_target_temperature_step = getattr(
+                climate_settings, "temp_interval", 1
+            )
+
+            # Read defrost settings from operations
+            if hasattr(climate_settings, "operations"):
+                for operation in climate_settings.operations:
+                    if operation.category_name == "defrost":
+                        for param in operation.parameters:
+                            if param.name == "frontDefrost":
+                                self._attr_front_defrost = param.enabled
+                            elif param.name == "rearDefrost":
+                                self._attr_rear_defrost = param.enabled
+
+            _LOGGER.debug(
+                "Loaded climate settings for %s: temp=%s, min=%s, max=%s",
+                self.vehicle.alias if hasattr(self.vehicle, "alias") else "vehicle",
+                self._attr_target_temperature,
+                self._attr_min_temp,
+                self._attr_max_temp,
+            )
+        except Exception:  # pylint: disable=W0718
+            _LOGGER.exception("Error loading climate settings from coordinator")
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        """Handle updated data from the coordinator."""
+        self._load_climate_settings_from_coordinator()
+        super()._handle_coordinator_update()
 
     @property
     def should_poll(self) -> bool:
@@ -256,7 +293,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             self.hass, SETTINGS_DEBOUNCE_DELAY, self._delayed_send_climate_settings
         )
 
-    async def _delayed_send_climate_settings(self, _now) -> None:
+    async def _delayed_send_climate_settings(self, _now: Any) -> None:  # noqa: ANN401
         """Send settings after debounce delay.
 
         Args:

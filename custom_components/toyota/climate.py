@@ -14,6 +14,8 @@ from homeassistant.components.climate import (
 from homeassistant.const import ATTR_TEMPERATURE, UnitOfTemperature
 from homeassistant.helpers.entity import EntityDescription
 from pytoyoda.models.endpoints.climate import (
+    ACOperations,
+    ACParameters,
     ClimateControlModel,
     ClimateSettingsModel,
 )
@@ -73,19 +75,23 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     ) -> None:
         """Initialize the climate entity."""
         super().__init__(coordinator, entry_id, vehicle_index, description)
-        self._attr_target_temperature = self.vehicle.climate_settings.get(
-            "temperature", 21
+        # is vehicle initialized and climate settings fetched already?
+        self._attr_target_temperature = getattr(
+            self.vehicle.climate_settings, "target_temperature", 21
         )
-        self._attr_min_temp = self.vehicle.climate_settings.get("min_temp", 18)
-        self._attr_max_temp = self.vehicle.climate_settings.get("max_temp", 29)
-        self._attr_target_temperature_step = self.vehicle.climate_settings.get(
-            "temp_interval", 1
+        self._attr_min_temp = getattr(self.vehicle.climate_settings, "min_temp", 18)
+        self._attr_max_temp = getattr(self.vehicle.climate_settings, "max_temp", 29)
+        self._attr_target_temperature_step = getattr(
+            self.vehicle.climate_settings, "temp_interval", 1
         )
         self._attr_hvac_mode = HVACMode.OFF
         self._attr_current_temperature = None
         self._attr_climate_status = False
 
-        for operation in self.defrost_ac_operations:
+        for operation in filter(
+            lambda o: o.category_name == "defrost",
+            self.vehicle.climate_settings.operations,
+        ):
             for param in operation.parameters:
                 if param.name == "frontDefrost":
                     self._attr_front_defrost = param.enabled
@@ -138,32 +144,33 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             return "rear_defrost"
         return "none"
 
-    @property
-    def defrost_ac_operations(self) -> list:
-        """Return the currnt defrost AC operations."""
-        return [
-            op for op in self.vehicle.climate_settings.operations
-            if op.category_name == "defrost"
-        ]
-
     def _create_climate_settings(self) -> ClimateSettingsModel:
         """Create a ClimateSettingsModel with current or provided values.
 
         Returns:
             ClimateSettingsModel configured with the specified settings
         """
-        for operation in self.defrost_ac_operations:
-            for param in operation.parameters:
-                if param.name == "frontDefrost":
-                    param.enabled = self.front_defrost
-                elif param.name == "rearDefrost":
-                    param.enabled = self.rear_defrost
+        # Start with existing operations
+        ac_operations = self.vehicle.climate_settings.operations.copy()
+
+        # Find and replace the defrost operation
+        for i, operation in enumerate(ac_operations):
+            if operation.category_name == "defrost":
+                # Create new defrost operation with current values
+                ac_operations[i] = ACOperations(
+                    categoryName="defrost",
+                    acParameters=[
+                        ACParameters(enabled=self.front_defrost, name="frontDefrost"),
+                        ACParameters(enabled=self.rear_defrost, name="rearDefrost"),
+                    ],
+                )
+                break
 
         return ClimateSettingsModel(
             settingsOn=self.climate_settings_on,
             temperature=self.target_temperature,
             temperatureUnit="C",
-            acOperations=self.vehicle.climate_settings.operations,
+            acOperations=ac_operations,
         )
 
     async def async_set_preset_mode(self, preset_mode: str) -> None:

@@ -106,37 +106,44 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                 _LOGGER.debug("Vehicle climate_settings not yet available")
                 return
 
-            climate_settings = self.vehicle.climate_settings
-
             # Update temperature settings
-            target_temperature = climate_settings.temperature
-            if target_temperature is not None:
-                self._attr_target_temperature = target_temperature.value
-            self._attr_min_temp = getattr(climate_settings, "min_temp", 18)
-            self._attr_max_temp = getattr(climate_settings, "max_temp", 29)
-            self._attr_target_temperature_step = getattr(
-                climate_settings, "temp_interval", 1
-            )
+            self._load_temperature_settings()
 
             # Read defrost settings from operations
-            if hasattr(climate_settings, "operations"):
-                for operation in climate_settings.operations:
-                    if operation.category_name == "defrost":
-                        for param in operation.parameters:
-                            if param.name == "frontDefrost":
-                                self._attr_front_defrost = param.enabled
-                            elif param.name == "rearDefrost":
-                                self._attr_rear_defrost = param.enabled
+            self._load_defrost_settings()
 
             _LOGGER.debug(
                 "Loaded climate settings for %s: temp=%s, min=%s, max=%s",
-                self.vehicle.alias if hasattr(self.vehicle, "alias") else "vehicle",
+                getattr(self.vehicle, "alias", "vehicle"),
                 self._attr_target_temperature,
                 self._attr_min_temp,
                 self._attr_max_temp,
             )
         except Exception:  # pylint: disable=W0718
             _LOGGER.exception("Error loading climate settings from coordinator")
+
+    def _load_temperature_settings(self) -> None:
+        """Load temperature settings from climate_settings."""
+        climate_settings = self.vehicle.climate_settings
+        target_temperature = climate_settings.temperature
+        if target_temperature is not None:
+            self._attr_target_temperature = target_temperature.value
+        self._attr_min_temp = getattr(climate_settings, "min_temp", 18)
+        self._attr_max_temp = getattr(climate_settings, "max_temp", 29)
+        self._attr_target_temperature_step = getattr(
+            climate_settings, "temp_interval", 1
+        )
+
+    def _load_defrost_settings(self) -> None:
+        """Load defrost settings from climate_settings operations."""
+        climate_settings = self.vehicle.climate_settings
+        operations = getattr(climate_settings, "operations", [])
+        for operation in filter(lambda o: o.category_name == "defrost", operations):
+            for param in operation.parameters:
+                if param.name == "frontDefrost":
+                    self._attr_front_defrost = param.enabled
+                elif param.name == "rearDefrost":
+                    self._attr_rear_defrost = param.enabled
 
     @callback
     def _handle_coordinator_update(self) -> None:

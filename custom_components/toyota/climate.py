@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+    from pytoyoda.models.vehicle import Vehicle
 
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
@@ -50,11 +51,25 @@ async def async_setup_entry(
         name="Climate",
     )
 
-    entities = [
-        ToyotaClimate(coordinator, entry.entry_id, index, description)
-        for index in range(len(coordinator.data))
-    ]
+    entities = []
+    for index, vehicle_data in enumerate(coordinator.data):
+        if _vehicle_has_climate_capability(vehicle_data["data"]):
+            entities.append(
+                ToyotaClimate(coordinator, entry.entry_id, index, description)
+            )
     async_add_entities(entities)
+
+
+def _vehicle_has_climate_capability(vehicle: Vehicle) -> bool:
+    """Check if vehicle supports climate control."""
+    try:
+        return getattr(
+            getattr(vehicle._vehicle_info, "features", False),  # noqa : SLF001
+            "climate_start_engine",
+            False,
+        )
+    except Exception:  # pylint: disable=W0718 # noqa : BLE001
+        return False
 
 
 class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):

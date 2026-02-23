@@ -96,9 +96,9 @@ ODOMETER_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     icon="mdi:counter",
     device_class=SensorDeviceClass.DISTANCE,
     state_class=SensorStateClass.TOTAL_INCREASING,
-    value_fn=lambda vehicle: None
-    if vehicle.dashboard is None
-    else round_number(vehicle.dashboard.odometer),
+    value_fn=lambda vehicle: (
+        None if vehicle.dashboard is None else round_number(vehicle.dashboard.odometer)
+    ),
     suggested_display_precision=0,
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
@@ -108,9 +108,11 @@ FUEL_LEVEL_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     icon="mdi:gas-station",
     device_class=None,
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda vehicle: None
-    if vehicle.dashboard is None
-    else round_number(vehicle.dashboard.fuel_level),
+    value_fn=lambda vehicle: (
+        None
+        if vehicle.dashboard is None
+        else round_number(vehicle.dashboard.fuel_level)
+    ),
     suggested_display_precision=0,
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
@@ -120,9 +122,11 @@ FUEL_RANGE_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     icon="mdi:map-marker-distance",
     device_class=SensorDeviceClass.DISTANCE,
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda vehicle: None
-    if vehicle.dashboard is None
-    else round_number(vehicle.dashboard.fuel_range),
+    value_fn=lambda vehicle: (
+        None
+        if vehicle.dashboard is None
+        else round_number(vehicle.dashboard.fuel_range)
+    ),
     suggested_display_precision=0,
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
@@ -132,9 +136,11 @@ BATTERY_LEVEL_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     icon="mdi:car-electric",
     device_class=SensorDeviceClass.BATTERY,
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda vehicle: None
-    if vehicle.dashboard is None
-    else round_number(vehicle.dashboard.battery_level),
+    value_fn=lambda vehicle: (
+        None
+        if vehicle.dashboard is None
+        else round_number(vehicle.dashboard.battery_level)
+    ),
     suggested_display_precision=0,
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
@@ -144,9 +150,11 @@ BATTERY_RANGE_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     icon="mdi:map-marker-distance",
     device_class=SensorDeviceClass.DISTANCE,
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda vehicle: None
-    if vehicle.dashboard is None
-    else round_number(vehicle.dashboard.battery_range),
+    value_fn=lambda vehicle: (
+        None
+        if vehicle.dashboard is None
+        else round_number(vehicle.dashboard.battery_range)
+    ),
     suggested_display_precision=0,
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
@@ -156,9 +164,11 @@ BATTERY_RANGE_AC_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     icon="mdi:map-marker-distance",
     device_class=SensorDeviceClass.DISTANCE,
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda vehicle: None
-    if vehicle.dashboard is None
-    else round_number(vehicle.dashboard.battery_range_with_ac),
+    value_fn=lambda vehicle: (
+        None
+        if vehicle.dashboard is None
+        else round_number(vehicle.dashboard.battery_range_with_ac)
+    ),
     suggested_display_precision=0,
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
@@ -168,9 +178,9 @@ TOTAL_RANGE_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     icon="mdi:map-marker-distance",
     device_class=SensorDeviceClass.DISTANCE,
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda vehicle: None
-    if vehicle.dashboard is None
-    else round_number(vehicle.dashboard.range),
+    value_fn=lambda vehicle: (
+        None if vehicle.dashboard is None else round_number(vehicle.dashboard.range)
+    ),
     suggested_display_precision=0,
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
@@ -266,28 +276,28 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
         },
         {
             "description": BATTERY_LEVEL_ENTITY_DESCRIPTION,
-            "capability_check": lambda v: get_vehicle_capability(
-                v, "econnect_vehicle_status_capable"
-            )
-            or v.type == "electric",
+            "capability_check": lambda v: (
+                get_vehicle_capability(v, "econnect_vehicle_status_capable")
+                or v.type == "electric"
+            ),
             "native_unit": PERCENTAGE,
             "suggested_unit": None,
         },
         {
             "description": BATTERY_RANGE_ENTITY_DESCRIPTION,
-            "capability_check": lambda v: get_vehicle_capability(
-                v, "econnect_vehicle_status_capable"
-            )
-            or v.type == "electric",
+            "capability_check": lambda v: (
+                get_vehicle_capability(v, "econnect_vehicle_status_capable")
+                or v.type == "electric"
+            ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
         },
         {
             "description": BATTERY_RANGE_AC_ENTITY_DESCRIPTION,
-            "capability_check": lambda v: get_vehicle_capability(
-                v, "econnect_vehicle_status_capable"
-            )
-            or v.type == "electric",
+            "capability_check": lambda v: (
+                get_vehicle_capability(v, "econnect_vehicle_status_capable")
+                or v.type == "electric"
+            ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
         },

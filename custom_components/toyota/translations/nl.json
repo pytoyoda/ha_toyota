@@ -136,6 +136,19 @@
       "taillights": {
         "name": "Taillights"
       }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Voorruit ontwaseming",
+              "rear_defrost": "Achterruit ontwaseming",
+              "both_defrost": "Beide ontwaseming"
+            }
+          }
+        }
+      }
     }
   }
 }

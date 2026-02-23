@@ -145,6 +145,19 @@
       "taillights": {
         "name": "Baglygter"
       }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Forrude afisning",
+              "rear_defrost": "Bagrude afisning",
+              "both_defrost": "Begge afisning"
+            }
+          }
+        }
+      }
     }
   }
 }

@@ -145,6 +145,19 @@
       "taillights": {
         "name": "Zadní světla"
       }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Přední odmrazování",
+              "rear_defrost": "Zadní odmrazování",
+              "both_defrost": "Oba odmrazování"
+            }
+          }
+        }
+      }
     }
   }
 }

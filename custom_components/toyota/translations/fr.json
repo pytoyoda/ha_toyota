@@ -145,6 +145,19 @@
       "taillights": {
         "name": "Feux arrières"
       }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Dégivrage avant",
+              "rear_defrost": "Dégivrage arrière",
+              "both_defrost": "Les deux dégivrages"
+            }
+          }
+        }
+      }
     }
   }
 }

@@ -145,6 +145,19 @@
       "taillights": {
         "name": "Rückleuchten"
       }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Frontscheibenheizung",
+              "rear_defrost": "Heckscheibenheizung",
+              "both_defrost": "Beide Scheibenheizungen"
+            }
+          }
+        }
+      }
     }
   }
 }

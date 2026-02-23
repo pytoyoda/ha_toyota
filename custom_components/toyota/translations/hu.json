@@ -145,6 +145,19 @@
       "taillights": {
         "name": "Hátsó lámpák"
       }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Első ablakfűtés",
+              "rear_defrost": "Hátsó ablakfűtés",
+              "both_defrost": "Mindkét ablakfűtés"
+            }
+          }
+        }
+      }
     }
   }
 }

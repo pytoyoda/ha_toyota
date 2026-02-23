@@ -145,6 +145,19 @@
       "taillights": {
         "name": "Luzes traseiras"
       }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Desembaciador dianteiro",
+              "rear_defrost": "Desembaciador traseiro",
+              "both_defrost": "Ambos os desembaciadores"
+            }
+          }
+        }
+      }
     }
   }
 }

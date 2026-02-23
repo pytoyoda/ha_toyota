@@ -145,6 +145,19 @@
       "taillights": {
         "name": "Taillights"
       }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Front defrost",
+              "rear_defrost": "Rear defrost",
+              "both_defrost": "Both defrost"
+            }
+          }
+        }
+      }
     }
   }
 }

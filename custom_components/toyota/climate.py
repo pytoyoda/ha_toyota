@@ -60,6 +60,7 @@ async def async_setup_entry(
 class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     """Representation of a Toyota climate control."""
 
+    _attr_translation_key = "climate"
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = (HVACMode.OFF, HVACMode.HEAT_COOL)
     _attr_supported_features = (

@@ -145,6 +145,19 @@
       "taillights": {
         "name": "Fari Posteriori"
       }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Sbrinamento anteriore",
+              "rear_defrost": "Sbrinamento posteriore",
+              "both_defrost": "Entrambi gli sbrinamenti"
+            }
+          }
+        }
+      }
     }
   }
 }

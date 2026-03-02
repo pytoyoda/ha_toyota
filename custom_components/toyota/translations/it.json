@@ -12,7 +12,7 @@
       }
     },
     "error": {
-      "invalid_username": "La mail delve contenere @.",
+      "invalid_username": "La mail deve contenere @.",
       "invalid_auth": "Mail/Password non corrette.",
       "unknown": "Errore Inaspettato."
     }
@@ -21,7 +21,7 @@
     "step": {
       "init": {
         "data": {
-          "use_liters": "Usa Litri (L/100 miglia) al posto di MPG. Applicabile solo se la tua auto risporta i dati in miglia (Sistema di misura Imperiale)."
+          "use_liters": "Usa Litri (L/100 miglia) al posto di MPG. Applicabile solo se la tua auto riporta i dati in miglia (Sistema di misura Imperiale)."
         }
       }
     }
@@ -48,7 +48,7 @@
         "name": "Odometro"
       },
       "fuel_level": {
-        "name": "Livello Carbutante"
+        "name": "Livello Carburante"
       },
       "fuel_range": {
         "name": "Percorrenza con Carburante"
@@ -69,24 +69,24 @@
         "name": "Statistiche di oggi"
       },
       "current_week_statistics": {
-        "name": "Statistiche corrente settimana"
+        "name": "Statistiche settimana corrente"
       },
       "current_month_statistics": {
-        "name": "Statistiche corrente mese"
+        "name": "Statistiche mese corrente"
       },
       "current_year_statistics": {
-        "name": "Statistiche corrente anno"
+        "name": "Statistiche anno corrente"
       }
     },
     "binary_sensor": {
       "over_all_status": {
-        "name": "Stato complessico"
+        "name": "Stato complessivo"
       },
       "hood": {
         "name": "Cofano"
       },
       "key_in_car": {
-        "name": "Chiave sull Auto"
+        "name": "Chiave nell Auto"
       },
       "front_defogger": {
         "name": "Sbrinatore frontale"

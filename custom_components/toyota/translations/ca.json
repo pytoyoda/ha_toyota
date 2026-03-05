@@ -59,7 +59,7 @@
       "charging_status": {
         "name": "Estat de càrrega",
         "state": {
-          "chargeComplete": "Càrrega completa",
+          "charge_complete": "Càrrega completa",
           "charging": "Carregant",
           "none": "No connectat",
           "plugged": "Endollat"

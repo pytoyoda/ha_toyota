@@ -68,7 +68,7 @@
       "charging_status": {
         "name": "État de charge",
         "state": {
-          "chargeComplete": "Charge complète",
+          "charge_complete": "Charge complète",
           "charging": "En charge",
           "none": "Non connecté",
           "plugged": "Branché"

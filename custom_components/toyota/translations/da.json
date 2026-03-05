@@ -68,7 +68,7 @@
       "charging_status": {
         "name": "Opladningsstatus",
         "state": {
-          "chargeComplete": "Opladning færdig",
+          "charge_complete": "Opladning færdig",
           "charging": "Oplader",
           "none": "Ikke forbundet",
           "plugged": "Tilsluttet"

@@ -344,6 +344,21 @@ test = ["anyio[trio]", "blockbuster (>=1.5.23)", "coverage[toml] (>=7)", "except
 trio = ["trio (>=0.26.1)"]
 
 [[package]]
+name = "anysqlite"
+version = "0.0.5"
+description = ""
+optional = false
+python-versions = ">=3.8"
+groups = ["main"]
+files = [
+    {file = "anysqlite-0.0.5-py3-none-any.whl", hash = "sha256:cb345dc4f76f6b37f768d7a0b3e9cf5c700dfcb7a6356af8ab46a11f666edbe7"},
+    {file = "anysqlite-0.0.5.tar.gz", hash = "sha256:9dfcf87baf6b93426ad1d9118088c41dbf24ef01b445eea4a5d486bac2755cce"},
+]
+
+[package.dependencies]
+anyio = ">3.4.0"
+
+[[package]]
 name = "arrow"
 version = "1.4.0"
 description = "Better dates & times for Python"
@@ -1686,6 +1701,9 @@ files = [
 ]
 
 [package.dependencies]
+anyio = {version = ">=4.9.0", optional = true, markers = "extra == \"httpx\""}
+anysqlite = {version = ">=0.0.5", optional = true, markers = "extra == \"httpx\""}
+httpx = {version = ">=0.28.1", optional = true, markers = "extra == \"httpx\""}
 msgpack = ">=1.1.2"
 typing-extensions = ">=4.14.1"
 
@@ -3878,19 +3896,19 @@ unidecode = ["Unidecode (>=1.1.1)"]
 
 [[package]]
 name = "pytoyoda"
-version = "4.3.0"
+version = "4.3.1"
 description = "Python client for Toyota Connected Services Europe."
 optional = false
-python-versions = "<4.0,>=3.9"
+python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "pytoyoda-4.3.0-py3-none-any.whl", hash = "sha256:23ecdeaa9b8ae7061340e3ea8675c49476c1ae5dcb1e7d38d5cb9c0d0379db1d"},
-    {file = "pytoyoda-4.3.0.tar.gz", hash = "sha256:ff9f4d8f860abc71adaf06305efc38570e340b93e42bebfc2629ab43e23facdd"},
+    {file = "pytoyoda-4.3.1-py3-none-any.whl", hash = "sha256:d6ff24623409d6b1c7a9147b05ffee62aaa30839792c28f72e66f26ffee01ed3"},
+    {file = "pytoyoda-4.3.1.tar.gz", hash = "sha256:110d47d208c17668aa708e64223786b31ad7b107c7bb37dd7b29dc3324935639"},
 ]
 
 [package.dependencies]
 arrow = ">=1.1,<2.0"
-hishel = ">=1.0.0,<2.0.0"
+hishel = {version = ">=1.1.0,<2.0.0", extras = ["httpx"]}
 httpx = ">=0.28.1,<0.29.0"
 importlib-metadata = ">=8.0.0,<9.0.0"
 langcodes = ">=3.1,<4.0"

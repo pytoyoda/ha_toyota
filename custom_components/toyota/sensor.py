@@ -19,6 +19,7 @@ from homeassistant.helpers.entity import EntityCategory
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
 from .utils import (
+    charging_status_key,
     format_statistics_attributes,
     format_vin_sensor_attributes,
     round_number,
@@ -41,9 +42,9 @@ _LOGGER = logging.getLogger(__name__)
 
 
 def get_vehicle_capability(
-    vehicle: Vehicle,
-    capability_name: str,
-    default: bool = False,  # noqa: FBT001, FBT002
+        vehicle: Vehicle,
+        capability_name: str,
+        default: bool = False,  # noqa: FBT001, FBT002
 ) -> bool:
     """Safely retrieve a vehicle capability with a default fallback.
 
@@ -190,10 +191,10 @@ CHARGING_STATUS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     translation_key="charging_status",
     icon="mdi:ev-station",
     device_class=SensorDeviceClass.ENUM,
-    options=["chargeComplete", "charging", "none", "plugged"],
+    options=["charge_complete", "charging", "none", "plugged"],
     value_fn=lambda vehicle: None
     if vehicle.dashboard is None
-    else (vehicle.dashboard.charging_status),
+    else charging_status_key(vehicle.dashboard.charging_status),
     attributes_fn=lambda vehicle: None
     if vehicle.dashboard is None
     else {
@@ -206,9 +207,11 @@ CHARGING_STATUS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
             if vehicle.dashboard.remaining_charge_time is not None
             else {}
         ),
-        "has_charging_schedule": vehicle.electric_status.has_active_charging_schedule
-        if hasattr(vehicle.electric_status, "has_active_charging_schedule")
-        else None,
+        "has_charging_schedule":
+            vehicle.electric_status.has_active_charging_schedule
+            if hasattr(vehicle.electric_status, "has_active_charging_schedule")
+               and vehicle.electric_status.has_active_charging_schedule
+            else None,
         **(
             {
                 "scheduled_charging_start": (
@@ -224,7 +227,7 @@ CHARGING_STATUS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
                 ),
             }
             if hasattr(vehicle.electric_status, "has_active_charging_schedule")
-            and vehicle.electric_status.has_active_charging_schedule is not None
+               and vehicle.electric_status.has_active_charging_schedule
             else {}
         ),
     },
@@ -316,8 +319,8 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
         {
             "description": FUEL_LEVEL_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
-                get_vehicle_capability(v, "fuel_level_available")
-                and v.type != "electric"
+                    get_vehicle_capability(v, "fuel_level_available")
+                    and v.type != "electric"
             ),
             "native_unit": PERCENTAGE,
             "suggested_unit": None,
@@ -325,8 +328,8 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
         {
             "description": FUEL_RANGE_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
-                get_vehicle_capability(v, "fuel_range_available")
-                and v.type != "electric"
+                    get_vehicle_capability(v, "fuel_range_available")
+                    and v.type != "electric"
             ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
@@ -334,8 +337,8 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
         {
             "description": BATTERY_LEVEL_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
-                get_vehicle_capability(v, "econnect_vehicle_status_capable")
-                or v.type == "electric"
+                    get_vehicle_capability(v, "econnect_vehicle_status_capable")
+                    or v.type == "electric"
             ),
             "native_unit": PERCENTAGE,
             "suggested_unit": None,
@@ -343,8 +346,8 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
         {
             "description": BATTERY_RANGE_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
-                get_vehicle_capability(v, "econnect_vehicle_status_capable")
-                or v.type == "electric"
+                    get_vehicle_capability(v, "econnect_vehicle_status_capable")
+                    or v.type == "electric"
             ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
@@ -352,8 +355,8 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
         {
             "description": BATTERY_RANGE_AC_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
-                get_vehicle_capability(v, "econnect_vehicle_status_capable")
-                or v.type == "electric"
+                    get_vehicle_capability(v, "econnect_vehicle_status_capable")
+                    or v.type == "electric"
             ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
@@ -361,9 +364,9 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
         {
             "description": TOTAL_RANGE_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
-                get_vehicle_capability(v, "econnect_vehicle_status_capable")
-                and get_vehicle_capability(v, "fuel_range_available")
-                and v.type != "electric"
+                    get_vehicle_capability(v, "econnect_vehicle_status_capable")
+                    and get_vehicle_capability(v, "fuel_range_available")
+                    and v.type != "electric"
             ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
@@ -373,7 +376,7 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "capability_check": lambda v: get_vehicle_capability(
                 v, "econnect_vehicle_status_capable"
             )
-            or v.type == "electric",
+                                          or v.type == "electric",
             "native_unit": None,
             "suggested_unit": None,
         },
@@ -382,7 +385,7 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "capability_check": lambda v: get_vehicle_capability(
                 v, "econnect_vehicle_status_capable"
             )
-            or v.type == "electric",
+                                          or v.type == "electric",
             "native_unit": "min",
             "suggested_unit": "min",
         },
@@ -419,13 +422,13 @@ class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
     vehicle: Vehicle
 
     def __init__(  # noqa: PLR0913
-        self,
-        coordinator: DataUpdateCoordinator[list[VehicleData]],
-        entry_id: str,
-        vehicle_index: int,
-        description: ToyotaSensorEntityDescription,
-        native_unit: UnitOfLength | str,
-        suggested_unit: UnitOfLength | str,
+            self,
+            coordinator: DataUpdateCoordinator[list[VehicleData]],
+            entry_id: str,
+            vehicle_index: int,
+            description: ToyotaSensorEntityDescription,
+            native_unit: UnitOfLength | str,
+            suggested_unit: UnitOfLength | str,
     ) -> None:
         """Initialise the ToyotaSensor class."""
         super().__init__(coordinator, entry_id, vehicle_index, description)
@@ -450,13 +453,13 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
     statistics: StatisticsData
 
     def __init__(  # noqa: PLR0913
-        self,
-        coordinator: DataUpdateCoordinator[list[VehicleData]],
-        entry_id: str,
-        vehicle_index: int,
-        description: ToyotaStatisticsSensorEntityDescription,
-        native_unit: UnitOfLength | str,
-        suggested_unit: UnitOfLength | str,
+            self,
+            coordinator: DataUpdateCoordinator[list[VehicleData]],
+            entry_id: str,
+            vehicle_index: int,
+            description: ToyotaStatisticsSensorEntityDescription,
+            native_unit: UnitOfLength | str,
+            suggested_unit: UnitOfLength | str,
     ) -> None:
         """Initialise the ToyotaStatisticsSensor class."""
         super().__init__(coordinator, entry_id, vehicle_index, description)
@@ -482,9 +485,9 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
 
 
 async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_devices: AddEntitiesCallback,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        async_add_devices: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
     coordinator: DataUpdateCoordinator[list[VehicleData]] = hass.data[DOMAIN][

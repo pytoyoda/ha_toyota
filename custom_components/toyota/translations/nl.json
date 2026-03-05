@@ -59,7 +59,7 @@
       "charging_status": {
         "name": "Laadstatus",
         "state": {
-          "chargeComplete": "Laden voltooid",
+          "charge_complete": "Laden voltooid",
           "charging": "Laden",
           "none": "Niet verbonden",
           "plugged": "Aangesloten"

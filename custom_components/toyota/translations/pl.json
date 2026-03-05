@@ -68,7 +68,7 @@
       "charging_status": {
         "name": "Stan ładowania",
         "state": {
-          "chargeComplete": "Ładowanie zakończone",
+          "charge_complete": "Ładowanie zakończone",
           "charging": "Ładowanie",
           "none": "Niepodłączony",
           "plugged": "Podłączony"

@@ -210,7 +210,7 @@ CHARGING_STATUS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
                 if vehicle.dashboard.remaining_charge_time is not None
                 else {}
             ),
-            "has_charging_schedule": vehicle.electric_status.has_active_charging_schedule # noqa : E501
+            "has_charging_schedule": vehicle.electric_status.has_active_charging_schedule  # noqa : E501
             if hasattr(vehicle.electric_status, "has_active_charging_schedule")
             and vehicle.electric_status.has_active_charging_schedule
             else None,

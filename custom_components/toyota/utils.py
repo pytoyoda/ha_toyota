@@ -139,9 +139,9 @@ def format_statistics_attributes(
 
     return attr
 
+
 def charging_status_key(status: str) -> str:
     """Convert a charging status to a valid key."""
     if status == "chargeComplete":
-         return"charge_complete"
-    else:
-        return status
+        return "charge_complete"
+    return status

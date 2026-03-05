@@ -3,7 +3,12 @@
 from homeassistant.const import Platform
 
 # PLATFORMS SUPPORTED
-PLATFORMS = [Platform.BINARY_SENSOR, Platform.DEVICE_TRACKER, Platform.SENSOR]
+PLATFORMS = [
+    Platform.BINARY_SENSOR,
+    Platform.DEVICE_TRACKER,
+    Platform.SENSOR,
+    Platform.CLIMATE,
+]
 
 # INTEGRATION ATTRIBUTES
 DOMAIN = "toyota"

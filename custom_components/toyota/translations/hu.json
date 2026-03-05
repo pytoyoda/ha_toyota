@@ -65,6 +65,35 @@
       "total_range": {
         "name": "Teljes hatótávolság"
       },
+      "charging_status": {
+        "name": "Töltési állapot",
+        "state": {
+          "chargeComplete": "Töltés kész",
+          "charging": "Töltés",
+          "none": "Nincs csatlakoztatva",
+          "plugged": "Csatlakoztatva"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Perc a teljes töltésig"
+          },
+          "has_charging_schedule": {
+            "name": "Van töltési ütemezés"
+          },
+          "scheduled_charging_start": {
+            "name": "Ütemezett töltés kezdete"
+          },
+          "scheduled_charging_end": {
+            "name": "Ütemezett töltés vége"
+          },
+          "scheduled_charging_duration": {
+            "name": "Ütemezett töltés időtartama"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Hátralévő töltési idő"
+      },
       "current_day_statistics": {
         "name": "Mai napi statisztika"
       },

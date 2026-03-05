@@ -56,6 +56,35 @@
       "total_range": {
         "name": "Total range"
       },
+      "charging_status": {
+        "name": "Laadstatus",
+        "state": {
+          "chargeComplete": "Laden voltooid",
+          "charging": "Laden",
+          "none": "Niet verbonden",
+          "plugged": "Aangesloten"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuten tot vol"
+          },
+          "has_charging_schedule": {
+            "name": "Heeft laadplanning"
+          },
+          "scheduled_charging_start": {
+            "name": "Geplande laadstart"
+          },
+          "scheduled_charging_end": {
+            "name": "Geplande laad-einde"
+          },
+          "scheduled_charging_duration": {
+            "name": "Duur van geplande lading"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Resterende laadtijd"
+      },
       "current_day_statistics": {
         "name": "Current day statistics"
       },

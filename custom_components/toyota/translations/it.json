@@ -65,6 +65,35 @@
       "total_range": {
         "name": "Percorrenza Totale"
       },
+      "charging_status": {
+        "name": "Stato di carica",
+        "state": {
+          "chargeComplete": "Carica completa",
+          "charging": "In carica",
+          "none": "Non collegato",
+          "plugged": "Collegato"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuti al completamento"
+          },
+          "has_charging_schedule": {
+            "name": "Ha orario di ricarica"
+          },
+          "scheduled_charging_start": {
+            "name": "Inizio ricarica programmata"
+          },
+          "scheduled_charging_end": {
+            "name": "Fine ricarica programmata"
+          },
+          "scheduled_charging_duration": {
+            "name": "Durata ricarica programmata"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Tempo di ricarica rimanente"
+      },
       "current_day_statistics": {
         "name": "Statistiche di oggi"
       },

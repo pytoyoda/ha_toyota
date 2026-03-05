@@ -65,6 +65,35 @@
       "total_range": {
         "name": "Total range"
       },
+      "charging_status": {
+        "name": "Ladestatus",
+        "state": {
+          "chargeComplete": "Lading fullført",
+          "charging": "Lader",
+          "none": "Ikke tilkoblet",
+          "plugged": "Tilkoblet"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutter til fullt"
+          },
+          "has_charging_schedule": {
+            "name": "Har ladeplan"
+          },
+          "scheduled_charging_start": {
+            "name": "Planlagt start for lading"
+          },
+          "scheduled_charging_end": {
+            "name": "Planlagt slutt for lading"
+          },
+          "scheduled_charging_duration": {
+            "name": "Varighet av planlagt lading"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Gjenværende ladetid"
+      },
       "current_day_statistics": {
         "name": "Current day statistics"
       },

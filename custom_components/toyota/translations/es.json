@@ -56,6 +56,35 @@
       "total_range": {
         "name": "Total range"
       },
+      "charging_status": {
+        "name": "Estado de carga",
+        "state": {
+          "chargeComplete": "Carga completa",
+          "charging": "Cargando",
+          "none": "No conectado",
+          "plugged": "Enchufado"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutos hasta cargado"
+          },
+          "has_charging_schedule": {
+            "name": "Tiene horario de carga"
+          },
+          "scheduled_charging_start": {
+            "name": "Inicio de carga programada"
+          },
+          "scheduled_charging_end": {
+            "name": "Fin de carga programada"
+          },
+          "scheduled_charging_duration": {
+            "name": "Duración de la carga programada"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Tiempo de carga restante"
+      },
       "current_day_statistics": {
         "name": "Estadísticas de hoy"
       },

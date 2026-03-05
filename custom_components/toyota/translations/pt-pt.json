@@ -65,6 +65,35 @@
       "total_range": {
         "name": "Autonomia total"
       },
+      "charging_status": {
+        "name": "Estado de carregamento",
+        "state": {
+          "chargeComplete": "Carregamento concluído",
+          "charging": "A carregar",
+          "none": "Não ligado",
+          "plugged": "Ligado"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutos até cheio"
+          },
+          "has_charging_schedule": {
+            "name": "Tem hora de carregamento"
+          },
+          "scheduled_charging_start": {
+            "name": "Início do carregamento agendado"
+          },
+          "scheduled_charging_end": {
+            "name": "Fim do carregamento agendado"
+          },
+          "scheduled_charging_duration": {
+            "name": "Duração do carregamento agendado"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Tempo de carregamento restante"
+      },
       "current_day_statistics": {
         "name": "Current day statistics"
       },

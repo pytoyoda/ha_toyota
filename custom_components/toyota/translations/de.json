@@ -65,6 +65,35 @@
       "total_range": {
         "name": "Gesamtreichweite"
       },
+      "charging_status": {
+        "name": "Ladezustand",
+        "state": {
+          "chargeComplete": "Ladevorgang abgeschlossen",
+          "charging": "Lädt",
+          "none": "Nicht verbunden",
+          "plugged": "Eingesteckt"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuten bis voll"
+          },
+          "has_charging_schedule": {
+            "name": "Ladeplan aktiv"
+          },
+          "scheduled_charging_start": {
+            "name": "Geplanter Ladebeginn"
+          },
+          "scheduled_charging_end": {
+            "name": "Geplantes Ladeende"
+          },
+          "scheduled_charging_duration": {
+            "name": "Geplante Ladedauer"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Verbleibende Ladezeit"
+      },
       "current_day_statistics": {
         "name": "Aktuelle Tagesstatistiken"
       },

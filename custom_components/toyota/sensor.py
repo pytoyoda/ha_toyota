@@ -22,6 +22,7 @@ from .utils import (
     format_statistics_attributes,
     format_vin_sensor_attributes,
     round_number,
+    td_to_hoursminutes,
 )
 
 if TYPE_CHECKING:
@@ -184,6 +185,62 @@ TOTAL_RANGE_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     suggested_display_precision=0,
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
+CHARGING_STATUS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
+    key="charging_status",
+    translation_key="charging_status",
+    icon="mdi:ev-station",
+    device_class=SensorDeviceClass.ENUM,
+    options=["chargeComplete", "charging", "none", "plugged"],
+    value_fn=lambda vehicle: None
+    if vehicle.dashboard is None
+    else (vehicle.dashboard.charging_status),
+    attributes_fn=lambda vehicle: None
+    if vehicle.dashboard is None
+    else {
+        **(
+            {
+                "remaining_minutes": int(
+                    vehicle.dashboard.remaining_charge_time.total_seconds() // 60
+                )
+            }
+            if vehicle.dashboard.remaining_charge_time is not None
+            else {}
+        ),
+        "has_charging_schedule": vehicle.electric_status.has_active_charging_schedule
+        if hasattr(vehicle.electric_status, "has_active_charging_schedule")
+        else None,
+        **(
+            {
+                "scheduled_charging_start": (
+                    vehicle.electric_status.active_scheduled_charging.start
+                ),
+                "scheduled_charging_end": (
+                    vehicle.electric_status.active_scheduled_charging.end
+                ),
+                "scheduled_charging_duration": None
+                if vehicle.electric_status.active_scheduled_charging.duration is None
+                else td_to_hoursminutes(
+                    vehicle.electric_status.active_scheduled_charging.duration
+                ),
+            }
+            if hasattr(vehicle.electric_status, "has_active_charging_schedule")
+            and vehicle.electric_status.has_active_charging_schedule is not None
+            else {}
+        ),
+    },
+)
+REMAINING_CHARGE_TIME_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
+    key="remaining_charge_time",
+    translation_key="remaining_charge_time",
+    icon="mdi:battery-clock",
+    device_class=SensorDeviceClass.DURATION,
+    state_class=SensorStateClass.MEASUREMENT,
+    suggested_display_precision=0,
+    value_fn=lambda vehicle: None
+    if (vehicle.dashboard is None or vehicle.dashboard.remaining_charge_time is None)
+    else (vehicle.dashboard.remaining_charge_time.total_seconds() // 60),
+    attributes_fn=lambda vehicle: None,  # noqa : ARG005
+)
 
 STATISTICS_ENTITY_DESCRIPTIONS_DAILY = ToyotaStatisticsSensorEntityDescription(
     key="current_day_statistics",
@@ -310,6 +367,24 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
+        },
+        {
+            "description": CHARGING_STATUS_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: get_vehicle_capability(
+                v, "econnect_vehicle_status_capable"
+            )
+            or v.type == "electric",
+            "native_unit": None,
+            "suggested_unit": None,
+        },
+        {
+            "description": REMAINING_CHARGE_TIME_ENTITY_DESCRIPTION,
+            "capability_check": lambda v: get_vehicle_capability(
+                v, "econnect_vehicle_status_capable"
+            )
+            or v.type == "electric",
+            "native_unit": "min",
+            "suggested_unit": "min",
         },
         {
             "description": STATISTICS_ENTITY_DESCRIPTIONS_DAILY,

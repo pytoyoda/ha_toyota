@@ -65,6 +65,35 @@
       "total_range": {
         "name": "Celkový dojezd"
       },
+      "charging_status": {
+        "name": "Stav nabíjení",
+        "state": {
+          "chargeComplete": "Nabíjení dokončeno",
+          "charging": "Nabíjení",
+          "none": "Nepřipojeno",
+          "plugged": "Připojeno"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minut do plného nabití"
+          },
+          "has_charging_schedule": {
+            "name": "Má plán nabíjení"
+          },
+          "scheduled_charging_start": {
+            "name": "Plánovaný začátek nabíjení"
+          },
+          "scheduled_charging_end": {
+            "name": "Plánovaný konec nabíjení"
+          },
+          "scheduled_charging_duration": {
+            "name": "Doba trvání plánovaného nabíjení"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Zbývající doba nabíjení"
+      },
       "current_day_statistics": {
         "name": "Statistiky aktuálního dne"
       },

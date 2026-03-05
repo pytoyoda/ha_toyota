@@ -2,8 +2,10 @@
 
 # pylint: disable=W0212, W0511
 
+import asyncio
 import logging
 from collections.abc import Mapping
+from functools import partial
 from typing import Any
 
 import voluptuous as vol
@@ -59,17 +61,29 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
                 "Testing login for %s (brand code: %s)", self._brand, brand_code
             )
 
-            client = MyT(
-                username=user_input[CONF_EMAIL],
-                password=user_input[CONF_PASSWORD],
-                brand=brand_code,  # Pass brand code to API client
+            # Create client in executor to avoid blocking SSL operations
+            client = await self.hass.async_add_executor_job(
+                partial(
+                    MyT,
+                    username=user_input[CONF_EMAIL],
+                    password=user_input[CONF_PASSWORD],
+                    brand=brand_code,
+                )
             )
 
             await self.async_set_unique_id(unique_id)
             if not self._reauth_entry:
                 self._abort_if_unique_id_configured()
             try:
-                await client.login()
+                # Run login in executor with new event loop
+                def _sync_login() -> None:
+                    loop = asyncio.new_event_loop()
+                    try:
+                        return loop.run_until_complete(client.login())
+                    finally:
+                        loop.close()
+
+                await self.hass.async_add_executor_job(_sync_login)
             except ToyotaLoginError:
                 errors["base"] = "invalid_auth"
                 _LOGGER.exception("Toyota login error: Invalid auth")
@@ -82,7 +96,7 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
             else:
                 if not self._reauth_entry:
                     entry_title = (
-                        f"{BRAND_OPTIONS[self._brand]} - {user_input[CONF_EMAIL]}",
+                        f"{BRAND_OPTIONS[self._brand]} - {user_input[CONF_EMAIL]}"
                     )
                     return self.async_create_entry(
                         title=entry_title,

@@ -7,8 +7,10 @@ from __future__ import annotations
 import asyncio
 import asyncio.exceptions as asyncioexceptions
 import logging
+import os
 from datetime import timedelta
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import httpcore
@@ -120,13 +122,18 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     try:
 
         def _sync_login() -> Any:  # noqa: ANN401
-            loop = asyncio.new_event_loop()
-            result = None
+            config_dir = hass.config.config_dir
+            (Path(config_dir) / ".cache" / "hishel").mkdir(parents=True, exist_ok=True)
+            old_cwd = Path.cwd()
             try:
-                result = loop.run_until_complete(client.login())
+                os.chdir(config_dir)
+                loop = asyncio.new_event_loop()
+                try:
+                    return loop.run_until_complete(client.login())
+                finally:
+                    loop.close()
             finally:
-                loop.close()
-            return result
+                os.chdir(old_cwd)
 
         await hass.async_add_executor_job(_sync_login)
     except ToyotaLoginError as ex:

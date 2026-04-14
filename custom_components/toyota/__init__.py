@@ -7,8 +7,10 @@ from __future__ import annotations
 import asyncio
 import asyncio.exceptions as asyncioexceptions
 import logging
+import os
 from datetime import timedelta
 from functools import partial
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, TypedDict
 
 import httpcore
@@ -77,13 +79,19 @@ class VehicleData(TypedDict):
     metric_values: bool
 
 
-def _run_pytoyoda_sync(coro: Coroutine) -> Any:  # noqa : ANN401
-    """Run a pytoyoda coroutine in a new event loop."""
-    loop = asyncio.new_event_loop()
+def _run_pytoyoda_sync(coro: Coroutine, config_dir: str) -> Any:  # noqa: ANN401
+    """Run a pytoyoda coroutine in a new event loop with a writable cwd for hishel."""
+    (Path(config_dir) / ".cache" / "hishel").mkdir(parents=True, exist_ok=True)
+    old_cwd = Path.cwd()
     try:
-        return loop.run_until_complete(coro)
+        os.chdir(config_dir)
+        loop = asyncio.new_event_loop()
+        try:
+            return loop.run_until_complete(coro)
+        finally:
+            loop.close()
     finally:
-        loop.close()
+        os.chdir(old_cwd)
 
 
 async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0915, C901
@@ -117,18 +125,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         )
     )
 
+    run_sync = partial(_run_pytoyoda_sync, config_dir=hass.config.config_dir)
+
     try:
-
-        def _sync_login() -> Any:  # noqa: ANN401
-            loop = asyncio.new_event_loop()
-            result = None
-            try:
-                result = loop.run_until_complete(client.login())
-            finally:
-                loop.close()
-            return result
-
-        await hass.async_add_executor_job(_sync_login)
+        await hass.async_add_executor_job(run_sync, client.login())
     except ToyotaLoginError as ex:
         raise ConfigEntryAuthFailed(ex) from ex
     except (httpx.ConnectTimeout, httpcore.ConnectTimeout) as ex:
@@ -139,16 +139,14 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         """Fetch vehicle data from Toyota API."""
         try:
             vehicles = await asyncio.wait_for(
-                hass.async_add_executor_job(_run_pytoyoda_sync, client.get_vehicles()),
+                hass.async_add_executor_job(run_sync, client.get_vehicles()),
                 15,
             )
             vehicle_informations: list[VehicleData] = []
             if vehicles:
                 for vehicle in vehicles:
                     if vehicle:
-                        await hass.async_add_executor_job(
-                            _run_pytoyoda_sync, vehicle.update()
-                        )
+                        await hass.async_add_executor_job(run_sync, vehicle.update())
                         vehicle_data = VehicleData(
                             data=vehicle, statistics=None, metric_values=metric_values
                         )
@@ -157,19 +155,19 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                             # Use parallel request to get car statistics.
                             driving_statistics = await asyncio.gather(
                                 hass.async_add_executor_job(
-                                    _run_pytoyoda_sync,
+                                    run_sync,
                                     vehicle.get_current_day_summary(),
                                 ),
                                 hass.async_add_executor_job(
-                                    _run_pytoyoda_sync,
+                                    run_sync,
                                     vehicle.get_current_week_summary(),
                                 ),
                                 hass.async_add_executor_job(
-                                    _run_pytoyoda_sync,
+                                    run_sync,
                                     vehicle.get_current_month_summary(),
                                 ),
                                 hass.async_add_executor_job(
-                                    _run_pytoyoda_sync,
+                                    run_sync,
                                     vehicle.get_current_year_summary(),
                                 ),
                             )

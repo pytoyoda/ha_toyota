@@ -2,8 +2,12 @@
 
 # pylint: disable=W0212, W0511
 
+import asyncio
 import logging
-from collections.abc import Mapping
+import os
+from collections.abc import Generator, Mapping
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
@@ -28,6 +32,18 @@ BRAND_API_MAP = {
     "toyota": "T",
     "lexus": "L",
 }
+
+
+@contextmanager
+def _writable_cwd(path: str) -> Generator[None]:
+    """Temporarily change cwd so pytoyoda/hishel can create its cache."""
+    (Path(path) / ".cache" / "hishel").mkdir(parents=True, exist_ok=True)
+    old_cwd = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(old_cwd)
 
 
 class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: disable=W0223
@@ -68,8 +84,14 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
             await self.async_set_unique_id(unique_id)
             if not self._reauth_entry:
                 self._abort_if_unique_id_configured()
+            config_dir = self.hass.config.config_dir
+
+            def _login() -> None:
+                with _writable_cwd(config_dir):
+                    asyncio.run(client.login())
+
             try:
-                await client.login()
+                await self.hass.async_add_executor_job(_login)
             except ToyotaLoginError:
                 errors["base"] = "invalid_auth"
                 _LOGGER.exception("Toyota login error: Invalid auth")

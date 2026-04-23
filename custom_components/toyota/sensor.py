@@ -455,6 +455,65 @@ class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
         return self.description.attributes_fn(self.vehicle)
 
 
+LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="last_successful_fetch",
+    name="Last successful fetch",
+    icon="mdi:clock-check-outline",
+    device_class=SensorDeviceClass.TIMESTAMP,
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+LAST_ERROR_TIME_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="last_error_time",
+    name="Last error",
+    icon="mdi:clock-alert-outline",
+    device_class=SensorDeviceClass.TIMESTAMP,
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+LAST_ERROR_CODE_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="last_error_code",
+    name="Last error code",
+    icon="mdi:alert-outline",
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+
+
+class ToyotaCoordinatorStateSensor(ToyotaBaseEntity, SensorEntity):
+    """Sensor whose value comes from a key on VehicleData rather than
+    from the Vehicle object. Used for the three observability sensors
+    (last_successful_fetch, last_error_time, last_error_code) that
+    describe the fetch itself, not the vehicle's state."""
+
+    # ToyotaBaseEntity sets _attr_has_entity_name = True. With that, HA
+    # expects translation_key to resolve the per-entity name component,
+    # and without it entity_id collapses to just the device slug
+    # (sensor.rav4, sensor.rav4_2, etc). We opt out for these diagnostic
+    # sensors so _attr_name acts as the full entity name, and entity_id
+    # is the slug of "<vehicle alias> <sensor name>".
+    _attr_has_entity_name = False
+
+    def __init__(
+        self,
+        coordinator: DataUpdateCoordinator[list[VehicleData]],
+        entry_id: str,
+        vehicle_index: int,
+        description: SensorEntityDescription,
+    ) -> None:
+        """Initialise the coordinator-state sensor."""
+        super().__init__(coordinator, entry_id, vehicle_index, description)
+        alias = self.vehicle.alias or self.vehicle.vin or "Toyota"
+        self._attr_name = f"{alias} {description.name}"
+
+    @property
+    def native_value(self) -> StateType:
+        """Return the value for this sensor from the coordinator data dict."""
+        try:
+            return self.coordinator.data[self.index].get(
+                self.entity_description.key
+            )
+        except (IndexError, KeyError, TypeError):
+            return None
+
+
 class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
     """Representation of a Toyota statistics sensor."""
 
@@ -537,5 +596,21 @@ async def async_setup_entry(
             if config["description"].key.startswith("current_")
             and config["capability_check"](vehicle)
         )
+
+        # Add coordinator-state observability sensors (always on, not
+        # gated by CONF_RETAIN_ON_TRANSIENT_FAILURE; they are read-only).
+        for desc in (
+            LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION,
+            LAST_ERROR_TIME_ENTITY_DESCRIPTION,
+            LAST_ERROR_CODE_ENTITY_DESCRIPTION,
+        ):
+            sensors.append(
+                ToyotaCoordinatorStateSensor(
+                    coordinator=coordinator,
+                    entry_id=entry.entry_id,
+                    vehicle_index=index,
+                    description=desc,
+                )
+            )
 
     async_add_devices(sensors)

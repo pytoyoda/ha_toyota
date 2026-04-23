@@ -19,6 +19,11 @@ ISSUES_URL = "https://github.com/pytoyoda/ha_toyota/issues"
 CONF_BRAND = "Brand"
 CONF_BRAND_MAPPING = {"T": "Toyota", "L": "Lexus"}
 CONF_METRIC_VALUES = "use_metric_values"
+# When True, per-vehicle cached data is returned on transient coordinator
+# failures (Toyota 429, connection timeouts, read timeouts) instead of
+# flipping entities to unavailable. Off by default for backward compatibility.
+CONF_RETAIN_ON_TRANSIENT_FAILURE = "retain_on_transient_failure"
+DEFAULT_RETAIN_ON_TRANSIENT_FAILURE = False
 
 # DEFAULTS
 DEFAULT_LOCALE = "en-gb"

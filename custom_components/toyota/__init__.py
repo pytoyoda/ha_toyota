@@ -204,21 +204,40 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             is_cached=True,
         )
 
+    async def _call_tagged(endpoint_name: str, vin: str | None, coro):
+        """Await a pytoyoda call, tagging any exception with the endpoint
+        name. Lets us see per-endpoint 429 distribution in HA's log:
+        \"Toyota 429 on week_summary for vin=...012600\". Needed to
+        interpret the inter-call spacing sweep - if one endpoint 429s
+        disproportionately, spacing alone won't fix it and we pivot."""
+        try:
+            return await coro
+        except BaseException as ex:
+            code = _error_code(ex)
+            vin_tail = f"...{vin[-6:]}" if vin else "<no-vin>"
+            _LOGGER.warning(
+                "Toyota %s on %s for vin=%s", code, endpoint_name, vin_tail
+            )
+            raise
+
     async def _refresh_one_vehicle(vehicle: Vehicle) -> VehicleData:
         """Fetch one vehicle's full data. Does NOT catch exceptions; caller
-        decides retain-vs-propagate policy based on config toggle."""
-        await vehicle.update()
+        decides retain-vs-propagate policy based on config toggle. Each
+        pytoyoda call is tagged via _call_tagged so per-endpoint failure
+        distribution is visible in the log."""
+        vin = vehicle.vin
+        await _call_tagged("vehicle.update", vin, vehicle.update())
         statistics: StatisticsData | None = None
-        if vehicle.vin is not None:
+        if vin is not None:
             # Serialised to avoid Toyota burst rate-limit. Firing these four
             # summary calls in an asyncio.gather within the same event-loop
             # tick reliably trips a 429 with {"description": "Unauthorized"}
             # response bodies. See pytoyoda/ha_toyota#282.
             statistics = StatisticsData(
-                day=await vehicle.get_current_day_summary(),
-                week=await vehicle.get_current_week_summary(),
-                month=await vehicle.get_current_month_summary(),
-                year=await vehicle.get_current_year_summary(),
+                day=await _call_tagged("day_summary", vin, vehicle.get_current_day_summary()),
+                week=await _call_tagged("week_summary", vin, vehicle.get_current_week_summary()),
+                month=await _call_tagged("month_summary", vin, vehicle.get_current_month_summary()),
+                year=await _call_tagged("year_summary", vin, vehicle.get_current_year_summary()),
             )
         now = dt_util.now()
         # NB: do NOT update last_fetch_time_per_vin here. We need commit

@@ -148,9 +148,25 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     retain_on_transient: bool = entry.options.get(
         CONF_RETAIN_ON_TRANSIENT_FAILURE, DEFAULT_RETAIN_ON_TRANSIENT_FAILURE
     )
-    last_good_per_vin: dict[str, VehicleData] = {}
-    last_fetch_time_per_vin: dict[str, datetime] = {}
-    last_error_per_vin: dict[str, tuple[datetime, str]] = {}
+    # Persist per-VIN state in hass.data so it survives config entry reload
+    # (options flow triggers a reload, which would otherwise recreate these as
+    # empty and wipe both the retain cache and the diag sensor history). Scoped
+    # per entry_id so multiple Toyota accounts don't collide. Also unblocks the
+    # setup path when the account is actively rate-limited: a fresh reload with
+    # retain=OFF and no cache would loop in setup_retry forever, but with cache
+    # preserved the retain=ON stub path (or the retained fleet) gets us through
+    # first_refresh even under 429 pressure.
+    diag_bucket = hass.data[DOMAIN].setdefault(
+        f"{entry.entry_id}_diag",
+        {
+            "last_good_per_vin": {},
+            "last_fetch_time_per_vin": {},
+            "last_error_per_vin": {},
+        },
+    )
+    last_good_per_vin: dict[str, VehicleData] = diag_bucket["last_good_per_vin"]
+    last_fetch_time_per_vin: dict[str, datetime] = diag_bucket["last_fetch_time_per_vin"]
+    last_error_per_vin: dict[str, tuple[datetime, str]] = diag_bucket["last_error_per_vin"]
 
     def _error_code(exc: BaseException) -> str:
         """Derive a short error-code string for the last_error sensor."""
@@ -205,8 +221,13 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                 year=await vehicle.get_current_year_summary(),
             )
         now = dt_util.now()
-        if vehicle.vin is not None:
-            last_fetch_time_per_vin[vehicle.vin] = now
+        # NB: do NOT update last_fetch_time_per_vin here. We need commit
+        # semantics matching coordinator.data: if a later vehicle in the loop
+        # fails and we raise UpdateFailed, this vehicle's data is not visible
+        # to sensors - so its fetch timestamp must also not be visible, or
+        # users see the inconsistent "entity unavailable AND last fetch
+        # 3 minutes ago" state. The caller updates last_fetch_time_per_vin
+        # only after the whole refresh has committed.
         err = last_error_per_vin.get(vehicle.vin) if vehicle.vin else None
         return VehicleData(
             data=vehicle,
@@ -285,13 +306,18 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                     "Toyota refresh failed for vin=...%s (%s)", vin[-6:], code
                 )
                 if retain_on_transient and vin in last_good_per_vin:
+                    # retain=ON + cache available: serve stale cached data.
                     vehicle_informations.append(_build_vehicle_data_from_cache(vin))
-                elif retain_on_transient:
-                    # No cache yet for this vehicle, but we must still emit a
-                    # VehicleData so its entities stay registered and just
-                    # report None state. Skipping would cause IndexError in
-                    # sensor platforms that hold vehicle_index references
-                    # from a previous successful refresh.
+                else:
+                    # retain=OFF OR retain=ON with no cache yet: emit a stub
+                    # VehicleData. The Vehicle object came from get_vehicles()
+                    # so it has identity (vin, alias, device info) but no
+                    # endpoint data because vehicle.update() failed. Data
+                    # sensors read through a ToyotaBaseEntity.available
+                    # override that checks last_successful_fetch, so stubs
+                    # render as unavailable without raising UpdateFailed for
+                    # the whole refresh. Siblings that succeeded this cycle
+                    # keep their fresh data - per-vehicle fault isolation.
                     vehicle_informations.append(
                         VehicleData(
                             data=vehicle,
@@ -303,14 +329,30 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                             is_cached=False,
                         )
                     )
-                # else (retain disabled): skip this vehicle. In this mode the
-                # coordinator will raise UpdateFailed if the rest of the
-                # fleet also fails, matching upstream behaviour.
 
-        if not vehicle_informations:
-            # Whole fleet failed and nothing cached anywhere. Coordinator
-            # handling: UpdateFailed flips entities to unavailable.
+        # If nothing useful to serve (no fresh fetch anywhere, no cache either),
+        # match upstream behaviour: raise UpdateFailed so the coordinator flips
+        # last_update_success=False and all data sensors become unavailable.
+        # Diag sensors stay visible via their own always_available override.
+        any_served = any(
+            vd.get("is_cached") or vd.get("last_successful_fetch") is not None
+            for vd in vehicle_informations
+        )
+        if not any_served:
             raise UpdateFailed("Toyota refresh failed for all vehicles")
+
+        # Commit per-VIN fetch timestamps now that the refresh has survived
+        # all exception paths. This is the only place last_fetch_time_per_vin
+        # is written to keep it consistent with coordinator.data: both are
+        # updated iff the whole refresh succeeds. Cached entries (from the
+        # retain=ON path) carry None last_successful_fetch and are skipped.
+        for vd in vehicle_informations:
+            if vd.get("is_cached"):
+                continue
+            vin = vd["data"].vin if vd.get("data") else None
+            fetched = vd.get("last_successful_fetch")
+            if vin and fetched is not None:
+                last_fetch_time_per_vin[vin] = fetched
 
         _LOGGER.debug(vehicle_informations)
         return vehicle_informations
@@ -323,13 +365,29 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         update_interval=timedelta(seconds=360),
     )
 
+    # Attach the per-VIN diagnostic dicts to the coordinator so sensors can read
+    # them even when coordinator.data is stale after UpdateFailed. The dicts are
+    # updated in the refresh function's exception handlers BEFORE UpdateFailed
+    # fires, so they carry the freshest error/timestamp info irrespective of
+    # the retain_on_transient toggle. Diag sensors bind via
+    # getattr(coordinator, "_diag_last_fetch_per_vin" / "_diag_last_error_per_vin").
+    coordinator._diag_last_fetch_per_vin = last_fetch_time_per_vin  # noqa: SLF001
+    coordinator._diag_last_error_per_vin = last_error_per_vin  # noqa: SLF001
+
     await coordinator.async_config_entry_first_refresh()
 
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
+    entry.async_on_unload(entry.add_update_listener(_async_update_listener))
+
     return True
+
+
+async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload the integration when options change so the new toggle takes effect."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

@@ -457,6 +457,7 @@ class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
 
 LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION = SensorEntityDescription(
     key="last_successful_fetch",
+    translation_key="last_successful_fetch",
     name="Last successful fetch",
     icon="mdi:clock-check-outline",
     device_class=SensorDeviceClass.TIMESTAMP,
@@ -464,6 +465,7 @@ LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION = SensorEntityDescription(
 )
 LAST_ERROR_TIME_ENTITY_DESCRIPTION = SensorEntityDescription(
     key="last_error_time",
+    translation_key="last_error_time",
     name="Last error",
     icon="mdi:clock-alert-outline",
     device_class=SensorDeviceClass.TIMESTAMP,
@@ -471,6 +473,7 @@ LAST_ERROR_TIME_ENTITY_DESCRIPTION = SensorEntityDescription(
 )
 LAST_ERROR_CODE_ENTITY_DESCRIPTION = SensorEntityDescription(
     key="last_error_code",
+    translation_key="last_error_code",
     name="Last error code",
     icon="mdi:alert-outline",
     entity_category=EntityCategory.DIAGNOSTIC,
@@ -478,40 +481,57 @@ LAST_ERROR_CODE_ENTITY_DESCRIPTION = SensorEntityDescription(
 
 
 class ToyotaCoordinatorStateSensor(ToyotaBaseEntity, SensorEntity):
-    """Sensor whose value comes from a key on VehicleData rather than
-    from the Vehicle object. Used for the three observability sensors
-    (last_successful_fetch, last_error_time, last_error_code) that
-    describe the fetch itself, not the vehicle's state."""
+    """Sensor whose value comes from the coordinator's per-VIN diagnostic
+    dicts rather than from coordinator.data. Used for the three observability
+    sensors (last_successful_fetch, last_error_time, last_error_code) that
+    describe the fetch itself, not the vehicle's state.
 
-    # ToyotaBaseEntity sets _attr_has_entity_name = True. With that, HA
-    # expects translation_key to resolve the per-entity name component,
-    # and without it entity_id collapses to just the device slug
-    # (sensor.rav4, sensor.rav4_2, etc). We opt out for these diagnostic
-    # sensors so _attr_name acts as the full entity name, and entity_id
-    # is the slug of "<vehicle alias> <sensor name>".
-    _attr_has_entity_name = False
+    Two overrides are in play:
 
-    def __init__(
-        self,
-        coordinator: DataUpdateCoordinator[list[VehicleData]],
-        entry_id: str,
-        vehicle_index: int,
-        description: SensorEntityDescription,
-    ) -> None:
-        """Initialise the coordinator-state sensor."""
-        super().__init__(coordinator, entry_id, vehicle_index, description)
-        alias = self.vehicle.alias or self.vehicle.vin or "Toyota"
-        self._attr_name = f"{alias} {description.name}"
+    1. `available` is forced True. These sensors exist to explain WHY the
+       data sensors went unavailable, so they themselves must never go
+       unavailable. HA's DataUpdateCoordinator drives CoordinatorEntity's
+       availability off `last_update_success`, which flips False on
+       UpdateFailed; we explicitly unbind from that signal.
+
+    2. `native_value` reads from the per-VIN dicts attached to the
+       coordinator (`_diag_last_fetch_per_vin`, `_diag_last_error_per_vin`)
+       instead of `coordinator.data`. The reason: with retain_on_transient=False
+       and a full-fleet 429, `async_get_vehicle_data` raises UpdateFailed
+       before appending any VehicleData, so coordinator.data stays frozen
+       at the last SUCCESSFUL refresh (where the error fields were None).
+       Reading from the per-VIN dicts instead means error info appears as
+       soon as it's known, regardless of retain toggle or UpdateFailed.
+    """
+
+    _DIAG_KEY_MAP = {
+        "last_successful_fetch": ("_diag_last_fetch_per_vin", None),
+        "last_error_time": ("_diag_last_error_per_vin", 0),
+        "last_error_code": ("_diag_last_error_per_vin", 1),
+    }
+
+    @property
+    def available(self) -> bool:
+        """Diagnostic sensors are always considered available."""
+        return True
 
     @property
     def native_value(self) -> StateType:
-        """Return the value for this sensor from the coordinator data dict."""
-        try:
-            return self.coordinator.data[self.index].get(
-                self.entity_description.key
-            )
-        except (IndexError, KeyError, TypeError):
+        """Return the value from the coordinator's per-VIN diagnostic dicts."""
+        vin = getattr(self.vehicle, "vin", None)
+        if not vin:
             return None
+        key = self.entity_description.key
+        attr_name, tuple_idx = self._DIAG_KEY_MAP.get(key, (None, None))
+        if attr_name is None:
+            return None
+        per_vin = getattr(self.coordinator, attr_name, None)
+        if per_vin is None:
+            return None
+        value = per_vin.get(vin)
+        if value is None:
+            return None
+        return value if tuple_idx is None else value[tuple_idx]
 
 
 class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
@@ -537,12 +557,16 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
     @property
     def native_value(self) -> StateType:
         """Return the state of the sensor."""
+        if self.statistics is None:
+            return None
         data = self.statistics[self.period]
         return round(data.distance, 1) if data and data.distance else None
 
     @property
     def extra_state_attributes(self) -> dict | None:
         """Return the state attributes."""
+        if self.statistics is None:
+            return None
         data = self.statistics[self.period]
         return (
             format_statistics_attributes(data, self.vehicle._vehicle_info)  # noqa : SLF001

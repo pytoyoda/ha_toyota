@@ -20,8 +20,12 @@
   "options": {
     "step": {
       "init": {
+        "title": "Toyota Connected Services options",
         "data": {
-          "use_liters": "Use liters (L/100 miles) instead of MPG. Only applicable if you car reports data in miles (Imperial unit system)."
+          "retain_on_transient_failure": "Retain last good data on transient failures (recommended)"
+        },
+        "data_description": {
+          "retain_on_transient_failure": "When enabled, a temporary Toyota API failure (HTTP 429, timeout, connection error) keeps the last successful per-vehicle data in place instead of marking every Toyota entity as unavailable. The new 'Last successful fetch', 'Last error' and 'Last error code' diagnostic sensors show the true state of the integration."
         }
       }
     }
@@ -105,6 +109,15 @@
       },
       "current_year_statistics": {
         "name": "Current year statistics"
+      },
+      "last_successful_fetch": {
+        "name": "Last successful fetch"
+      },
+      "last_error_time": {
+        "name": "Last error"
+      },
+      "last_error_code": {
+        "name": "Last error code"
       }
     },
     "binary_sensor": {

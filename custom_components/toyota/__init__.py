@@ -124,19 +124,18 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                         )
 
                         if vehicle.vin is not None:
-                            # Use parallel request to get car statistics.
-                            driving_statistics = await asyncio.gather(
-                                vehicle.get_current_day_summary(),
-                                vehicle.get_current_week_summary(),
-                                vehicle.get_current_month_summary(),
-                                vehicle.get_current_year_summary(),
-                            )
-
+                            # Serialised to avoid Toyota burst rate-limit.
+                            # Toyota's API gateway throttles on bursts of
+                            # near-simultaneous requests; firing these four
+                            # summary calls in an asyncio.gather within the
+                            # same event-loop tick reliably trips a 429 with
+                            # {"description": "Unauthorized"} response
+                            # bodies. See pytoyoda/ha_toyota#282.
                             vehicle_data["statistics"] = StatisticsData(
-                                day=driving_statistics[0],
-                                week=driving_statistics[1],
-                                month=driving_statistics[2],
-                                year=driving_statistics[3],
+                                day=await vehicle.get_current_day_summary(),
+                                week=await vehicle.get_current_week_summary(),
+                                month=await vehicle.get_current_month_summary(),
+                                year=await vehicle.get_current_year_summary(),
                             )
 
                         vehicle_informations.append(vehicle_data)

@@ -5,6 +5,7 @@ from homeassistant.const import Platform
 # PLATFORMS SUPPORTED
 PLATFORMS = [
     Platform.BINARY_SENSOR,
+    Platform.BUTTON,
     Platform.DEVICE_TRACKER,
     Platform.SENSOR,
     Platform.CLIMATE,
@@ -24,6 +25,37 @@ CONF_METRIC_VALUES = "use_metric_values"
 # flipping entities to unavailable. Off by default for backward compatibility.
 CONF_RETAIN_ON_TRANSIENT_FAILURE = "retain_on_transient_failure"
 DEFAULT_RETAIN_ON_TRANSIENT_FAILURE = False
+
+# Smart status refresh strategy. POSTs /v1/global/remote/refresh-status to
+# wake the car's modem before reading /status, mimicking the Toyota mobile
+# app's two-stage protocol. Reduces stuck-stale lock/door state and 429s.
+# See rate-limit-remediation-plan.md Addendum 4.
+CONF_ENABLE_STATUS_REFRESH = "enable_status_refresh"
+DEFAULT_ENABLE_STATUS_REFRESH = True
+# Set automatically when the gateway repeatedly rejects the POST (vehicle
+# does not support refresh-status). Cleared when user toggles
+# CONF_ENABLE_STATUS_REFRESH OFF then ON. Hidden in the UI.
+CONF_AUTO_DISABLED_STATUS_REFRESH = "auto_disabled_status_refresh"
+DEFAULT_AUTO_DISABLED_STATUS_REFRESH = False
+CONF_IDLE_WAKE_HOURS = "idle_wake_hours"
+# Hours between idle-wake POSTs. 0 disables the feature entirely (off by
+# default); 1-72 = wake every N hours when the car has not moved. Combines
+# what was previously a separate boolean toggle plus a sub-interval.
+DEFAULT_IDLE_WAKE_HOURS = 0
+CONF_FAILED_WAKE_THRESHOLD = "failed_wake_threshold"
+DEFAULT_FAILED_WAKE_THRESHOLD = 3
+CONF_MAX_CACHE_AGE_MINUTES = "max_cache_age_minutes"
+DEFAULT_MAX_CACHE_AGE_MINUTES = 30
+CONF_POLLING_INTERVAL_MINUTES = "polling_interval_minutes"
+DEFAULT_POLLING_INTERVAL_MINUTES = 6
+# How many wake POSTs to fire when a stop event is detected. Cycle-count based
+# (one POST per cycle), independent of polling interval. 1 = single POST on
+# the just-stopped cycle. 2 (default) = an additional POST on the next cycle,
+# which typically catches state the user changes shortly after stopping
+# (locking the doors, opening the trunk). Those post-park events trigger
+# fresh modem reports; the followup POST's poll loop picks them up.
+CONF_POST_COUNT_PER_STOP = "post_count_per_stop"
+DEFAULT_POST_COUNT_PER_STOP = 2
 
 # DEFAULTS
 DEFAULT_LOCALE = "en-gb"

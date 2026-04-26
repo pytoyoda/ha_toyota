@@ -22,10 +22,22 @@
       "init": {
         "title": "Toyota Connected Services options",
         "data": {
-          "retain_on_transient_failure": "Retain last good data on transient failures (recommended)"
+          "polling_interval_minutes": "Polling interval (minutes)",
+          "retain_on_transient_failure": "Retain last good data on transient failures (recommended)",
+          "enable_status_refresh": "Refresh vehicle status remotely (recommended)",
+          "idle_wake_hours": "Wake idle vehicle every N hours (0 = disabled)",
+          "failed_wake_threshold": "Mark unreachable after N failed wakes",
+          "max_cache_age_minutes": "Refresh status cache if older",
+          "post_count_per_stop": "Wake POSTs per stop event"
         },
         "data_description": {
-          "retain_on_transient_failure": "When enabled, a temporary Toyota API failure (HTTP 429, timeout, connection error) keeps the last successful per-vehicle data in place instead of marking every Toyota entity as unavailable. The new 'Last successful fetch', 'Last error' and 'Last error code' diagnostic sensors show the true state of the integration."
+          "polling_interval_minutes": "How often the integration polls Toyota for fresh data (5-60 minutes; default 6). Lower values may hit rate limits.",
+          "retain_on_transient_failure": "When enabled, a temporary Toyota API failure (HTTP 429, timeout, connection error) keeps the last successful per-vehicle data in place instead of marking every Toyota entity as unavailable. The new 'Last successful fetch', 'Last error' and 'Last error code' diagnostic sensors show the true state of the integration.",
+          "enable_status_refresh": "Toyota's API gateway often returns stuck-stale lock and door state unless the car's modem is woken explicitly. When enabled, the integration sends a wake request before reading status, mimicking the Toyota mobile app. Each wake uses a small amount of cellular airtime and 12V battery; the smart triggers (just-stopped detection, optional idle wake) keep the cost low. Disable for vehicles whose Toyota account does not support refresh-status; the integration auto-disables this for you if it detects unsupported responses. Note: this scope is only the /v1/global/remote/status endpoint (door, window, lock and hood state); other data (odometer, fuel, location, etc.) is fetched every cycle regardless. When this option is OFF, the four options below (idle wake, failed-wake threshold, status cache age, wake POSTs per stop) have no effect.",
+          "idle_wake_hours": "Wake the car periodically even if it has not moved. Useful for cars that sit unused for days where you still want fresh lock state. 0 (default) disables this entirely; 1-72 = wake every N hours. Each wake costs cellular airtime and a small amount of 12 V battery. Note: the wake only refreshes the /v1/global/remote/status endpoint (door, window, lock and hood state). Other data (odometer, fuel, location, etc.) is fetched on every cycle independently and does not need a wake.",
+          "failed_wake_threshold": "If a vehicle stops responding to wake requests this many times in a row, it is marked unreachable per-VIN until it shows any sign of life (driving event, external app refresh, manual service call). Default 3.",
+          "max_cache_age_minutes": "Maximum acceptable age of the cached status data before issuing a fresh GET (5-180 minutes; default 30). Note: this controls only the /v1/global/remote/status endpoint, which carries door, window, lock and hood state. Other data (odometer, fuel, location, etc.) is fetched on every cycle independently.",
+          "post_count_per_stop": "How many wake POSTs to fire when the vehicle is detected as just-stopped, one per coordinator cycle. 1 = single POST. 2 (default) = an additional POST on the next cycle, which typically catches state the user changes shortly after stopping (locking the doors, opening the trunk, etc.) - those events trigger fresh modem reports that the second POST's poll loop picks up. Higher values rarely help and burn 12 V battery."
         }
       }
     }
@@ -118,6 +130,23 @@
       },
       "last_error_code": {
         "name": "Last error code"
+      },
+      "status_last_reported": {
+        "name": "Status last reported by car"
+      },
+      "status_refresh_state": {
+        "name": "Status refresh state",
+        "state": {
+          "active": "Active",
+          "soft_disabled_unreachable": "Unreachable",
+          "hard_disabled_auto": "Disabled (unsupported)",
+          "hard_disabled_user": "Disabled (by user)"
+        }
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Refresh vehicle status"
       }
     },
     "binary_sensor": {

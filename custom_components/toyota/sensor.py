@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -478,13 +478,36 @@ LAST_ERROR_CODE_ENTITY_DESCRIPTION = SensorEntityDescription(
     icon="mdi:alert-outline",
     entity_category=EntityCategory.DIAGNOSTIC,
 )
+STATUS_LAST_REPORTED_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="status_last_reported",
+    translation_key="status_last_reported",
+    name="Status last reported by car",
+    icon="mdi:car-clock",
+    device_class=SensorDeviceClass.TIMESTAMP,
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+STATUS_REFRESH_STATE_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="status_refresh_state",
+    translation_key="status_refresh_state",
+    name="Status refresh state",
+    icon="mdi:refresh-auto",
+    device_class=SensorDeviceClass.ENUM,
+    options=[
+        "active",
+        "soft_disabled_unreachable",
+        "hard_disabled_auto",
+        "hard_disabled_user",
+    ],
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
 
 
 class ToyotaCoordinatorStateSensor(ToyotaBaseEntity, SensorEntity):
-    """Sensor whose value comes from the coordinator's per-VIN diagnostic
-    dicts rather than from coordinator.data. Used for the three observability
-    sensors (last_successful_fetch, last_error_time, last_error_code) that
-    describe the fetch itself, not the vehicle's state.
+    """Sensor backed by per-VIN diagnostic dicts on the coordinator.
+
+    Used for observability sensors (last_successful_fetch, last_error_time,
+    last_error_code, status_last_reported, status_refresh_state) that
+    describe the fetch itself or the strategy's state, not the vehicle.
 
     Two overrides are in play:
 
@@ -496,18 +519,20 @@ class ToyotaCoordinatorStateSensor(ToyotaBaseEntity, SensorEntity):
 
     2. `native_value` reads from the per-VIN dicts attached to the
        coordinator (`_diag_last_fetch_per_vin`, `_diag_last_error_per_vin`)
-       instead of `coordinator.data`. The reason: with retain_on_transient=False
-       and a full-fleet 429, `async_get_vehicle_data` raises UpdateFailed
-       before appending any VehicleData, so coordinator.data stays frozen
-       at the last SUCCESSFUL refresh (where the error fields were None).
-       Reading from the per-VIN dicts instead means error info appears as
-       soon as it's known, regardless of retain toggle or UpdateFailed.
+       instead of `coordinator.data`. With retain_on_transient=False and a
+       full-fleet 429, `async_get_vehicle_data` raises UpdateFailed before
+       appending any VehicleData, so coordinator.data stays frozen at the
+       last SUCCESSFUL refresh (where the error fields were None). Reading
+       from the per-VIN dicts instead means error info appears as soon as
+       it's known, regardless of retain toggle or UpdateFailed.
     """
 
-    _DIAG_KEY_MAP = {
+    _DIAG_KEY_MAP: ClassVar[dict[str, tuple[str, int | None]]] = {
         "last_successful_fetch": ("_diag_last_fetch_per_vin", None),
         "last_error_time": ("_diag_last_error_per_vin", 0),
         "last_error_code": ("_diag_last_error_per_vin", 1),
+        "status_last_reported": ("_diag_status_occurrence_per_vin", None),
+        "status_refresh_state": ("_diag_status_refresh_state_per_vin", None),
     }
 
     @property
@@ -623,18 +648,20 @@ async def async_setup_entry(
 
         # Add coordinator-state observability sensors (always on, not
         # gated by CONF_RETAIN_ON_TRANSIENT_FAILURE; they are read-only).
-        for desc in (
-            LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION,
-            LAST_ERROR_TIME_ENTITY_DESCRIPTION,
-            LAST_ERROR_CODE_ENTITY_DESCRIPTION,
-        ):
-            sensors.append(
-                ToyotaCoordinatorStateSensor(
-                    coordinator=coordinator,
-                    entry_id=entry.entry_id,
-                    vehicle_index=index,
-                    description=desc,
-                )
+        sensors.extend(
+            ToyotaCoordinatorStateSensor(
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=desc,
             )
+            for desc in (
+                LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION,
+                LAST_ERROR_TIME_ENTITY_DESCRIPTION,
+                LAST_ERROR_CODE_ENTITY_DESCRIPTION,
+                STATUS_LAST_REPORTED_ENTITY_DESCRIPTION,
+                STATUS_REFRESH_STATE_ENTITY_DESCRIPTION,
+            )
+        )
 
     async_add_devices(sensors)

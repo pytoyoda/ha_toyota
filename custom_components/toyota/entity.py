@@ -58,15 +58,18 @@ class ToyotaBaseEntity(CoordinatorEntity):
 
     @property
     def available(self) -> bool:
-        """Availability: coordinator must be healthy AND this vehicle's data
-        must be either fresh (non-None last_successful_fetch) or a retain-cache
+        """Per-vehicle availability with fault isolation.
+
+        The coordinator must be healthy AND this vehicle's data must be
+        either fresh (non-None ``last_successful_fetch``) or a retain-cache
         entry. Stubs (refresh failed for this vehicle specifically, no cache
         to serve) read as unavailable even when the coordinator itself
         succeeded because some sibling vehicle DID refresh fine. This is
         per-vehicle fault isolation: a 429 on one car does not hide the other
         car's data. ToyotaCoordinatorStateSensor (diagnostic sensors)
         overrides this back to True - those must stay visible exactly when
-        their vehicle fails, to explain why."""
+        their vehicle fails, to explain why.
+        """
         if not super().available:
             return False
         try:

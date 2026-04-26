@@ -15,9 +15,22 @@ from pytoyoda.client import MyT
 from pytoyoda.exceptions import ToyotaInvalidUsernameError, ToyotaLoginError
 
 from .const import (
+    CONF_AUTO_DISABLED_STATUS_REFRESH,
     CONF_BRAND,
+    CONF_ENABLE_STATUS_REFRESH,
+    CONF_FAILED_WAKE_THRESHOLD,
+    CONF_IDLE_WAKE_HOURS,
+    CONF_MAX_CACHE_AGE_MINUTES,
     CONF_METRIC_VALUES,
+    CONF_POLLING_INTERVAL_MINUTES,
+    CONF_POST_COUNT_PER_STOP,
     CONF_RETAIN_ON_TRANSIENT_FAILURE,
+    DEFAULT_ENABLE_STATUS_REFRESH,
+    DEFAULT_FAILED_WAKE_THRESHOLD,
+    DEFAULT_IDLE_WAKE_HOURS,
+    DEFAULT_MAX_CACHE_AGE_MINUTES,
+    DEFAULT_POLLING_INTERVAL_MINUTES,
+    DEFAULT_POST_COUNT_PER_STOP,
     DEFAULT_RETAIN_ON_TRANSIENT_FAILURE,
     DOMAIN,
 )
@@ -43,9 +56,14 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
 
     @staticmethod
     def async_get_options_flow(
-        config_entry: config_entries.ConfigEntry,
+        config_entry: config_entries.ConfigEntry,  # noqa: ARG004
     ) -> "ToyotaOptionsFlow":
-        """Return the options flow handler."""
+        """Return the options flow handler.
+
+        ``config_entry`` is part of HA's options-flow signature contract; we
+        don't read it because the flow gets the entry via ``self.config_entry``
+        once instantiated.
+        """
         return ToyotaOptionsFlow()
 
     def __init__(self) -> None:
@@ -159,18 +177,93 @@ class ToyotaOptionsFlow(config_entries.OptionsFlow):
     ) -> FlowResult:
         """Manage the options."""
         if user_input is not None:
+            # Side-effect: re-enabling smart refresh clears the auto-disable
+            # flag. The user took explicit action to override the auto-disable
+            # decision, so we trust them.
+            previous_enable = self.config_entry.options.get(
+                CONF_ENABLE_STATUS_REFRESH, DEFAULT_ENABLE_STATUS_REFRESH
+            )
+            new_enable = user_input.get(
+                CONF_ENABLE_STATUS_REFRESH, DEFAULT_ENABLE_STATUS_REFRESH
+            )
+            if previous_enable is False and new_enable is True:
+                user_input[CONF_AUTO_DISABLED_STATUS_REFRESH] = False
             return self.async_create_entry(title="", data=user_input)
 
-        current = self.config_entry.options.get(
-            CONF_RETAIN_ON_TRANSIENT_FAILURE, DEFAULT_RETAIN_ON_TRANSIENT_FAILURE
-        )
+        opts = self.config_entry.options
         return self.async_show_form(
             step_id="init",
             data_schema=vol.Schema(
                 {
                     vol.Required(
-                        CONF_RETAIN_ON_TRANSIENT_FAILURE, default=current
+                        CONF_POLLING_INTERVAL_MINUTES,
+                        default=opts.get(
+                            CONF_POLLING_INTERVAL_MINUTES,
+                            DEFAULT_POLLING_INTERVAL_MINUTES,
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=5, max=60, step=1, mode=selector.NumberSelectorMode.BOX
+                        )
+                    ),
+                    vol.Required(
+                        CONF_RETAIN_ON_TRANSIENT_FAILURE,
+                        default=opts.get(
+                            CONF_RETAIN_ON_TRANSIENT_FAILURE,
+                            DEFAULT_RETAIN_ON_TRANSIENT_FAILURE,
+                        ),
                     ): selector.BooleanSelector(),
+                    vol.Required(
+                        CONF_ENABLE_STATUS_REFRESH,
+                        default=opts.get(
+                            CONF_ENABLE_STATUS_REFRESH,
+                            DEFAULT_ENABLE_STATUS_REFRESH,
+                        ),
+                    ): selector.BooleanSelector(),
+                    vol.Required(
+                        CONF_IDLE_WAKE_HOURS,
+                        default=opts.get(CONF_IDLE_WAKE_HOURS, DEFAULT_IDLE_WAKE_HOURS),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0, max=72, step=1, mode=selector.NumberSelectorMode.BOX
+                        )
+                    ),
+                    vol.Required(
+                        CONF_FAILED_WAKE_THRESHOLD,
+                        default=opts.get(
+                            CONF_FAILED_WAKE_THRESHOLD,
+                            DEFAULT_FAILED_WAKE_THRESHOLD,
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=10, step=1, mode=selector.NumberSelectorMode.BOX
+                        )
+                    ),
+                    vol.Required(
+                        CONF_MAX_CACHE_AGE_MINUTES,
+                        default=opts.get(
+                            CONF_MAX_CACHE_AGE_MINUTES,
+                            DEFAULT_MAX_CACHE_AGE_MINUTES,
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=5,
+                            max=180,
+                            step=5,
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                    vol.Required(
+                        CONF_POST_COUNT_PER_STOP,
+                        default=opts.get(
+                            CONF_POST_COUNT_PER_STOP,
+                            DEFAULT_POST_COUNT_PER_STOP,
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=1, max=5, step=1, mode=selector.NumberSelectorMode.BOX
+                        )
+                    ),
                 }
             ),
         )

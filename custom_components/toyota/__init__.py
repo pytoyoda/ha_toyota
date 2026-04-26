@@ -59,6 +59,15 @@ from .refresh_strategy import (
 
 _LOGGER = logging.getLogger(__name__)
 
+# Default wake-poll budget in seconds. Used when POST_THEN_GET fires from a
+# non-service trigger (just_stopped, just_stopped_followup, idle_wake) -
+# i.e. the budget the strategy itself owns. Service-call triggers carry
+# their own user-supplied timeout via pending_service_calls and override
+# this default. Empirically the modem wakes within ~10-25s after a POST,
+# so 25s is enough for ~3 polls at 10s spacing without burning extra
+# requests against the gateway.
+STRATEGY_DEFAULT_WAKE_TIMEOUT_S = 25
+
 
 def loguru_to_hass(message: str) -> None:
     """Forward Loguru logs to standard Python logger used by HACS."""
@@ -244,8 +253,11 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         diag_bucket.setdefault(new_key, {})
     # Pending service-call requests, keyed by VIN. The service handler sets a
     # value here and reload-triggers the coordinator; the next cycle picks it
-    # up via the strategy's user_service_call_pending input.
-    pending_service_calls: dict[str, bool] = diag_bucket.setdefault(
+    # up via the strategy's user_service_call_pending input. The dict value is
+    # the user-supplied wake-poll budget in seconds (services.yaml exposes
+    # `timeout_seconds`, default 60); non-service triggers (just_stopped,
+    # idle_wake, ...) fall through to STRATEGY_DEFAULT_WAKE_TIMEOUT_S below.
+    pending_service_calls: dict[str, int] = diag_bucket.setdefault(
         "pending_service_calls", {}
     )
     last_good_per_vin: dict[str, VehicleData] = diag_bucket["last_good_per_vin"]
@@ -367,15 +379,21 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         )
 
     async def _execute_post_then_get(
-        vehicle: Vehicle, vin: str, state: VinState
+        vehicle: Vehicle,
+        vin: str,
+        state: VinState,
+        timeout_s: int = STRATEGY_DEFAULT_WAKE_TIMEOUT_S,
     ) -> None:
         """Issue POST /refresh-status, then poll GET /status until cache advances.
 
-        Polls until ``occurrence_date`` advances or a 25-second budget expires.
-        Mutates state in place per the caller contract in refresh_strategy.py.
-        Pytoyoda's controller already retries 429/5xx with exponential backoff,
-        so this loop only iterates if the gateway returned 200 with a stale
-        occurrence_date (legitimate "POST accepted but cache not yet warm").
+        Polls until ``occurrence_date`` advances or ``timeout_s`` seconds expire.
+        Defaults to STRATEGY_DEFAULT_WAKE_TIMEOUT_S for non-service triggers;
+        service-call triggers pass through the user-supplied
+        ``timeout_seconds`` from services.yaml. Mutates state in place per the
+        caller contract in refresh_strategy.py. Pytoyoda's controller already
+        retries 429/5xx with exponential backoff, so this loop only iterates
+        if the gateway returned 200 with a stale occurrence_date (legitimate
+        "POST accepted but cache not yet warm").
         """
         opts = _strategy_options()
         post_response = await _call_tagged(
@@ -416,9 +434,8 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             return
         on_post_layer1_success(state)
 
-        # Layer 2: poll for occurrence_date advancement. 25-second budget
-        # split into ~3 attempts (10s spacing).
-        deadline = dt_util.now() + timedelta(seconds=25)
+        # Layer 2: poll for occurrence_date advancement.
+        deadline = dt_util.now() + timedelta(seconds=timeout_s)
         previous_occurrence = state.last_status_occurrence_date
         while dt_util.now() < deadline:
             await asyncio.sleep(10)
@@ -461,19 +478,24 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         vin: str,
         state: VinState,
         decision: RefreshDecision,
+        wake_timeout_s: int = STRATEGY_DEFAULT_WAKE_TIMEOUT_S,
     ) -> None:
         """Execute the per-action /status path for one VIN.
 
         POST_THEN_GET also manages the cycle-based followup counter per the
         strategy's caller contract: JUST_STOPPED initialises it, followup
         cycles decrement, SERVICE_CALL / IDLE_WAKE leave it alone.
+
+        ``wake_timeout_s`` is forwarded to :func:`_execute_post_then_get` for
+        the SERVICE_CALL trigger (carrying the user-supplied timeout from
+        services.yaml). All other triggers fall through to the default.
         """
         if decision.action is RefreshAction.POST_THEN_GET:
             if decision.trigger is RefreshTrigger.JUST_STOPPED:
                 state.remaining_post_cycles = max(0, post_count_per_stop - 1)
             elif decision.trigger is RefreshTrigger.JUST_STOPPED_FOLLOWUP:
                 state.remaining_post_cycles = max(0, state.remaining_post_cycles - 1)
-            await _execute_post_then_get(vehicle, vin, state)
+            await _execute_post_then_get(vehicle, vin, state, wake_timeout_s)
         elif decision.action is RefreshAction.GET_ONLY:
             await _execute_get_only(vehicle, vin, state)
         elif decision.action is RefreshAction.HARD_DISABLED:
@@ -563,7 +585,11 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             current_odometer_km = None
 
         state = _build_vin_state(vin) if vin else VinState()
-        service_pending = bool(pending_service_calls.pop(vin, False)) if vin else False
+        # pending_service_calls maps VIN to the user-supplied wake timeout
+        # in seconds. Presence in the dict means "service call pending"; the
+        # value is forwarded to _execute_post_then_get for the wake budget.
+        service_timeout = pending_service_calls.pop(vin, None) if vin else None
+        service_pending = service_timeout is not None
         decision = decide(
             CycleSnapshot(
                 now=dt_util.now(),
@@ -586,7 +612,12 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
         # Phase 2: enact the /status decision.
         if vin:
-            await _enact_decision(vehicle, vin, state, decision)
+            wake_timeout_s = (
+                service_timeout
+                if service_timeout is not None
+                else STRATEGY_DEFAULT_WAKE_TIMEOUT_S
+            )
+            await _enact_decision(vehicle, vin, state, decision, wake_timeout_s)
 
         if vin:
             _persist_status_for_cache(vehicle, vin)
@@ -873,7 +904,15 @@ async def _async_register_services(hass: HomeAssistant) -> None:
                 "toyota.refresh_vehicle_status called with no device target"
             )
             return
-        _LOGGER.info("toyota.refresh_vehicle_status invoked for devices=%s", device_ids)
+        # Pull the user-supplied wake-poll budget. services.yaml constrains
+        # this to 10..180 with a default of 60; we mirror that default here
+        # in case the call somehow arrives without the field.
+        timeout_seconds = int(call.data.get(ATTR_TIMEOUT_SECONDS, 60))
+        _LOGGER.info(
+            "toyota.refresh_vehicle_status invoked for devices=%s (timeout=%ds)",
+            device_ids,
+            timeout_seconds,
+        )
         per_entry_vins = _resolve_devices_to_vins_per_entry(hass, device_ids)
         for entry_id, vins in per_entry_vins.items():
             entry_diag = hass.data[DOMAIN].get(f"{entry_id}_diag")
@@ -881,7 +920,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:
                 continue
             pending = entry_diag.setdefault("pending_service_calls", {})
             for vin in vins:
-                pending[vin] = True
+                pending[vin] = timeout_seconds
             coord = hass.data[DOMAIN].get(entry_id)
             if coord is not None:
                 # Schedule an immediate refresh; the strategy will read the

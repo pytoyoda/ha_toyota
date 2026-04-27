@@ -29,6 +29,7 @@ from .const import (
     CONF_FAILED_WAKE_THRESHOLD,
     CONF_IDLE_WAKE_HOURS,
     CONF_MAX_CACHE_AGE_MINUTES,
+    CONF_MAX_RECENT_TRIPS,
     CONF_METRIC_VALUES,
     CONF_POLLING_INTERVAL_MINUTES,
     CONF_POST_COUNT_PER_STOP,
@@ -38,6 +39,7 @@ from .const import (
     DEFAULT_FAILED_WAKE_THRESHOLD,
     DEFAULT_IDLE_WAKE_HOURS,
     DEFAULT_MAX_CACHE_AGE_MINUTES,
+    DEFAULT_MAX_RECENT_TRIPS,
     DEFAULT_POLLING_INTERVAL_MINUTES,
     DEFAULT_POST_COUNT_PER_STOP,
     DEFAULT_RETAIN_ON_TRANSIENT_FAILURE,
@@ -58,6 +60,7 @@ from .refresh_strategy import (
     on_post_layer1_success,
     on_wake_failed,
 )
+from .trips_manager import RecentTripsManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -229,6 +232,9 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     )
     post_count_per_stop: int = entry.options.get(
         CONF_POST_COUNT_PER_STOP, DEFAULT_POST_COUNT_PER_STOP
+    )
+    max_recent_trips: int = int(
+        entry.options.get(CONF_MAX_RECENT_TRIPS, DEFAULT_MAX_RECENT_TRIPS)
     )
     # Persist per-VIN state in hass.data so it survives config entry reload
     # (options flow triggers a reload, which would otherwise recreate these as
@@ -658,6 +664,13 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         if vin:
             _persist_status_for_cache(vehicle, vin)
 
+        # Phase 2b: recent-trips manager.
+        # No-op when CONF_MAX_RECENT_TRIPS is 0 (default). Independent of
+        # the /status decision; uses the same trigger info so we fetch trips
+        # only on stop-event ticks (just_stopped + conditional followup).
+        if vin:
+            await trips_manager.async_maybe_refresh(vehicle, vin, decision)
+
         # Movement / sensor state.
         car_currently_moving = (
             state.last_odometer_km is not None
@@ -885,6 +898,14 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         _LOGGER.debug(vehicle_informations)
         return vehicle_informations
 
+    # Recent-trips manager. Lives alongside the coordinator (not part of it)
+    # because the trips data lifecycle is decoupled from the cycle's
+    # /status work. Cache survives HA restart via Store; auto-fetch is gated
+    # on max_recent_trips > 0 + smart-strategy stop triggers.
+    trips_manager = RecentTripsManager(hass, entry, max_recent_trips)
+    await trips_manager.async_setup()
+    hass.data[DOMAIN][f"{entry.entry_id}_trips_manager"] = trips_manager
+
     coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
@@ -923,6 +944,8 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
 SERVICE_REFRESH_VEHICLE_STATUS = "refresh_vehicle_status"
 ATTR_TIMEOUT_SECONDS = "timeout_seconds"
+SERVICE_REFRESH_RECENT_TRIPS = "refresh_recent_trips"
+ATTR_LIMIT = "limit"
 
 
 def _resolve_devices_to_vins_per_entry(
@@ -957,7 +980,7 @@ def _resolve_devices_to_vins_per_entry(
     return per_entry_vins
 
 
-async def _async_register_services(hass: HomeAssistant) -> None:
+async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
     """Register the toyota.refresh_vehicle_status service exactly once.
 
     Service handlers resolve their target devices to VINs via the device
@@ -1010,6 +1033,88 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         _handle_refresh_vehicle_status,
     )
 
+    if hass.services.has_service(DOMAIN, SERVICE_REFRESH_RECENT_TRIPS):
+        return
+
+    async def _handle_refresh_recent_trips(call: ServiceCall) -> None:
+        """Discard the cached trips for the targeted VINs and refetch limit=N.
+
+        Works regardless of CONF_MAX_RECENT_TRIPS (so users with auto-fetch
+        disabled can drive on-demand fetches via daily automations).
+        """
+        raw = call.data.get("device_id") or []
+        device_ids: list[str] = [raw] if isinstance(raw, str) else list(raw)
+        if not device_ids:
+            _LOGGER.warning(
+                "toyota.refresh_recent_trips called with no device target"
+            )
+            return
+        try:
+            limit = int(call.data.get(ATTR_LIMIT, 0))
+        except (TypeError, ValueError):
+            _LOGGER.warning(
+                "toyota.refresh_recent_trips: invalid limit value %r",
+                call.data.get(ATTR_LIMIT),
+            )
+            return
+        if not 1 <= limit <= 50:  # noqa: PLR2004
+            _LOGGER.warning(
+                "toyota.refresh_recent_trips: limit must be 1..50, got %s",
+                limit,
+            )
+            return
+        _LOGGER.info(
+            "toyota.refresh_recent_trips invoked for devices=%s (limit=%d)",
+            device_ids,
+            limit,
+        )
+        per_entry_vins = _resolve_devices_to_vins_per_entry(hass, device_ids)
+        for entry_id, vins in per_entry_vins.items():
+            mgr = hass.data[DOMAIN].get(f"{entry_id}_trips_manager")
+            coord = hass.data[DOMAIN].get(entry_id)
+            if mgr is None or coord is None or coord.data is None:
+                continue
+            # Find each VIN's Vehicle object inside the most recent
+            # coordinator data. We need the live Vehicle (with auth + api)
+            # to issue get_recent_trips, not just the stored trip dicts.
+            for vin in vins:
+                vehicle = next(
+                    (
+                        vd["data"]
+                        for vd in coord.data
+                        if vd.get("data") is not None and vd["data"].vin == vin
+                    ),
+                    None,
+                )
+                if vehicle is None:
+                    _LOGGER.warning(
+                        "toyota.refresh_recent_trips: VIN ...%s not in "
+                        "coordinator data; skipping",
+                        vin[-6:],
+                    )
+                    continue
+                try:
+                    count = await mgr.async_service_refresh(vin, vehicle, limit)
+                    _LOGGER.info(
+                        "toyota.refresh_recent_trips vin=...%s -> %d trips",
+                        vin[-6:],
+                        count,
+                    )
+                except Exception:
+                    _LOGGER.exception(
+                        "toyota.refresh_recent_trips failed for vin=...%s",
+                        vin[-6:],
+                    )
+            # Trigger a coordinator refresh so the sensor's state reflects
+            # the new cache contents on the next tick.
+            hass.async_create_task(coord.async_request_refresh())
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REFRESH_RECENT_TRIPS,
+        _handle_refresh_recent_trips,
+    )
+
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload the integration when options change so the new toggle takes effect."""
@@ -1022,5 +1127,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
+        # Drop the trips manager too. The cache is on disk and survives;
+        # the diag bucket intentionally stays in hass.data so per-VIN
+        # state survives a reload (matches the existing pattern).
+        hass.data[DOMAIN].pop(f"{entry.entry_id}_trips_manager", None)
 
     return unload_ok

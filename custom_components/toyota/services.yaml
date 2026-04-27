@@ -27,3 +27,36 @@ refresh_vehicle_status:
           max: 180
           step: 5
           unit_of_measurement: s
+
+refresh_recent_trips:
+  name: Refresh recent trips
+  description: >
+    Fetch the most recent N trips for the targeted vehicle and replace the
+    per-vehicle 'Recent trips' sensor cache. Each call is one API request to
+    /v1/trips with route data (a heavier payload than the standard cycle's
+    summary-only call). Recommended use cases: a daily automation that fetches
+    a fresh batch when max_recent_trips=0 (auto-fetch disabled), or a one-off
+    cache refresh after changing max_recent_trips. Works regardless of
+    max_recent_trips, so you can keep auto-fetch off and drive everything via
+    automations.
+  fields:
+    device_id:
+      name: Vehicle
+      description: The Toyota vehicle whose recent-trips cache to refresh.
+      required: true
+      selector:
+        device:
+          integration: toyota
+    limit:
+      name: Limit
+      description: >
+        How many recent trips to fetch (1-50, Toyota API maximum). The cache
+        is fully replaced - existing cached trips are discarded before the
+        new batch is stored.
+      required: true
+      selector:
+        number:
+          min: 1
+          max: 50
+          step: 1
+          mode: box

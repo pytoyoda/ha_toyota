@@ -37,6 +37,7 @@ class ToyotaBaseEntity(CoordinatorEntity):
         super().__init__(coordinator)  # type: ignore[reportArgumentType, arg-type]
 
         self.index = vehicle_index
+        self._entry_id = entry_id
         self.entity_description = description
         self.vehicle: Vehicle = coordinator.data[self.index]["data"]
         self.statistics: StatisticsData | None = coordinator.data[self.index][

@@ -28,7 +28,8 @@
           "idle_wake_hours": "Wake idle vehicle every N hours (0 = disabled)",
           "failed_wake_threshold": "Mark unreachable after N failed wakes",
           "max_cache_age_minutes": "Refresh status cache if older",
-          "post_count_per_stop": "Wake POSTs per stop event"
+          "post_count_per_stop": "Wake POSTs per stop event",
+          "max_recent_trips": "Recent trips to keep in cache (0 = disabled)"
         },
         "data_description": {
           "polling_interval_minutes": "How often the integration polls Toyota for fresh data (5-60 minutes; default 6). Lower values may hit rate limits.",
@@ -37,7 +38,8 @@
           "idle_wake_hours": "Wake the car periodically even if it has not moved. Useful for cars that sit unused for days where you still want fresh lock state. 0 (default) disables this entirely; 1-72 = wake every N hours. Each wake costs cellular airtime and a small amount of 12 V battery. Note: the wake only refreshes the /v1/global/remote/status endpoint (door, window, lock and hood state). Other data (odometer, fuel, location, etc.) is fetched on every cycle independently and does not need a wake.",
           "failed_wake_threshold": "If a vehicle stops responding to wake requests this many times in a row, it is marked unreachable per-VIN until it shows any sign of life (driving event, external app refresh, manual service call). Default 3.",
           "max_cache_age_minutes": "Maximum acceptable age of the cached status data before issuing a fresh GET (5-180 minutes; default 30). Note: this controls only the /v1/global/remote/status endpoint, which carries door, window, lock and hood state. Other data (odometer, fuel, location, etc.) is fetched on every cycle independently.",
-          "post_count_per_stop": "How many wake POSTs to fire when the vehicle is detected as just-stopped, one per coordinator cycle. 1 = single POST. 2 (default) = an additional POST on the next cycle, which typically catches state the user changes shortly after stopping (locking the doors, opening the trunk, etc.) - those events trigger fresh modem reports that the second POST's poll loop picks up. Higher values rarely help and burn 12 V battery."
+          "post_count_per_stop": "How many wake POSTs to fire when the vehicle is detected as just-stopped, one per coordinator cycle. 1 = single POST. 2 (default) = an additional POST on the next cycle, which typically catches state the user changes shortly after stopping (locking the doors, opening the trunk, etc.) - those events trigger fresh modem reports that the second POST's poll loop picks up. Higher values rarely help and burn 12 V battery.",
+          "max_recent_trips": "Populates a per-vehicle 'Recent trips' sensor with the last N trips (route waypoints + per-trip stats), suitable for journey-viewer custom cards. 0 (default) disables auto-fetch entirely (no extra API calls). 1-20 enables auto-fetch on stop events; the cache survives HA restart. The toyota.refresh_recent_trips service and the per-vehicle 'Refresh recent trips' button work regardless of this setting, so you can keep auto-fetch off and drive fetches via daily automations."
         }
       }
     }
@@ -59,6 +61,9 @@
     "sensor": {
       "vin": {
         "name": "Vehicle-Identify-Number"
+      },
+      "recent_trips": {
+        "name": "Recent trips"
       },
       "odometer": {
         "name": "Odometer"
@@ -147,6 +152,9 @@
     "button": {
       "refresh_vehicle_status": {
         "name": "Refresh vehicle status"
+      },
+      "refresh_recent_trips": {
+        "name": "Refresh recent trips"
       }
     },
     "binary_sensor": {

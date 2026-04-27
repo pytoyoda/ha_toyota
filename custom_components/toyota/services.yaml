@@ -1,0 +1,25 @@
+refresh_vehicle_status:
+  name: Refresh vehicle status
+  description: >
+    Wakes the vehicle's cellular modem and fetches fresh door, lock, window
+    and trunk state. Use sparingly - each call uses a small amount of
+    cellular airtime and 12V battery. Recommended for use after returning
+    home from a drive when you want the lock state to be visible quickly,
+    or wired to an automation that triggers on a specific event.
+  target:
+    device:
+      integration: toyota
+  fields:
+    timeout_seconds:
+      name: Timeout
+      description: >
+        How long to wait for the car to transmit fresh data after the wake
+        request. Longer values give silent (deeply parked) cars more time
+        to respond, but block the service call until the timeout expires.
+      default: 60
+      selector:
+        number:
+          min: 10
+          max: 180
+          step: 5
+          unit_of_measurement: s

@@ -6,10 +6,14 @@ refresh_vehicle_status:
     cellular airtime and 12V battery. Recommended for use after returning
     home from a drive when you want the lock state to be visible quickly,
     or wired to an automation that triggers on a specific event.
-  target:
-    device:
-      integration: toyota
   fields:
+    device_id:
+      name: Vehicle
+      description: The Toyota vehicle whose modem to wake.
+      required: true
+      selector:
+        device:
+          integration: toyota
     timeout_seconds:
       name: Timeout
       description: >

@@ -191,15 +191,30 @@ class RefreshDecision:
 # ----------------------------------------------------------------------------
 
 
-def _hard_disable_decision(opts: StrategyOptions) -> RefreshDecision | None:
-    """Return a HARD_DISABLED decision if either disable flag is set, else None."""
-    if not opts.enable_status_refresh:
+def _hard_disable_decision(
+    opts: StrategyOptions,
+    *,
+    user_service_call_pending: bool = False,
+) -> RefreshDecision | None:
+    """Return a HARD_DISABLED decision if either disable flag is set, else None.
+
+    Service calls bypass BOTH disable forms. The convention everywhere in
+    HA is "polling toggle stops automatic polling, manual service calls
+    still work" - so enable_status_refresh:False means "stop the strategy's
+    cadence" rather than "lock out POSTs entirely". Users who want a
+    bespoke schedule (geofence arrival, garage-door close, etc.) disable
+    the cadence and drive POSTs from their own automations against the
+    refresh_vehicle_status service. After a successful service-call POST,
+    auto_disabled_status_refresh is cleared by the integration so a future
+    cadence re-enable doesn't land in the auto-disabled state.
+    """
+    if not opts.enable_status_refresh and not user_service_call_pending:
         return RefreshDecision(
             action=RefreshAction.HARD_DISABLED,
             trigger=RefreshTrigger.NONE,
             refresh_state=RefreshState.HARD_DISABLED_USER,
         )
-    if opts.auto_disabled_status_refresh:
+    if opts.auto_disabled_status_refresh and not user_service_call_pending:
         return RefreshDecision(
             action=RefreshAction.HARD_DISABLED,
             trigger=RefreshTrigger.NONE,
@@ -250,7 +265,9 @@ def decide(snapshot: CycleSnapshot) -> RefreshDecision:
     state = snapshot.state
     now = snapshot.now
 
-    hard = _hard_disable_decision(opts)
+    hard = _hard_disable_decision(
+        opts, user_service_call_pending=snapshot.user_service_call_pending
+    )
     if hard is not None:
         return hard
 

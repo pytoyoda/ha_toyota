@@ -394,30 +394,56 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         retries 429/5xx with exponential backoff, so this loop only iterates
         if the gateway returned 200 with a stale occurrence_date (legitimate
         "POST accepted but cache not yet warm").
+
+        On POST failure (exception OR non-"000000" returnCode): record a
+        Layer 1 rejection, possibly auto-disable, then fall back to a bare
+        GET so /status entities still refresh this cycle. See ha_toyota#293.
+        On POST success: clear any prior auto-disable flag so a service-call
+        retry (or a transient-5xx recovery) restores normal operation
+        without requiring the user to toggle the option manually.
         """
         opts = _strategy_options()
-        post_response = await _call_tagged(
-            "refresh_status", vin, vehicle.refresh_status()
-        )
+        # POST raised after pytoyoda's retries exhausted (persistent gateway
+        # 5xx) → post_response stays None and falls through to the Layer 1
+        # failure branch below, same family as a non-"000000" returnCode
+        # ("gateway will not process this POST"). _call_tagged has already
+        # logged the underlying error.
+        post_response = None
+        with contextlib.suppress(
+            ToyotaApiError,
+            httpx.ConnectTimeout,
+            httpcore.ConnectTimeout,
+            asyncioexceptions.TimeoutError,
+            httpx.ReadTimeout,
+        ):
+            post_response = await _call_tagged(
+                "refresh_status", vin, vehicle.refresh_status()
+            )
         state.last_post_attempt_at = dt_util.now()
 
         # Layer 1: gateway-level acceptance. payload.return_code "000000" =
-        # accepted; anything else = vehicle does not support refresh-status.
-        # (pytoyoda exposes the field as snake_case via Pydantic Field alias.)
-        payload = getattr(post_response, "payload", None)
+        # accepted; anything else (or no response = exception path) =
+        # vehicle does not support refresh-status this cycle.
+        payload = getattr(post_response, "payload", None) if post_response else None
         return_code = getattr(payload, "return_code", None) if payload else None
 
         if return_code != "000000":
             should_auto_disable = on_post_layer1_failure(state, opts)
-            _LOGGER.warning(
-                "Toyota refresh-status rejected for vin=...%s (returnCode=%s)",
-                vin[-6:],
-                return_code,
-            )
-            if should_auto_disable:
+            if post_response is not None:
+                # 200 OK with non-000000 returnCode (gateway-level rejection).
+                _LOGGER.warning(
+                    "Toyota refresh-status rejected for vin=...%s (returnCode=%s)",
+                    vin[-6:],
+                    return_code,
+                )
+            if should_auto_disable and not entry.options.get(
+                CONF_AUTO_DISABLED_STATUS_REFRESH, False
+            ):
                 # Persist auto-disable to config_entry.options. Triggers a
-                # listener-driven reload, which is fine - state survives via
-                # diag_bucket.
+                # listener-driven reload, which is fine - state survives
+                # via diag_bucket. Guarded against re-entrance: a service-
+                # call retry that still 500s would otherwise trip the
+                # threshold every cycle and trigger a redundant reload.
                 hass.config_entries.async_update_entry(
                     entry,
                     options={
@@ -426,13 +452,49 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                     },
                 )
                 _LOGGER.warning(
-                    "Toyota auto-disabled smart refresh for vin=...%s after "
-                    "%d consecutive Layer 1 rejections",
+                    "Toyota auto-disabled smart refresh for vin=...%s "
+                    "after %d consecutive Layer 1 rejections",
                     vin[-6:],
                     state.consecutive_post_rejections,
                 )
+            # Fall back to a bare GET so /status entities still refresh
+            # this cycle (matches the HARD_DISABLED legacy path). Useful
+            # for cycles before auto-disable kicks in, and for any vehicle
+            # whose POST 500s but whose /status still serves stale-cache
+            # data we can read. Suppression list matches the POST's so
+            # transient connectivity issues during the fallback don't
+            # abort _refresh_one_vehicle's bookkeeping either.
+            with contextlib.suppress(
+                ToyotaApiError,
+                httpx.ConnectTimeout,
+                httpcore.ConnectTimeout,
+                asyncioexceptions.TimeoutError,
+                httpx.ReadTimeout,
+            ):
+                await _call_tagged(
+                    "status_after_post_fail",
+                    vin,
+                    vehicle.update(only=["status"]),
+                )
             return
         on_post_layer1_success(state)
+        # Auto-recovery from HARD_DISABLED_AUTO: a successful POST proves
+        # the gateway can process this endpoint. Lift the flag so the
+        # strategy goes back to ACTIVE on the next cycle. Triggered by
+        # service-call bypass (the user explicitly retrying via the
+        # refresh button) or by a transient 5xx clearing on its own.
+        if entry.options.get(CONF_AUTO_DISABLED_STATUS_REFRESH, False):
+            hass.config_entries.async_update_entry(
+                entry,
+                options={
+                    **entry.options,
+                    CONF_AUTO_DISABLED_STATUS_REFRESH: False,
+                },
+            )
+            _LOGGER.info(
+                "Toyota auto-disable cleared for vin=...%s after successful POST",
+                vin[-6:],
+            )
 
         # Layer 2: poll for occurrence_date advancement.
         deadline = dt_util.now() + timedelta(seconds=timeout_s)

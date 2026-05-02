@@ -189,3 +189,20 @@ async def test_clear_unknown_vin_is_noop(hass):
     await cache.load()
     cache.clear("VIN_UNKNOWN")
     # no exception raised
+
+
+@pytest.mark.asyncio
+async def test_prune_to_drops_unknown_vins(hass):
+    cache = TripsCacheStore(hass, "entry1")
+    await cache.load()
+    cache.set("VIN_KEEP", [_trip("a")])
+    cache.set("VIN_GONE", [_trip("b")])
+    mutated = cache.prune_to(["VIN_KEEP"])
+    assert mutated is True
+    assert cache.known_vins() == ["VIN_KEEP"]
+    # Idempotent.
+    assert cache.prune_to(["VIN_KEEP"]) is False
+    # Pruning to empty drops everything.
+    cache.set("VIN_OTHER", [_trip("c")])
+    assert cache.prune_to([]) is True
+    assert cache.known_vins() == []

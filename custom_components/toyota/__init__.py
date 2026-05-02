@@ -931,6 +931,13 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
     await coordinator.async_config_entry_first_refresh()
 
+    # Prune cached trips for VINs that are no longer on the account.
+    if coordinator.data:
+        known_vins = [
+            vd["data"].vin for vd in coordinator.data if vd.get("data") is not None
+        ]
+        await trips_manager.async_prune_orphans(known_vins)
+
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)

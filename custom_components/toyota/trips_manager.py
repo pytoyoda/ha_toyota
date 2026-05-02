@@ -19,6 +19,7 @@ storage in trips_cache.py.
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from typing import TYPE_CHECKING
 
@@ -27,6 +28,8 @@ from .trips_cache import TripsCacheStore
 from .trips_transform import to_card_shape
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
     from pytoyoda.models.vehicle import Vehicle
@@ -69,6 +72,11 @@ class RecentTripsManager:
         # via options flow) where the cache survives the reload but at the old
         # smaller size; we want the next refresh tick to top it back up.
         self._underfilled_vins: set[str] = set()
+        # Per-VIN locks serialise cache mutation paths (cold-start seed,
+        # delta-fetch, service refresh). Without them a coordinator stop tick
+        # racing a service/button call can issue duplicate get_recent_trips
+        # calls and last-writer-wins on the cache + _followup_pending state.
+        self._locks: dict[str, asyncio.Lock] = {}
 
     async def async_setup(self) -> None:
         """Load the on-disk cache, trim VINs over max, mark under-filled VINs.
@@ -102,27 +110,25 @@ class RecentTripsManager:
         """Current configured cap. 0 means auto-fetch is disabled."""
         return self._max
 
-    def update_max(self, new_max: int) -> bool:
-        """React to options-flow change in ``max_recent_trips``.
+    def _lock(self, vin: str) -> asyncio.Lock:
+        """Per-VIN lock; created on first use."""
+        lock = self._locks.get(vin)
+        if lock is None:
+            lock = asyncio.Lock()
+            self._locks[vin] = lock
+        return lock
 
-        Lowered (10 -> 5): trim cache to new size, no refetch.
-        Raised  (5 -> 10): leave cache alone; coordinator's next maybe_refresh
-            will see ``len(cache) < new_max`` and seed the gap.
-        Set to 0: drop entries entirely; sensor reports 0 trips, auto-fetch off.
+    async def async_prune_orphans(self, known_vins: Iterable[str]) -> bool:
+        """Drop cached VINs not in ``known_vins`` and persist if mutated.
 
-        Returns True if the cache was mutated (caller should persist).
+        Called by the coordinator after the first successful refresh, so
+        VINs the user removed from their Toyota account stop accumulating
+        in the on-disk cache.
         """
-        if new_max == self._max:
-            return False
-        old_max = self._max
-        self._max = new_max
-        if new_max < old_max:
-            for vin in self._cache.known_vins():
-                self._cache.trim(vin, new_max)
-            return True
-        # Raised: nothing to do here; the next refresh tick will fill via
-        # the cache-cold-start branch in async_maybe_refresh.
-        return False
+        mutated = self._cache.prune_to(known_vins)
+        if mutated:
+            await self._cache.save()
+        return mutated
 
     async def async_maybe_refresh(
         self,
@@ -137,138 +143,124 @@ class RecentTripsManager:
         if self._max <= 0:
             return
 
-        # Cold start (cache empty for this VIN): seed with limit=max trips.
-        # This covers fresh integration install, fresh-enable post-options-flow,
-        # and post-clear-cache scenarios. Independent of trigger.
-        if not self._cache.get(vin):
-            await self._seed_cache(vehicle, vin, self._max)
-            return
+        async with self._lock(vin):
+            # Cold start: seed with limit=max trips.
+            if not self._cache.get(vin):
+                await self._seed_cache(vehicle, vin, self._max)
+                return
 
-        # Under-filled cache (cache was already on disk with fewer trips than
-        # the current max, typically because the user just raised max via
-        # options-flow). Seed once with limit=max to refill, then drop the
-        # underfill flag so subsequent ticks fall through to normal delta-fetch.
-        if vin in self._underfilled_vins:
-            await self._seed_cache(vehicle, vin, self._max)
-            self._underfilled_vins.discard(vin)
-            return
+            # Under-filled cache (raise-max via options flow). One-shot refill.
+            if vin in self._underfilled_vins:
+                await self._seed_cache(vehicle, vin, self._max)
+                self._underfilled_vins.discard(vin)
+                return
 
-        # Steady state: fetch only on stop-event triggers.
-        # JUST_STOPPED: primary trigger.
-        # JUST_STOPPED_FOLLOWUP: only if the prior just_stopped fetch yielded
-        # no new trip (Toyota hadn't processed it yet).
-        trigger = decision.trigger
-
-        if trigger is RefreshTrigger.JUST_STOPPED:
-            yielded_new = await self._delta_fetch(vehicle, vin)
-            self._followup_pending[vin] = not yielded_new
-        elif (
-            trigger is RefreshTrigger.JUST_STOPPED_FOLLOWUP
-            and self._followup_pending.get(vin)
-        ):
-            yielded_new = await self._delta_fetch(vehicle, vin)
-            self._followup_pending[vin] = (
-                False if yielded_new else self._followup_pending.get(vin, False)
-            )
-        # All other triggers: no-op. Trips don't change between drives.
+            # Steady state: fetch only on stop-event triggers.
+            trigger = decision.trigger
+            if trigger is RefreshTrigger.JUST_STOPPED:
+                yielded_new = await self._delta_fetch(vehicle, vin)
+                self._followup_pending[vin] = not yielded_new
+            elif (
+                trigger is RefreshTrigger.JUST_STOPPED_FOLLOWUP
+                and self._followup_pending.get(vin)
+            ):
+                yielded_new = await self._delta_fetch(vehicle, vin)
+                self._followup_pending[vin] = (
+                    False if yielded_new else self._followup_pending.get(vin, False)
+                )
 
     async def async_service_refresh(
         self, vin: str, vehicle: Vehicle, limit: int
     ) -> int:
-        """Discard cache for VIN, fetch ``limit`` trips, populate cache.
+        """Replace cache for VIN with ``limit`` freshly fetched trips.
 
-        Used by the ``toyota.refresh_recent_trips`` service and the per-vehicle
-        ``Refresh recent trips`` button. Works regardless of ``max_recent_trips``
-        config (so users with auto-fetch off can still drive fetches via
-        automations).
-
-        Returns the count of trips placed in cache.
+        On fetch failure, prior cache contents are preserved (fail-safe).
+        Works regardless of ``max_recent_trips`` config.
         """
         if not 1 <= limit <= 50:  # noqa: PLR2004
             msg = f"limit must be between 1 and 50, got {limit}"
             raise ValueError(msg)
-        self._cache.clear(vin)
-        await self._seed_cache(vehicle, vin, limit)
-        return len(self._cache.get(vin))
+        async with self._lock(vin):
+            shapes = await self._fetch_shapes(vehicle, vin, limit)
+            if shapes is None:
+                # Fetch failed; keep prior cache rather than nuking it.
+                return len(self._cache.get(vin))
+            self._cache.set(vin, shapes)
+            await self._cache.save()
+            return len(shapes)
 
-    async def _seed_cache(self, vehicle: Vehicle, vin: str, limit: int) -> None:
-        """Fetch ``limit`` trips with route, transform, populate cache."""
+    async def _fetch_shapes(
+        self, vehicle: Vehicle, vin: str, limit: int
+    ) -> list[dict] | None:
+        """Fetch + transform. Returns None on fetch failure, list on success."""
         try:
             trips = await vehicle.get_recent_trips(limit=limit, with_route=True)
         except Exception:
             _LOGGER.exception(
-                "Toyota recent-trips seed-fetch failed for vin=...%s", vin[-6:]
+                "Toyota recent-trips fetch failed for vin=...%s", vin[-6:]
             )
-            return
-        card_trips: list[dict] = []
+            return None
         alias = vehicle.alias if hasattr(vehicle, "alias") else None
+        out: list[dict] = []
         for t in trips:
             raw = self._raw_trip_dict(t)
             if raw is None:
                 continue
             shape = to_card_shape(raw, alias)
             if shape is not None:
-                card_trips.append(shape)
-        self._cache.set(vin, card_trips)
+                out.append(shape)
+        return out
+
+    async def _seed_cache(self, vehicle: Vehicle, vin: str, limit: int) -> None:
+        """Fetch + commit (set + save). On fetch failure, cache untouched.
+
+        Caller must hold ``self._lock(vin)``.
+        """
+        shapes = await self._fetch_shapes(vehicle, vin, limit)
+        if shapes is None:
+            return
+        self._cache.set(vin, shapes)
         await self._cache.save()
         _LOGGER.debug(
             "Toyota recent-trips seeded vin=...%s with %d trips (limit=%d)",
             vin[-6:],
-            len(card_trips),
+            len(shapes),
             limit,
         )
 
     async def _delta_fetch(self, vehicle: Vehicle, vin: str) -> bool:
-        """Fetch the most recent N trips (DELTA_FETCH_LIMIT), dedup, append.
+        """Fetch DELTA_FETCH_LIMIT trips, dedup, append. Caller holds the lock.
 
-        Returns True if at least one new trip was added to the cache, False
-        otherwise (caller uses this to decide whether followup retry needed).
+        Returns True if at least one new trip was added to the cache.
         """
-        try:
-            trips = await vehicle.get_recent_trips(
-                limit=DELTA_FETCH_LIMIT, with_route=True
-            )
-        except Exception:
-            _LOGGER.exception(
-                "Toyota recent-trips delta-fetch failed for vin=...%s", vin[-6:]
-            )
-            return False
-        if not trips:
+        shapes = await self._fetch_shapes(vehicle, vin, DELTA_FETCH_LIMIT)
+        if shapes is None or not shapes:
             return False
 
-        alias = vehicle.alias if hasattr(vehicle, "alias") else None
         # Walk newest-first; collect shapes that are actually new.
         new_shapes: list[dict] = []
         seen_existing = False
-        for t in trips:
-            raw = self._raw_trip_dict(t)
-            if raw is None:
-                continue
-            trip_id = raw.get("id")
+        for shape in shapes:
+            trip_id = shape.get("id")
             if trip_id and self._cache.has_trip_id(vin, trip_id):
                 seen_existing = True
                 break
-            shape = to_card_shape(raw, alias)
-            if shape is not None:
-                new_shapes.append(shape)
+            new_shapes.append(shape)
 
         if not new_shapes:
-            # All returned trips are already cached; nothing new.
             return False
 
         if not seen_existing and len(new_shapes) >= DELTA_FETCH_LIMIT:
-            # Both fetched trips are new and we didn't see any cached one in
-            # the overlap. Gap detected (HA was down or we missed cycles);
-            # fall back to a full reseed to catch up.
+            # Both fetched trips are new with no overlap: gap (HA down or
+            # missed cycles); reseed to catch up.
             _LOGGER.info(
                 "Toyota recent-trips gap detected for vin=...%s, refilling", vin[-6:]
             )
             await self._seed_cache(vehicle, vin, self._max)
             return True
 
-        # Normal case: prepend the new ones (they came back newest-first).
+        # Newest-first; reverse so that sequential prepends end with newest at 0.
         for shape in reversed(new_shapes):
-            # Reversed so the newest ends up at index 0 after sequential prepends.
             self._cache.append(vin, shape, self._max)
         await self._cache.save()
         _LOGGER.debug(
@@ -282,10 +274,9 @@ class RecentTripsManager:
     def _raw_trip_dict(trip_obj) -> dict | None:  # type: ignore[no-untyped-def]  # noqa: ANN001
         """Extract the raw _TripModel dict from a pytoyoda Trip wrapper.
 
-        pytoyoda's Trip wrapper holds the underlying _TripModel at ``_trip``.
-        We use ``.model_dump(by_alias=True)`` to get the JSON-shape with
-        Toyota's native camelCase keys (matching what ``to_card_shape``
-        expects). Returns None on any access failure.
+        Couples to pytoyoda's private ``_trip`` attribute (manifest pin
+        pytoyoda>=5.1.0 guarantees it exists). If pytoyoda exposes a public
+        accessor in a future release, switch to it and bump the manifest pin.
         """
         try:
             inner = getattr(trip_obj, "_trip", None)

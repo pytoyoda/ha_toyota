@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 
@@ -35,7 +36,8 @@ def _trip_dict(trip_id: str) -> dict:
 def _wrap_as_trip(trip_dict: dict):
     """Mimic pytoyoda's Trip wrapper: an object with `_trip` attr that has
     `model_dump(by_alias=True)`. Tests use SimpleNamespace stubs that return
-    the dict directly when `model_dump` is called."""
+    the dict directly when `model_dump` is called.
+    """
     inner = MagicMock()
     inner.model_dump = MagicMock(return_value=trip_dict)
     wrapper = SimpleNamespace(_trip=inner)
@@ -44,7 +46,8 @@ def _wrap_as_trip(trip_dict: dict):
 
 def _make_vehicle(trip_dicts: list[dict], alias: str = "RAV4"):
     """Build a Vehicle stub with `get_recent_trips` returning the supplied
-    pre-shaped trip dicts wrapped as Trip-like objects."""
+    pre-shaped trip dicts wrapped as Trip-like objects.
+    """
     captured: dict = {}
 
     async def fake_get_recent_trips(limit, with_route=False, **_):
@@ -103,7 +106,7 @@ async def test_just_stopped_with_one_new_trip_appends(hass):
     # Vehicle returns a NEW trip first, then the cached one (newest-first ordering)
     v = _make_vehicle([_trip_dict("brand-new"), _trip_dict("cached")])
     await mgr.async_maybe_refresh(
-        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED)
+        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED),
     )
     cached = mgr.cache.get("VIN1")
     assert len(cached) == 2
@@ -119,7 +122,7 @@ async def test_just_stopped_no_new_trip_no_op(hass):
     mgr.cache.set("VIN1", [_trip_dict("cached")])
     v = _make_vehicle([_trip_dict("cached")])
     await mgr.async_maybe_refresh(
-        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED)
+        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED),
     )
     assert len(mgr.cache.get("VIN1")) == 1
     # Should have flagged followup pending
@@ -134,7 +137,7 @@ async def test_just_stopped_followup_only_runs_when_pending(hass):
     mgr.cache.set("VIN1", [_trip_dict("cached")])
     v = _make_vehicle([_trip_dict("cached")])
     await mgr.async_maybe_refresh(
-        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED_FOLLOWUP)
+        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED_FOLLOWUP),
     )
     v.get_recent_trips.assert_not_called()
 
@@ -147,7 +150,7 @@ async def test_followup_fires_when_pending_and_picks_up_late_trip(hass):
     mgr._followup_pending["VIN1"] = True
     v = _make_vehicle([_trip_dict("late-arrival"), _trip_dict("cached")])
     await mgr.async_maybe_refresh(
-        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED_FOLLOWUP)
+        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED_FOLLOWUP),
     )
     cached = mgr.cache.get("VIN1")
     assert len(cached) == 2
@@ -171,10 +174,10 @@ async def test_gap_detected_triggers_full_refill(hass):
             _trip_dict("new"),
             _trip_dict("less-new"),
             _trip_dict("least-new"),
-        ]
+        ],
     )
     await mgr.async_maybe_refresh(
-        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED)
+        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED),
     )
     # Should have called twice: limit=2 (delta), then limit=5 (full reseed)
     assert v.get_recent_trips.call_count == 2
@@ -232,51 +235,6 @@ async def test_service_refresh_rejects_invalid_limit(hass):
         await mgr.async_service_refresh("VIN1", v, limit=0)
     with pytest.raises(ValueError, match="limit must be between 1 and 50"):
         await mgr.async_service_refresh("VIN1", v, limit=51)
-
-
-@pytest.mark.asyncio
-async def test_update_max_lowered_trims(hass):
-    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=10)
-    await mgr.async_setup()
-    mgr.cache.set("VIN1", [_trip_dict(f"t{i}") for i in range(8)])
-    mutated = mgr.update_max(3)
-    assert mutated is True
-    assert len(mgr.cache.get("VIN1")) == 3
-    assert mgr.max_recent_trips == 3
-
-
-@pytest.mark.asyncio
-async def test_update_max_raised_no_mutation(hass):
-    """Raising max doesn't trim or refetch; the cold-start branch handles fill."""
-    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=3)
-    await mgr.async_setup()
-    mgr.cache.set("VIN1", [_trip_dict(f"t{i}") for i in range(3)])
-    mutated = mgr.update_max(10)
-    assert mutated is False
-    assert len(mgr.cache.get("VIN1")) == 3
-    assert mgr.max_recent_trips == 10
-
-
-@pytest.mark.asyncio
-async def test_update_max_to_zero_drops_entries(hass):
-    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
-    await mgr.async_setup()
-    mgr.cache.set("VIN1", [_trip_dict("a"), _trip_dict("b")])
-    mgr.cache.set("VIN2", [_trip_dict("c")])
-    mutated = mgr.update_max(0)
-    assert mutated is True
-    assert mgr.cache.get("VIN1") == []
-    assert mgr.cache.get("VIN2") == []
-
-
-@pytest.mark.asyncio
-async def test_update_max_unchanged_no_mutation(hass):
-    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
-    await mgr.async_setup()
-    mgr.cache.set("VIN1", [_trip_dict("a")])
-    mutated = mgr.update_max(5)
-    assert mutated is False
-    assert len(mgr.cache.get("VIN1")) == 1
 
 
 @pytest.mark.asyncio
@@ -347,3 +305,74 @@ async def test_seed_failure_leaves_cache_empty(hass):
     )
     await mgr.async_maybe_refresh(v, "VIN1", _make_decision(RefreshTrigger.NONE))
     assert mgr.cache.get("VIN1") == []
+
+
+@pytest.mark.asyncio
+async def test_service_refresh_failure_preserves_prior_cache(hass):
+    """Service-call fetch failure must not nuke the existing cache."""
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+    mgr.cache.set("VIN1", [_trip_dict("kept1"), _trip_dict("kept2")])
+    v = SimpleNamespace(
+        alias="RAV4",
+        get_recent_trips=AsyncMock(side_effect=Exception("API down")),
+    )
+    count = await mgr.async_service_refresh("VIN1", v, limit=5)
+    assert count == 2
+    assert [t["id"] for t in mgr.cache.get("VIN1")] == ["kept1", "kept2"]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_service_and_tick_serialise(hass):
+    """Service call and coordinator tick on the same VIN must serialise.
+
+    Without the per-VIN lock the cold-start branch in async_maybe_refresh sees
+    the cache cleared by async_service_refresh and issues a duplicate fetch.
+    """
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+
+    call_count = 0
+    fetch_started = asyncio.Event()
+    fetch_release = asyncio.Event()
+
+    async def slow_fetch(limit, with_route=False, **_):
+        nonlocal call_count
+        call_count += 1
+        fetch_started.set()
+        await fetch_release.wait()
+        return [_wrap_as_trip(_trip_dict(f"t{i}")) for i in range(limit)]
+
+    v = SimpleNamespace(alias="RAV4", get_recent_trips=AsyncMock(side_effect=slow_fetch))
+
+    service_task = asyncio.create_task(mgr.async_service_refresh("VIN1", v, limit=5))
+    await fetch_started.wait()
+    # Service call holds the lock + is mid-fetch. Coordinator tick fires now.
+    tick_task = asyncio.create_task(
+        mgr.async_maybe_refresh(v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED)),
+    )
+    # Give the tick a chance to run; it should be blocked on the lock.
+    await asyncio.sleep(0)
+    fetch_release.set()
+    await asyncio.gather(service_task, tick_task)
+
+    # Service did one fetch. Tick saw a populated cache (via the lock) and
+    # took the steady-state JUST_STOPPED -> delta-fetch path: one more call.
+    # Pre-fix this would be 3 calls (service + cold-start tick + delta) or
+    # corrupted state.
+    assert call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_async_prune_orphans_drops_unknown_vins(hass):
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+    mgr.cache.set("VIN_KEEP", [_trip_dict("a")])
+    mgr.cache.set("VIN_GONE", [_trip_dict("b")])
+    mutated = await mgr.async_prune_orphans(["VIN_KEEP"])
+    assert mutated is True
+    assert mgr.cache.get("VIN_KEEP") == [_trip_dict("a")]
+    assert mgr.cache.get("VIN_GONE") == []
+    # Idempotent.
+    mutated2 = await mgr.async_prune_orphans(["VIN_KEEP"])
+    assert mutated2 is False

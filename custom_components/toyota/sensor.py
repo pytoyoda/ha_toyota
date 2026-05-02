@@ -645,7 +645,12 @@ class ToyotaRecentTripsSensor(ToyotaBaseEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Expose the cached trips list and a convenience label."""
+        """Expose the cached trips list and a convenience label.
+
+        Payload size scales with max_recent_trips x route polyline length.
+        With long routes and max=20 the attribute can cross HA's 16 KiB soft
+        warning; lower max_recent_trips if the recorder complains.
+        """
         mgr = self.hass.data.get(DOMAIN, {}).get(f"{self._entry_id}_trips_manager")
         if mgr is None:
             return None

@@ -17,6 +17,8 @@ from typing import TYPE_CHECKING
 from homeassistant.helpers.storage import Store
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from homeassistant.core import HomeAssistant
 
 CACHE_VERSION = 1
@@ -106,3 +108,11 @@ class TripsCacheStore:
     def known_vins(self) -> list[str]:
         """Return the list of VINs currently in the cache."""
         return list(self._data.keys())
+
+    def prune_to(self, vins: Iterable[str]) -> bool:
+        """Drop cached entries for VINs not in ``vins``. Returns True if mutated."""
+        keep = set(vins)
+        stale = [v for v in self._data if v not in keep]
+        for v in stale:
+            self._data.pop(v, None)
+        return bool(stale)

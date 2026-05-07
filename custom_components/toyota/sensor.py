@@ -645,11 +645,20 @@ class ToyotaRecentTripsSensor(ToyotaBaseEntity, SensorEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Expose the cached trips list and a convenience label.
+        """Expose cached trip metadata WITHOUT route polylines.
 
-        Payload size scales with max_recent_trips x route polyline length.
-        With long routes and max=20 the attribute can cross HA's 16 KiB soft
-        warning; lower max_recent_trips if the recorder complains.
+        Each trip dict in the returned ``trips`` list has its ``route``
+        field stripped and replaced with a ``route_point_count`` integer
+        so callers can decide whether to fetch the full route via the
+        ``toyota.get_trip_route`` service. Stripping the route keeps the
+        attribute payload small (~6 KB for 10 trips vs ~640 KB with
+        polylines for a daily-driver) so the HA recorder, state machine,
+        and WebSocket pipeline don't carry per-cycle bulk. Mirrors HA
+        core's 2024.x weather-forecast pattern: state stays small; bulk
+        data fetched on demand.
+
+        The journey-viewer-card lazy-loads route per trip via the
+        service when the user navigates to a trip.
         """
         mgr = self.hass.data.get(DOMAIN, {}).get(f"{self._entry_id}_trips_manager")
         if mgr is None:
@@ -658,6 +667,7 @@ class ToyotaRecentTripsSensor(ToyotaBaseEntity, SensorEntity):
         if not vin:
             return None
         trips = mgr.cache.get(vin)
+        slim_trips = [_strip_route(t) for t in trips]
         last_trip_label: str | None = None
         if trips:
             first = trips[0]
@@ -670,10 +680,24 @@ class ToyotaRecentTripsSensor(ToyotaBaseEntity, SensorEntity):
                 distance_str = "?"
             last_trip_label = f"{ts} ({distance_str})"
         return {
-            "trips": trips,
+            "trips": slim_trips,
             "last_trip_label": last_trip_label,
             "source": "toyota",
         }
+
+
+def _strip_route(trip: dict) -> dict:
+    """Return a shallow copy of ``trip`` with ``route`` removed.
+
+    Replaces ``route`` with an integer ``route_point_count`` so callers
+    can decide whether to lazy-load the route via the get_trip_route
+    service. Other fields (id, start/end, stats, behaviours, scores)
+    are passed through unchanged.
+    """
+    route = trip.get("route") or []
+    out = {k: v for k, v in trip.items() if k != "route"}
+    out["route_point_count"] = len(route)
+    return out
 
 
 async def async_setup_entry(

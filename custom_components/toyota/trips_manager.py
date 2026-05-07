@@ -138,14 +138,47 @@ class RecentTripsManager:
     ) -> None:
         """Fetch trips per the rolling-cache + delta lifecycle.
 
-        Called once per VIN per coordinator cycle. No-op when disabled.
+        Called once per VIN per coordinator cycle. No-op when disabled
+        (``max_recent_trips <= 0``). Uses ``vehicle.trip_history`` -
+        already populated by the cycle's `/v1/trips?summary=True&limit=1
+        &route=False` call - as a free piggyback signal:
+
+        - ``trip_history is None``: endpoint failed this cycle (now
+          optional in pytoyoda). Conservative: skip auto-fetch; the
+          service-refresh button still works.
+        - ``trip_history == []``: vehicle has no trips data at all (e.g.
+          AYGO X on Toyota Connect Lite tier). Skip entirely - no
+          redundant ``with_route`` fetch.
+        - ``trip_history[0].id == cache[0].id``: cache is in sync with
+          Toyota's view. Skip the heavier ``with_route`` fetch; on
+          ``JUST_STOPPED`` mark followup-pending in case Toyota's
+          summary endpoint is also lagging behind a freshly-driven
+          trip.
+        - mismatch: there's a new trip we don't have. Cold-start when
+          cache empty; delta-fetch on stop triggers; otherwise no-op.
         """
         if self._max <= 0:
             return
 
+        # Read piggyback signal. Use getattr defensively - tests use
+        # bare SimpleNamespace stubs that may not declare the attribute.
+        history = getattr(vehicle, "trip_history", None)
+        if history is None:
+            return
+        if not history:
+            return
+        latest_id = self._extract_trip_id(history[0])
+        if latest_id is None:
+            return  # Defensive; production trips always have UUIDs.
+
         async with self._lock(vin):
+            cache = self._cache.get(vin)
+            cache_top_id = (
+                str(cache[0].get("id")) if cache and cache[0].get("id") else None
+            )
+
             # Cold start: seed with limit=max trips.
-            if not self._cache.get(vin):
+            if not cache:
                 await self._seed_cache(vehicle, vin, self._max)
                 return
 
@@ -155,7 +188,17 @@ class RecentTripsManager:
                 self._underfilled_vins.discard(vin)
                 return
 
-            # Steady state: fetch only on stop-event triggers.
+            # Cache top matches Toyota's latest trip - nothing new since
+            # last cycle. Skip the heavier with_route fetch; on JUST_STOPPED
+            # mark followup-pending so a delayed-ingest trip gets caught
+            # next cycle.
+            if cache_top_id == latest_id:
+                if decision.trigger is RefreshTrigger.JUST_STOPPED:
+                    self._followup_pending[vin] = True
+                return
+
+            # Mismatch: there's a new trip we don't have. Delta-fetch on
+            # stop-event triggers.
             trigger = decision.trigger
             if trigger is RefreshTrigger.JUST_STOPPED:
                 yielded_new = await self._delta_fetch(vehicle, vin)
@@ -168,6 +211,20 @@ class RecentTripsManager:
                 self._followup_pending[vin] = (
                     False if yielded_new else self._followup_pending.get(vin, False)
                 )
+
+    @staticmethod
+    def _extract_trip_id(trip_obj) -> str | None:  # type: ignore[no-untyped-def]  # noqa: ANN001
+        """Pull a stringified trip id off a pytoyoda Trip wrapper.
+
+        ``Trip._trip.id`` is a UUID; cached trip dicts store the same
+        value as ``str``. Stringify both ends before comparison so
+        UUID/str equality lines up.
+        """
+        inner = getattr(trip_obj, "_trip", None)
+        if inner is None:
+            return None
+        tid = getattr(inner, "id", None)
+        return str(tid) if tid is not None else None
 
     async def async_service_refresh(
         self, vin: str, vehicle: Vehicle, limit: int

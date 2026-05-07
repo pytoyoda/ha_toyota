@@ -60,3 +60,30 @@ refresh_recent_trips:
           max: 50
           step: 1
           mode: box
+
+get_trip_route:
+  name: Get trip route
+  description: >
+    Return the cached GPS route polyline for a single trip by id. Used by
+    the journey-viewer-card to lazy-load route data per trip rather than
+    receiving every cached trip's route in the sensor's state attributes
+    (where with_route polylines for long drives can run hundreds of KB and
+    overwhelm the recorder + state-machine + WebSocket pipeline).
+    Read-only: does not call the Toyota API. The cache is populated by the
+    smart-strategy stop-event lifecycle and the refresh_recent_trips service.
+  fields:
+    device_id:
+      name: Vehicle
+      description: The Toyota vehicle whose trips cache to read.
+      required: true
+      selector:
+        device:
+          integration: toyota
+    trip_id:
+      name: Trip ID
+      description: >
+        UUID of the trip whose route to return. Match the `id` field on
+        any item in the recent_trips sensor's `trips` attribute.
+      required: true
+      selector:
+        text:

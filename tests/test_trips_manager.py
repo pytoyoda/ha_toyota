@@ -35,18 +35,30 @@ def _trip_dict(trip_id: str) -> dict:
 
 def _wrap_as_trip(trip_dict: dict):
     """Mimic pytoyoda's Trip wrapper: an object with `_trip` attr that has
-    `model_dump(by_alias=True)`. Tests use SimpleNamespace stubs that return
-    the dict directly when `model_dump` is called.
+    `model_dump(by_alias=True)` and an `id` matching the dict's id field.
     """
     inner = MagicMock()
     inner.model_dump = MagicMock(return_value=trip_dict)
+    inner.id = trip_dict.get("id")
     wrapper = SimpleNamespace(_trip=inner)
     return wrapper
 
 
-def _make_vehicle(trip_dicts: list[dict], alias: str = "RAV4"):
+def _make_vehicle(
+    trip_dicts: list[dict],
+    alias: str = "RAV4",
+    *,
+    trip_history=None,
+):
     """Build a Vehicle stub with `get_recent_trips` returning the supplied
     pre-shaped trip dicts wrapped as Trip-like objects.
+
+    By default ``trip_history`` mirrors ``trip_dicts[:1]`` wrapped, matching
+    the production shape where pytoyoda's per-cycle trip_history endpoint
+    returns the most recent trip with summary=True/route=False. Pass
+    ``trip_history=...`` to override (e.g. ``[]`` for the AYGO no-trips
+    path, ``None`` for the endpoint-failed path, or a custom Trip wrapper
+    list to model id mismatch with the cache).
     """
     captured: dict = {}
 
@@ -54,9 +66,15 @@ def _make_vehicle(trip_dicts: list[dict], alias: str = "RAV4"):
         captured.update(limit=limit, with_route=with_route)
         return [_wrap_as_trip(t) for t in trip_dicts[:limit]]
 
+    if trip_history is None and trip_dicts:
+        trip_history = [_wrap_as_trip(trip_dicts[0])]
+    elif trip_history is None:
+        trip_history = []
+
     v = SimpleNamespace(
         alias=alias,
         get_recent_trips=AsyncMock(side_effect=fake_get_recent_trips),
+        trip_history=trip_history,
         _captured=captured,
     )
     return v
@@ -299,9 +317,12 @@ async def test_seed_failure_leaves_cache_empty(hass):
     """If get_recent_trips raises, cache stays empty rather than partial."""
     mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
     await mgr.async_setup()
+    # trip_history non-empty so piggyback gate doesn't short-circuit;
+    # we want to reach get_recent_trips and have it raise.
     v = SimpleNamespace(
         alias="RAV4",
         get_recent_trips=AsyncMock(side_effect=Exception("API down")),
+        trip_history=[_wrap_as_trip(_trip_dict("would-have-fetched"))],
     )
     await mgr.async_maybe_refresh(v, "VIN1", _make_decision(RefreshTrigger.NONE))
     assert mgr.cache.get("VIN1") == []
@@ -343,7 +364,15 @@ async def test_concurrent_service_and_tick_serialise(hass):
         await fetch_release.wait()
         return [_wrap_as_trip(_trip_dict(f"t{i}")) for i in range(limit)]
 
-    v = SimpleNamespace(alias="RAV4", get_recent_trips=AsyncMock(side_effect=slow_fetch))
+    # trip_history shows a NEW trip (not in the cache the service call seeds),
+    # so the tick's piggyback gate routes through the delta-fetch path rather
+    # than skipping. Without this the tick would short-circuit and we'd lose
+    # the lock-serialisation assertion's signal.
+    v = SimpleNamespace(
+        alias="RAV4",
+        get_recent_trips=AsyncMock(side_effect=slow_fetch),
+        trip_history=[_wrap_as_trip(_trip_dict("brand-new-after-service"))],
+    )
 
     service_task = asyncio.create_task(mgr.async_service_refresh("VIN1", v, limit=5))
     await fetch_started.wait()
@@ -376,3 +405,135 @@ async def test_async_prune_orphans_drops_unknown_vins(hass):
     # Idempotent.
     mutated2 = await mgr.async_prune_orphans(["VIN_KEEP"])
     assert mutated2 is False
+
+
+# ---------------------------------------------------------------------------
+# Piggyback gating tests
+# ---------------------------------------------------------------------------
+# These exercise the cycle's free `vehicle.trip_history` signal as a gate
+# on the heavier `get_recent_trips(with_route=True)` fetch. See
+# trips_manager.async_maybe_refresh docstring + 2026-05-07 journal.
+
+
+@pytest.mark.asyncio
+async def test_piggyback_empty_trip_history_skips_fetch(hass):
+    """AYGO path: vehicle has no trips data → skip fetch entirely."""
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+    v = _make_vehicle([], trip_history=[])
+    await mgr.async_maybe_refresh(
+        v, "VIN_AYGO", _make_decision(RefreshTrigger.JUST_STOPPED),
+    )
+    v.get_recent_trips.assert_not_called()
+    assert mgr.cache.get("VIN_AYGO") == []
+
+
+@pytest.mark.asyncio
+async def test_piggyback_none_trip_history_skips_fetch(hass):
+    """trip_history endpoint failed this cycle → conservative skip."""
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+    v = _make_vehicle([_trip_dict("t1")], trip_history=None)
+    # The _make_vehicle helper synthesises a trip_history when
+    # trip_history=None is passed AND trip_dicts is non-empty. Override
+    # here to force the "endpoint failed" shape.
+    v.trip_history = None
+    await mgr.async_maybe_refresh(
+        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED),
+    )
+    v.get_recent_trips.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_piggyback_matching_id_skips_delta_and_arms_followup(hass):
+    """Cache top id == trip_history top id on JUST_STOPPED → skip + flag followup.
+
+    Toyota's summary endpoint may also be lagging behind a freshly-driven
+    trip. Setting followup_pending lets the next stop tick reach the
+    delta-fetch path if a new trip eventually surfaces.
+    """
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+    mgr.cache.set("VIN1", [_trip_dict("cached")])
+    v = _make_vehicle([_trip_dict("cached")])  # default trip_history → cached
+    await mgr.async_maybe_refresh(
+        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED),
+    )
+    v.get_recent_trips.assert_not_called()
+    assert mgr._followup_pending.get("VIN1") is True
+
+
+@pytest.mark.asyncio
+async def test_piggyback_matching_id_on_non_stop_does_not_arm_followup(hass):
+    """Steady-state matching id should NOT arm followup-pending."""
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+    mgr.cache.set("VIN1", [_trip_dict("cached")])
+    v = _make_vehicle([_trip_dict("cached")])
+    await mgr.async_maybe_refresh(
+        v, "VIN1", _make_decision(RefreshTrigger.NONE),
+    )
+    v.get_recent_trips.assert_not_called()
+    assert mgr._followup_pending.get("VIN1") in (None, False)
+
+
+@pytest.mark.asyncio
+async def test_piggyback_new_id_triggers_delta_on_stop(hass):
+    """trip_history shows a new trip → delta-fetch fires on JUST_STOPPED."""
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+    mgr.cache.set("VIN1", [_trip_dict("cached")])
+    v = _make_vehicle(
+        [_trip_dict("brand-new"), _trip_dict("cached")],
+        trip_history=[_wrap_as_trip(_trip_dict("brand-new"))],
+    )
+    await mgr.async_maybe_refresh(
+        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED),
+    )
+    v.get_recent_trips.assert_called_once()
+    assert v._captured["limit"] == 2  # delta-fetch
+    cached = mgr.cache.get("VIN1")
+    assert cached[0]["id"] == "brand-new"
+    assert cached[1]["id"] == "cached"
+
+
+@pytest.mark.asyncio
+async def test_piggyback_cold_start_when_history_has_trips(hass):
+    """Empty cache + trip_history non-empty → cold-start fires."""
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+    v = _make_vehicle([_trip_dict(f"t{i}") for i in range(3)])
+    await mgr.async_maybe_refresh(
+        v, "VIN1", _make_decision(RefreshTrigger.NONE),
+    )
+    v.get_recent_trips.assert_called_once()
+    assert v._captured["limit"] == 5  # cold-start uses max
+    assert v._captured["with_route"] is True
+
+
+@pytest.mark.asyncio
+async def test_piggyback_uuid_id_compares_as_string(hass):
+    """pytoyoda Trip._trip.id is a UUID; cache stores str. Compare must align."""
+    from uuid import UUID
+
+    trip_uuid = UUID("49743b6d-3078-4efe-a68f-6c826b2680b6")
+    cached_dict = {**_trip_dict("ignored"), "id": str(trip_uuid)}
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await mgr.async_setup()
+    mgr.cache.set("VIN1", [cached_dict])
+
+    # Simulate pytoyoda: history[0]._trip.id is the UUID object itself.
+    inner = MagicMock()
+    inner.id = trip_uuid
+    history_wrapper = SimpleNamespace(_trip=inner)
+    v = SimpleNamespace(
+        alias="RAV4",
+        get_recent_trips=AsyncMock(),
+        trip_history=[history_wrapper],
+    )
+    await mgr.async_maybe_refresh(
+        v, "VIN1", _make_decision(RefreshTrigger.JUST_STOPPED),
+    )
+    # UUID stringified == cache id string → match → no fetch.
+    v.get_recent_trips.assert_not_called()
+    assert mgr._followup_pending.get("VIN1") is True

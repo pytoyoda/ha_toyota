@@ -117,7 +117,7 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable
 
     from homeassistant.config_entries import ConfigEntry
-    from homeassistant.core import HomeAssistant, ServiceCall
+    from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse
     from pytoyoda.models.summary import Summary
     from pytoyoda.models.vehicle import Vehicle
 
@@ -953,6 +953,8 @@ SERVICE_REFRESH_VEHICLE_STATUS = "refresh_vehicle_status"
 ATTR_TIMEOUT_SECONDS = "timeout_seconds"
 SERVICE_REFRESH_RECENT_TRIPS = "refresh_recent_trips"
 ATTR_LIMIT = "limit"
+SERVICE_GET_TRIP_ROUTE = "get_trip_route"
+ATTR_TRIP_ID = "trip_id"
 
 
 def _resolve_devices_to_vins_per_entry(
@@ -1121,6 +1123,54 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
         SERVICE_REFRESH_RECENT_TRIPS,
         _handle_refresh_recent_trips,
     )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_TRIP_ROUTE):
+        from homeassistant.core import SupportsResponse  # noqa: PLC0415
+
+        async def _handle_get_trip_route(call: ServiceCall) -> ServiceResponse:
+            """Return the cached route polyline for a single trip by id.
+
+            Read-only lookup against the per-entry trips cache. The card
+            calls this lazily when the user navigates to a trip - keeps
+            sensor.<alias>_recent_trips's `attributes.trips` payload
+            small (no per-trip polyline) so the recorder, state machine,
+            and WebSocket subscribers don't carry the bulk on every
+            cache mutation. Mirrors HA core's 2024.x weather-forecast
+            shape (state stays small; bulk fetched on demand).
+            """
+            raw = call.data.get("device_id") or []
+            device_ids: list[str] = [raw] if isinstance(raw, str) else list(raw)
+            trip_id = str(call.data.get(ATTR_TRIP_ID) or "").strip()
+            if not device_ids or not trip_id:
+                _LOGGER.warning(
+                    "toyota.get_trip_route called with missing device or "
+                    "trip_id (devices=%s, trip_id=%r)",
+                    device_ids,
+                    trip_id,
+                )
+                return {"found": False, "route": []}
+
+            per_entry_vins = _resolve_devices_to_vins_per_entry(hass, device_ids)
+            for entry_id, vins in per_entry_vins.items():
+                mgr = hass.data[DOMAIN].get(f"{entry_id}_trips_manager")
+                if mgr is None:
+                    continue
+                for vin in vins:
+                    for trip in mgr.cache.get(vin):
+                        if str(trip.get("id")) == trip_id:
+                            return {
+                                "found": True,
+                                "trip_id": trip_id,
+                                "route": list(trip.get("route") or []),
+                            }
+            return {"found": False, "trip_id": trip_id, "route": []}
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GET_TRIP_ROUTE,
+            _handle_get_trip_route,
+            supports_response=SupportsResponse.ONLY,
+        )
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

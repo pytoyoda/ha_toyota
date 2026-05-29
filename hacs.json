@@ -3,6 +3,6 @@
   "homeassistant": "2025.4.0",
   "hide_default_branch": true,
   "render_readme": true,
-  "zip_release": true,
+  "zip_release": false,
   "filename": "toyota.zip"
 }

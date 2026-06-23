@@ -123,7 +123,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     def _load_climate_settings_from_coordinator(self) -> None:
         """Load climate settings from coordinator data if available."""
         try:
-            if not self.vehicle or not hasattr(self.vehicle, "climate_settings"):
+            if not self.vehicle or not getattr(self.vehicle, "climate_settings", None):
                 _LOGGER.debug("Vehicle climate_settings not yet available")
                 return
 
@@ -147,18 +147,24 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         """Load temperature settings from climate_settings."""
         climate_settings = self.vehicle.climate_settings
         target_temperature = climate_settings.temperature
-        if target_temperature is not None:
+        if target_temperature is not None and target_temperature.value is not None:
             self._attr_target_temperature = target_temperature.value
-        self._attr_min_temp = getattr(climate_settings, "min_temp", 18)
-        self._attr_max_temp = getattr(climate_settings, "max_temp", 29)
-        self._attr_target_temperature_step = getattr(
-            climate_settings, "temp_interval", 1
+        # `or <default>` guards against the attribute existing but being None
+        # (climate-settings HTTP 500). A None min/max_temp makes HA core's
+        # set_temperature validation do `float < None` -> TypeError; keep the
+        # __init__ defaults (18/29/1) instead.
+        self._attr_min_temp = getattr(climate_settings, "min_temp", None) or 18
+        self._attr_max_temp = getattr(climate_settings, "max_temp", None) or 29
+        self._attr_target_temperature_step = (
+            getattr(climate_settings, "temp_interval", None) or 1
         )
 
     def _load_defrost_settings(self) -> None:
         """Load defrost settings from climate_settings operations."""
         climate_settings = self.vehicle.climate_settings
-        operations = getattr(climate_settings, "operations", [])
+        # API can return operations=None (e.g. climate-settings HTTP 500);
+        # `or []` guards against the attribute existing but being None.
+        operations = getattr(climate_settings, "operations", None) or []
         for operation in filter(lambda o: o.category_name == "defrost", operations):
             for param in operation.parameters:
                 if param.name == "frontDefrost":
@@ -224,8 +230,8 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         Returns:
             ClimateSettingsModel configured with the specified settings
         """
-        # Start with existing operations
-        ac_operations = self.vehicle.climate_settings.operations.copy()
+        # Start with existing operations (None when climate-settings 500'd)
+        ac_operations = (self.vehicle.climate_settings.operations or []).copy()
 
         # Find and replace the defrost operation
         for i, operation in enumerate(ac_operations):

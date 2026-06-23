@@ -63,13 +63,18 @@ async def async_setup_entry(
 def _vehicle_has_climate_capability(vehicle: Vehicle) -> bool:
     """Check if vehicle supports climate control."""
     try:
-        return getattr(
-            getattr(vehicle._vehicle_info, "features", False),  # noqa : SLF001
-            "climate_start_engine",
-            False,
-        )
+        caps = getattr(vehicle._vehicle_info, "extended_capabilities", False)  # noqa : SLF001
+        for cap in [
+            "climate_capable",
+            "econnect_climate_capable",
+            "remote_engine_start_stop",
+        ]:
+            if getattr(caps, cap, False):
+                return True
     except Exception:  # pylint: disable=W0718 # noqa : BLE001
         return False
+
+    return False
 
 
 class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):

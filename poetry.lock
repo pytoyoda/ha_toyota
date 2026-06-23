@@ -4122,8 +4122,8 @@ pyjwt = "^2.8.0"
 [package.source]
 type = "git"
 url = "https://github.com/scurkovic/pytoyoda.git"
-reference = "916a0f7"
-resolved_reference = "916a0f703c632afab82fe23b6f2af252f2200372"
+reference = "34c4d244cd1eda710b90338a473df0fece739091"
+resolved_reference = "34c4d244cd1eda710b90338a473df0fece739091"
 
 [[package]]
 name = "pyturbojpeg"
@@ -5298,4 +5298,4 @@ type = ["pytest-mypy"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13,<3.14"
-content-hash = "69778bc6d93be0a934fa1bb92e863ffd2f619e2b4c7aa3b6370413b531bf75fb"
+content-hash = "bed4b35f46294e7113829c9fddc8aeee1f7603ff4f1c97dda9766ea2b5d80031"

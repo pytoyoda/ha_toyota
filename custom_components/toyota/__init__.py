@@ -703,7 +703,15 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                 asyncioexceptions.TimeoutError,
                 ToyotaApiError,
                 ToyotaInternalError,
+                httpx.ConnectTimeout,
+                httpcore.ConnectTimeout,
+                httpx.ReadTimeout,
+                ValidationError,
             ) as ex:
+                # Degrade on ANY transient summary failure (matches the family
+                # the per-vehicle handler treats as recoverable). NOT
+                # CancelledError: a real outer cancel must propagate, and
+                # wait_for already surfaces its own timeout as TimeoutError.
                 cached_stats = (
                     last_good_per_vin[vin]["statistics"]
                     if vin in last_good_per_vin

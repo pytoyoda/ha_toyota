@@ -8,7 +8,9 @@ import asyncio
 import asyncio.exceptions as asyncioexceptions
 import contextlib
 import logging
+import os
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict, TypeVar
 
 import httpcore
@@ -154,6 +156,11 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     brand_code = brand_map.get(brand, "T")
 
     _LOGGER.info("Setting up %s integration (brand code: %s)", brand, brand_code)
+
+    (Path(hass.config.config_dir) / ".cache" / "hishel").mkdir(
+        parents=True, exist_ok=True
+    )
+    os.chdir(hass.config.config_dir)
 
     client = MyT(
         username=email,
@@ -751,6 +758,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                 asyncioexceptions.TimeoutError,
                 httpx.ReadTimeout,
                 ValidationError,
+                TypeError,
             ) as ex:
                 code = _error_code(ex)
                 last_error_per_vin[vin] = (dt_util.now(), code)

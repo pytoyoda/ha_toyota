@@ -230,8 +230,11 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         Returns:
             ClimateSettingsModel configured with the specified settings
         """
-        # Start with existing operations (None when climate-settings 500'd)
-        ac_operations = (self.vehicle.climate_settings.operations or []).copy()
+        # Start with existing operations. climate_settings itself (not just
+        # .operations) can be None when the climate-settings endpoint 500'd, so
+        # getattr through both to avoid an AttributeError on the control path.
+        climate_settings = getattr(self.vehicle, "climate_settings", None)
+        ac_operations = (getattr(climate_settings, "operations", None) or []).copy()
 
         # Find and replace the defrost operation
         for i, operation in enumerate(ac_operations):

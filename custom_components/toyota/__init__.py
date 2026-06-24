@@ -593,11 +593,21 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         # Bounded so a slow/flaky non-status endpoint can't stall first_refresh
         # past HA's setup budget. On timeout the TimeoutError propagates to the
         # caller's per-vehicle handler, which serves cache or a stub - same
-        # degrade path as any other transient Toyota failure.
-        await asyncio.wait_for(
-            _call_tagged("vehicle.update", vin, vehicle.update(skip=["status"])),
-            STATUS_FETCH_BUDGET_S,
-        )
+        # degrade path as any other transient Toyota failure. A climate-settings
+        # (or other endpoint) HTTP 500 surfaces here as a ToyotaApiError/
+        # ToyotaInternalError - swallow it so a single bad endpoint doesn't fail
+        # the whole refresh; the rest of the snapshot still builds from cache.
+        try:
+            await asyncio.wait_for(
+                _call_tagged("vehicle.update", vin, vehicle.update(skip=["status"])),
+                STATUS_FETCH_BUDGET_S,
+            )
+        except (ToyotaApiError, ToyotaInternalError) as ex:
+            _LOGGER.warning(
+                "vehicle.update partial failure for vin=...%s (%s), continuing",
+                (vin or "")[-6:],
+                _error_code(ex),
+            )
 
         # Build snapshot for the strategy.
         current_odometer_km: float | None = None

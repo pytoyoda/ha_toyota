@@ -29,11 +29,14 @@ DEFAULT_RETAIN_ON_TRANSIENT_FAILURE = False
 # Smart status refresh strategy. POSTs /v1/global/remote/refresh-status to
 # wake the car's modem before reading /status, mimicking the Toyota mobile
 # app's two-stage protocol. Reduces stuck-stale lock/door state and 429s.
-# See rate-limit-remediation-plan.md Addendum 4.
+# Off = stop the automatic cadence; explicit refresh_vehicle_status service
+# calls still go through (per HA polling-toggle convention). See
+# rate-limit-remediation-plan.md Addendum 4.
 CONF_ENABLE_STATUS_REFRESH = "enable_status_refresh"
 DEFAULT_ENABLE_STATUS_REFRESH = True
 # Set automatically when the gateway repeatedly rejects the POST (vehicle
-# does not support refresh-status). Cleared when user toggles
+# does not support refresh-status). Cleared by either: (a) a successful
+# service-call POST proving the gateway works, or (b) the user toggling
 # CONF_ENABLE_STATUS_REFRESH OFF then ON. Hidden in the UI.
 CONF_AUTO_DISABLED_STATUS_REFRESH = "auto_disabled_status_refresh"
 DEFAULT_AUTO_DISABLED_STATUS_REFRESH = False

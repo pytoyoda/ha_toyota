@@ -67,6 +67,51 @@ def test_auto_disabled_returns_hard_disabled_auto():
     assert d.refresh_state is RefreshState.HARD_DISABLED_AUTO
 
 
+def test_service_call_bypasses_hard_disabled_auto():
+    """Service call overrides auto-disable so the user can retry manually."""
+    s = _snap(
+        options=StrategyOptions(
+            enable_status_refresh=True, auto_disabled_status_refresh=True
+        ),
+        user_service_call_pending=True,
+    )
+    d = decide(s)
+    assert d.action is RefreshAction.POST_THEN_GET
+    assert d.trigger is RefreshTrigger.SERVICE_CALL
+
+
+def test_service_call_bypasses_hard_disabled_user():
+    """Service call also bypasses user-disable, matching HA convention.
+
+    `enable_status_refresh: False` stops the automatic cadence; explicit
+    service-call invocations (e.g. a garage-door automation calling
+    `refresh_vehicle_status`) still go through. Users who want full lockout
+    simply do not invoke the service.
+    """
+    s = _snap(
+        options=StrategyOptions(
+            enable_status_refresh=False, auto_disabled_status_refresh=False
+        ),
+        user_service_call_pending=True,
+    )
+    d = decide(s)
+    assert d.action is RefreshAction.POST_THEN_GET
+    assert d.trigger is RefreshTrigger.SERVICE_CALL
+
+
+def test_user_disable_blocks_non_service_triggers():
+    """Without a service call, user-disable still blocks the strategy."""
+    s = _snap(
+        options=StrategyOptions(
+            enable_status_refresh=False, auto_disabled_status_refresh=False
+        ),
+        user_service_call_pending=False,
+    )
+    d = decide(s)
+    assert d.action is RefreshAction.HARD_DISABLED
+    assert d.refresh_state is RefreshState.HARD_DISABLED_USER
+
+
 # ---------------------------------------------------------------------------
 # Step 4: service-call wins over everything except hard-disable
 # ---------------------------------------------------------------------------

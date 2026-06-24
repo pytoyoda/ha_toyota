@@ -6,6 +6,10 @@ refresh_vehicle_status:
     cellular airtime and 12V battery. Recommended for use after returning
     home from a drive when you want the lock state to be visible quickly,
     or wired to an automation that triggers on a specific event.
+    Works regardless of the integration's automatic refresh setting:
+    if you have disabled "Refresh vehicle status remotely" or the gateway
+    has auto-disabled it, this service still fires the POST so you can
+    drive a fully manual refresh schedule from your own automations.
   fields:
     device_id:
       name: Vehicle

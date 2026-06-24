@@ -25,7 +25,7 @@ jobs:
           version="${version#v}"
           yq e -P -o=json \
             -i ".version = \"${version}\"" \
-            "${{ github.workspace }}/custom_components/toyota/manifest.json"
+            "${{ github.workspace }}"/custom_components/toyota/manifest.json""
 
       - name: 📦 Created zipped release package
         shell: bash
@@ -37,6 +37,7 @@ jobs:
         uses: sigstore/gh-action-sigstore-python@v3.4.0
         with:
           inputs: ${{ github.workspace }}/custom_components/toyota/toyota.zip
+          release-signing-artifacts: false
 
       - name: ⬆️ Upload zip to release
         uses: softprops/action-gh-release@v3.0.1

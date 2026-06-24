@@ -7,7 +7,7 @@ authors = [
   { name = "CM000n", email = "simon.hoerrle@gmail.com" },
   { name = "deejay1", email = "deejay1@srem.org" },
 ]
-requires-python = '>=3.13,<3.14'
+requires-python = '>=3.13.2,<3.15'
 dynamic = ["dependencies"]
 
 [tool.poetry]

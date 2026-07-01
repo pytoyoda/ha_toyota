@@ -253,6 +253,34 @@ REMAINING_CHARGE_TIME_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
 
+
+def _last_service_attributes(vehicle: Vehicle) -> dict[str, Any] | None:
+    """Attributes for the last-service sensor; None until history reports."""
+    latest = vehicle.get_latest_service_history()
+    if latest is None:
+        return None
+    return {
+        "odometer": latest.odometer,
+        "service_category": latest.service_category,
+        "service_provider": latest.service_provider,
+        "customer_created_record": latest.customer_created_record,
+        "service_count": len(vehicle.service_history or []),
+    }
+
+
+LAST_SERVICE_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
+    key="last_service",
+    translation_key="last_service",
+    icon="mdi:wrench-clock",
+    entity_category=EntityCategory.DIAGNOSTIC,
+    device_class=SensorDeviceClass.DATE,
+    state_class=None,
+    value_fn=lambda vehicle: getattr(
+        vehicle.get_latest_service_history(), "service_date", None
+    ),
+    attributes_fn=_last_service_attributes,
+)
+
 STATISTICS_ENTITY_DESCRIPTIONS_DAILY = ToyotaStatisticsSensorEntityDescription(
     key="current_day_statistics",
     translation_key="current_day_statistics",
@@ -396,6 +424,18 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             ),
             "native_unit": "min",
             "suggested_unit": "min",
+        },
+        {
+            "description": LAST_SERVICE_ENTITY_DESCRIPTION,
+            # Mirror pytoyoda's own gate for the service-history endpoint
+            # (features, not extended_capabilities).
+            "capability_check": lambda v: getattr(
+                getattr(v._vehicle_info, "features", False),  # noqa : SLF001
+                "service_history",
+                False,
+            ),
+            "native_unit": None,
+            "suggested_unit": None,
         },
         {
             "description": STATISTICS_ENTITY_DESCRIPTIONS_DAILY,

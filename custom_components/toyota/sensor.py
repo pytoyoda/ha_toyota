@@ -258,23 +258,41 @@ REMAINING_CHARGE_TIME_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
 NOTIFICATION_ATTRIBUTE_LIMIT = 5
 
 
+def _vehicle_notifications(vehicle: Vehicle) -> list[Any] | None:
+    """The vehicle's notifications, or None when unavailable.
+
+    pytoyoda's ``notifications`` property iterates response payload pages the
+    endpoint model allows to be null (``payload`` and per-page
+    ``notifications``), which raises TypeError on zero-notification accounts —
+    treat that as not-reported.
+    """
+    try:
+        return vehicle.notifications
+    except TypeError:
+        return None
+
+
+def _notification_recency(notification: Any) -> float:  # noqa: ANN401
+    """Sort key for newest-first, safe for null and mixed-tz datetimes."""
+    stamp = notification.date
+    return stamp.timestamp() if stamp else float("-inf")
+
+
 def _mask_vin_in_message(message: str | None, vin: str | None) -> str | None:
     """Mask the vehicle's VIN inside a notification message, if present."""
-    if message and vin and vin in message:
-        return message.replace(vin, mask_string(vin) or "")
+    if message and vin:
+        return message.replace(vin, mask_string(vin))
     return message
 
 
 def _notification_attributes(vehicle: Vehicle) -> dict[str, Any] | None:
     """The most recent notifications; None until the endpoint reports."""
-    notifications = vehicle.notifications
+    notifications = _vehicle_notifications(vehicle)
     if notifications is None:
         return None
-    recent = sorted(
-        notifications,
-        key=lambda n: (n.date is not None, n.date),
-        reverse=True,
-    )[:NOTIFICATION_ATTRIBUTE_LIMIT]
+    recent = sorted(notifications, key=_notification_recency, reverse=True)[
+        :NOTIFICATION_ATTRIBUTE_LIMIT
+    ]
     return {
         "latest": [
             {
@@ -282,11 +300,19 @@ def _notification_attributes(vehicle: Vehicle) -> dict[str, Any] | None:
                 "category": n.category,
                 "type": n.type,
                 "message": _mask_vin_in_message(n.message, vehicle.vin),
-                "read": n.read is not None,
+                # The wrapper only exposes the read *timestamp*; the API's
+                # separate isRead flag can be set without it.
+                "read": n.read is not None or bool(n._data.is_read),  # noqa: SLF001
             }
             for n in recent
         ],
     }
+
+
+def _notification_count(vehicle: Vehicle) -> int | None:
+    """State for the notifications sensor: how many the API returns."""
+    notifications = _vehicle_notifications(vehicle)
+    return None if notifications is None else len(notifications)
 
 
 NOTIFICATIONS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
@@ -295,9 +321,7 @@ NOTIFICATIONS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     icon="mdi:bell-outline",
     entity_category=EntityCategory.DIAGNOSTIC,
     state_class=SensorStateClass.MEASUREMENT,
-    value_fn=lambda vehicle: (
-        None if vehicle.notifications is None else len(vehicle.notifications)
-    ),
+    value_fn=_notification_count,
     attributes_fn=_notification_attributes,
 )
 

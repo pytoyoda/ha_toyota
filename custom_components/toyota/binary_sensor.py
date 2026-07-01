@@ -336,6 +336,39 @@ TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
 )
 
 
+def _health_warnings(vehicle: Vehicle) -> list[Any] | None:
+    """The vehicle-health warning list, or None if health has not reported.
+
+    ``vehicle.dashboard`` is an uncached computed property (constructs a new
+    Dashboard each access), so callers should bind this result once per read.
+    """
+    dashboard = vehicle.dashboard
+    return dashboard.warning_lights if dashboard else None
+
+
+def _health_problem_state(vehicle: Vehicle) -> bool | None:
+    """Problem state: on = warnings present, off = empty list, None = unknown.
+
+    Note: an endpoint that reports ``warning: null`` is indistinguishable from
+    one that never reported — both read as unknown, never as a false "off".
+    """
+    warnings = _health_warnings(vehicle)
+    return None if warnings is None else len(warnings) > 0
+
+
+VEHICLE_HEALTH_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
+    key="vehicle_health",
+    translation_key="vehicle_health",
+    icon="mdi:car-wrench",
+    entity_category=EntityCategory.DIAGNOSTIC,
+    device_class=BinarySensorDeviceClass.PROBLEM,
+    value_fn=_health_problem_state,
+    attributes_fn=lambda vehicle: {
+        "warnings": _health_warnings(vehicle),
+    },
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -471,6 +504,16 @@ async def async_setup_entry(
                     False,
                 ),
                 TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION,
+            ),
+            # Deliberately not gated on extended_capabilities
+            # (dashboard_warning_lights) or features.vehicle_health_report:
+            # pytoyoda fetches the health endpoint unconditionally, and Toyota
+            # capability flags under-report actual support (e.g. steering_heater
+            # is False on cars that honor it). An endpoint that never reports
+            # simply reads as unknown.
+            (
+                True,
+                VEHICLE_HEALTH_ENTITY_DESCRIPTION,
             ),
         ]
 

@@ -336,6 +336,30 @@ TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
 )
 
 
+def _health_warnings(vehicle: Vehicle) -> list[Any] | None:
+    """The vehicle-health warning list, or None if health never reported."""
+    return getattr(getattr(vehicle, "dashboard", None), "warning_lights", None)
+
+
+VEHICLE_HEALTH_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
+    key="vehicle_health",
+    translation_key="vehicle_health",
+    icon="mdi:car-wrench",
+    entity_category=EntityCategory.DIAGNOSTIC,
+    device_class=BinarySensorDeviceClass.PROBLEM,
+    # on = the car reports at least one health warning; off = an explicit
+    # empty warning list; unknown = the health endpoint has not reported.
+    value_fn=lambda vehicle: (
+        None
+        if _health_warnings(vehicle) is None
+        else len(_health_warnings(vehicle)) > 0
+    ),
+    attributes_fn=lambda vehicle: {
+        "warnings": _health_warnings(vehicle),
+    },
+)
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -471,6 +495,12 @@ async def async_setup_entry(
                     False,
                 ),
                 TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION,
+            ),
+            # pytoyoda fetches the vehicle-health endpoint unconditionally
+            # (no capability flag); an unreported endpoint reads as unknown.
+            (
+                True,
+                VEHICLE_HEALTH_ENTITY_DESCRIPTION,
             ),
         ]
 

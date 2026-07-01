@@ -23,6 +23,7 @@ from .utils import (
     charging_status_key,
     format_statistics_attributes,
     format_vin_sensor_attributes,
+    mask_string,
     round_number,
     td_to_hoursminutes,
 )
@@ -305,6 +306,53 @@ LAST_SERVICE_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     attributes_fn=_last_service_attributes,
 )
 
+# How many recent notifications to expose as sensor attributes.
+NOTIFICATION_ATTRIBUTE_LIMIT = 5
+
+
+def _mask_vin_in_message(message: str | None, vin: str | None) -> str | None:
+    """Mask the vehicle's VIN inside a notification message, if present."""
+    if message and vin and vin in message:
+        return message.replace(vin, mask_string(vin) or "")
+    return message
+
+
+def _notification_attributes(vehicle: Vehicle) -> dict[str, Any] | None:
+    """The most recent notifications; None until the endpoint reports."""
+    notifications = vehicle.notifications
+    if notifications is None:
+        return None
+    recent = sorted(
+        notifications,
+        key=lambda n: (n.date is not None, n.date),
+        reverse=True,
+    )[:NOTIFICATION_ATTRIBUTE_LIMIT]
+    return {
+        "latest": [
+            {
+                "date": n.date,
+                "category": n.category,
+                "type": n.type,
+                "message": _mask_vin_in_message(n.message, vehicle.vin),
+                "read": n.read is not None,
+            }
+            for n in recent
+        ],
+    }
+
+
+NOTIFICATIONS_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
+    key="notifications",
+    translation_key="notifications",
+    icon="mdi:bell-outline",
+    entity_category=EntityCategory.DIAGNOSTIC,
+    state_class=SensorStateClass.MEASUREMENT,
+    value_fn=lambda vehicle: (
+        None if vehicle.notifications is None else len(vehicle.notifications)
+    ),
+    attributes_fn=_notification_attributes,
+)
+
 STATISTICS_ENTITY_DESCRIPTIONS_DAILY = ToyotaStatisticsSensorEntityDescription(
     key="current_day_statistics",
     translation_key="current_day_statistics",
@@ -458,6 +506,14 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
                 "service_history",
                 False,
             ),
+            "native_unit": None,
+            "suggested_unit": None,
+        },
+        {
+            "description": NOTIFICATIONS_ENTITY_DESCRIPTION,
+            # pytoyoda fetches notifications unconditionally (no capability
+            # flag); an unreported endpoint reads as unknown.
+            "capability_check": lambda v: True,  # noqa : ARG005
             "native_unit": None,
             "suggested_unit": None,
         },

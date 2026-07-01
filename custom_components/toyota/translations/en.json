@@ -150,6 +150,9 @@
       },
       "last_service": {
         "name": "Last service"
+      },
+      "notifications": {
+        "name": "Notifications"
       }
     },
     "button": {

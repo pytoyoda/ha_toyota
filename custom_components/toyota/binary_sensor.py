@@ -337,8 +337,23 @@ TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
 
 
 def _health_warnings(vehicle: Vehicle) -> list[Any] | None:
-    """The vehicle-health warning list, or None if health never reported."""
-    return getattr(getattr(vehicle, "dashboard", None), "warning_lights", None)
+    """The vehicle-health warning list, or None if health has not reported.
+
+    ``vehicle.dashboard`` is an uncached computed property (constructs a new
+    Dashboard each access), so callers should bind this result once per read.
+    """
+    dashboard = vehicle.dashboard
+    return dashboard.warning_lights if dashboard else None
+
+
+def _health_problem_state(vehicle: Vehicle) -> bool | None:
+    """Problem state: on = warnings present, off = empty list, None = unknown.
+
+    Note: an endpoint that reports ``warning: null`` is indistinguishable from
+    one that never reported — both read as unknown, never as a false "off".
+    """
+    warnings = _health_warnings(vehicle)
+    return None if warnings is None else len(warnings) > 0
 
 
 VEHICLE_HEALTH_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
@@ -347,13 +362,7 @@ VEHICLE_HEALTH_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
     icon="mdi:car-wrench",
     entity_category=EntityCategory.DIAGNOSTIC,
     device_class=BinarySensorDeviceClass.PROBLEM,
-    # on = the car reports at least one health warning; off = an explicit
-    # empty warning list; unknown = the health endpoint has not reported.
-    value_fn=lambda vehicle: (
-        None
-        if _health_warnings(vehicle) is None
-        else len(_health_warnings(vehicle)) > 0
-    ),
+    value_fn=_health_problem_state,
     attributes_fn=lambda vehicle: {
         "warnings": _health_warnings(vehicle),
     },
@@ -496,8 +505,12 @@ async def async_setup_entry(
                 ),
                 TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION,
             ),
-            # pytoyoda fetches the vehicle-health endpoint unconditionally
-            # (no capability flag); an unreported endpoint reads as unknown.
+            # Deliberately not gated on extended_capabilities
+            # (dashboard_warning_lights) or features.vehicle_health_report:
+            # pytoyoda fetches the health endpoint unconditionally, and Toyota
+            # capability flags under-report actual support (e.g. steering_heater
+            # is False on cars that honor it). An endpoint that never reports
+            # simply reads as unknown.
             (
                 True,
                 VEHICLE_HEALTH_ENTITY_DESCRIPTION,

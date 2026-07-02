@@ -341,11 +341,15 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         if self._settings_changed:
             self._settings_changed = False
             # Fired from a timer, not a service call, so there is no UI context
-            # to raise into — log instead of propagating HomeAssistantError.
+            # to raise into. Log, then roll the optimistic settings back to the
+            # last coordinator-known values so the UI stops showing an unsent
+            # target temperature/defrost as if it had taken effect.
             try:
                 await self._send_climate_settings()
-            except HomeAssistantError as err:
-                _LOGGER.error("Debounced climate settings send failed: %s", err)
+            except HomeAssistantError:
+                _LOGGER.exception("Debounced climate settings send failed")
+                self._load_climate_settings_from_coordinator()
+                self.async_write_ha_state()
 
     async def _send_climate_settings(self) -> None:
         """Send climate settings to car.
@@ -362,15 +366,33 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                 self.vehicle.vin, climate_settings
             )
         except Exception as err:  # pylint: disable=W0718
-            raise HomeAssistantError(
-                f"Toyota rejected the climate settings: {err}"
-            ) from err
+            msg = f"Toyota rejected the climate settings: {err}"
+            raise HomeAssistantError(msg) from err
 
         _LOGGER.debug("API response status: %s", status)
 
         # Check if the update was successful
         if not status or (hasattr(status, "status") and status.status == 0):
-            raise HomeAssistantError("Toyota rejected the climate settings")
+            msg = "Toyota rejected the climate settings"
+            raise HomeAssistantError(msg)
+
+    async def _send_engine_command(self, command: str, failure_msg: str) -> None:
+        """Send a climate engine start/stop command and confirm it took.
+
+        Args:
+            command: The climate control command, e.g. ``engine-start``.
+            failure_msg: User-facing message if the car does not confirm it.
+
+        Raises:
+            HomeAssistantError: if the command failed or the car did not
+                confirm it, so the caller can roll back optimistic state.
+        """
+        status = await self.vehicle._api.send_climate_control_command(  # noqa: SLF001
+            self.vehicle.vin, ClimateControlModel(command=command)
+        )
+        if not status or (hasattr(status, "status") and status.status == 0):
+            _LOGGER.debug("Climate command %s not confirmed: %s", command, status)
+            raise HomeAssistantError(failure_msg)
 
     async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
         """Set new target hvac mode."""
@@ -422,18 +444,12 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
 
             # Now send the engine-start command to actually turn on climate
             _LOGGER.debug("Sending engine-start command to %s", self.vehicle.alias)
-            status = await self.vehicle._api.send_climate_control_command(  # noqa: SLF001
-                self.vehicle.vin, ClimateControlModel(command="engine-start")
+            await self._send_engine_command(
+                "engine-start",
+                "Toyota did not start the climate. Common causes: the car is "
+                "unlocked, a door/window/trunk is open, a key is inside, or "
+                "climate was already started once since the last ignition.",
             )
-
-            # Check if the update was successful
-            if not status or (hasattr(status, "status") and status.status == 0):
-                _LOGGER.debug("Failed to start engine: %s", status)
-                raise HomeAssistantError(
-                    "Toyota did not start the climate. Common causes: the car is "
-                    "unlocked, a door/window/trunk is open, a key is inside, or "
-                    "climate was already started once since the last ignition."
-                )
         except Exception as err:  # pylint: disable=W0718
             # Roll back the optimistic "on" so the tile reflects reality instead
             # of falsely showing the climate running.
@@ -441,9 +457,8 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             self.async_write_ha_state()
             if isinstance(err, HomeAssistantError):
                 raise
-            raise HomeAssistantError(
-                f"Failed to turn on Toyota climate: {err}"
-            ) from err
+            msg = f"Failed to turn on Toyota climate: {err}"
+            raise HomeAssistantError(msg) from err
 
         _LOGGER.debug("Climate control turned on for %s", self.vehicle.alias)
 
@@ -457,11 +472,9 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
 
         try:
             # Send the engine-stop command to turn off climate
-            status = await self.vehicle._api.send_climate_control_command(  # noqa: SLF001
-                self.vehicle.vin, ClimateControlModel(command="engine-stop")
+            await self._send_engine_command(
+                "engine-stop", "Toyota did not confirm the climate stop"
             )
-            if not status or (hasattr(status, "status") and status.status == 0):
-                raise HomeAssistantError("Toyota did not confirm the climate stop")
         except Exception as err:  # pylint: disable=W0718
             # The stop was not confirmed, so the climate may still be running —
             # revert to "on" rather than falsely showing it off.
@@ -469,9 +482,8 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             self.async_write_ha_state()
             if isinstance(err, HomeAssistantError):
                 raise
-            raise HomeAssistantError(
-                f"Failed to turn off Toyota climate: {err}"
-            ) from err
+            msg = f"Failed to turn off Toyota climate: {err}"
+            raise HomeAssistantError(msg) from err
 
         _LOGGER.debug("Climate control turned off for %s", self.vehicle.alias)
 

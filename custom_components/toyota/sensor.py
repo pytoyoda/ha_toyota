@@ -282,16 +282,15 @@ def _last_service_state(vehicle: Vehicle) -> date | None:
 
 def _last_service_attributes(vehicle: Vehicle) -> dict[str, Any] | None:
     """Attributes for the last-service sensor; None until history reports."""
-    history = vehicle.service_history
-    if not history:
+    latest = _latest_service(vehicle)
+    if latest is None:
         return None
-    latest = max(history, key=_service_recency_key)
     return {
         "odometer": latest.odometer,
         "service_category": latest.service_category,
         "service_provider": latest.service_provider,
         "customer_created_record": latest.customer_created_record,
-        "service_count": len(history),
+        "service_count": len(vehicle.service_history),
     }
 
 

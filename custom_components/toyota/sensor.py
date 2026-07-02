@@ -275,7 +275,9 @@ def _vehicle_notifications(vehicle: Vehicle) -> list[Any] | None:
 def _notification_recency(notification: Any) -> float:  # noqa: ANN401
     """Sort key for newest-first, safe for null and mixed-tz datetimes."""
     stamp = notification.date
-    return stamp.timestamp() if stamp else float("-inf")
+    # Normally a datetime; guard the rare case where the wrapper yields a plain
+    # date or a string (neither has .timestamp()) so sorting can't raise.
+    return stamp.timestamp() if hasattr(stamp, "timestamp") else float("-inf")
 
 
 def _mask_vin_in_message(message: str | None, vin: str | None) -> str | None:
@@ -301,8 +303,10 @@ def _notification_attributes(vehicle: Vehicle) -> dict[str, Any] | None:
                 "type": n.type,
                 "message": _mask_vin_in_message(n.message, vehicle.vin),
                 # The wrapper only exposes the read *timestamp*; the API's
-                # separate isRead flag can be set without it.
-                "read": n.read is not None or bool(n._data.is_read),  # noqa: SLF001
+                # separate isRead flag can be set without it. getattr guards a
+                # None/absent _data (e.g. a mock or a sparse payload).
+                "read": n.read is not None
+                or bool(getattr(getattr(n, "_data", None), "is_read", False)),
             }
             for n in recent
         ],

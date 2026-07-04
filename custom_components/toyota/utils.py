@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from .const import CONF_BRAND_MAPPING
+from .const import CONF_BRAND_MAPPING, REMOTE_DISPLAY_NAMES
 
 if TYPE_CHECKING:
     from datetime import timedelta
@@ -145,3 +145,51 @@ def charging_status_key(status: str) -> str:
     if status == "chargeComplete":
         return "charge_complete"
     return status
+
+
+def decode_remote_display(value: Any) -> str:
+    """Decode a RemoteDisplayStatus value to its enum name.
+
+    ``remote_display`` arrives as an int, a numeric string, or (rarely) an
+    already-decoded string. ``7`` / ``ACTIVATED`` is the only state in which the
+    car will actually act on a remote command; surfaced in diagnostics.
+    """
+    if isinstance(value, bool):  # bool is an int subclass — guard first
+        return f"<non-status {value!r}>"
+    if isinstance(value, int):
+        return REMOTE_DISPLAY_NAMES.get(value, f"<unknown {value}>")
+    if isinstance(value, str):
+        if value.isdigit():
+            return REMOTE_DISPLAY_NAMES.get(int(value), f"<unknown {value}>")
+        return value
+    if value is None:
+        return "<missing>"
+    return "<non-status, see raw>"
+
+
+def predict_climate_class(features: Any, ext: Any) -> tuple[str, str]:
+    """Predict a car's remote-climate archetype from its capability flags.
+
+    Lets a diagnostics reader see which climate code path a car should follow
+    without replaying endpoint calls. Returns ``(class, human_hint)``.
+    """
+    cse = getattr(features, "climate_start_engine", False)
+    cc = getattr(ext, "climate_capable", False)
+    ctf = getattr(ext, "climate_temperature_control_full", False)
+    ctl = getattr(ext, "climate_temperature_control_limited", False)
+    ecc = getattr(ext, "econnect_climate_capable", False)
+    res = getattr(ext, "remote_engine_start_stop", False)
+
+    if cc and (ctf or ctl):
+        return "FULL_CLIMATE", "target temp + on/off via V2 climate-control"
+    if cc and not (ctf or ctl):
+        return "CLIMATE_NO_TEMP", "on/off + defrost toggle; no target temp"
+    if res:
+        return "ENGINE_PREHEAT", "engine-preheat on/off only; auto-off after ~20 min"
+    if ecc:
+        return "ECONNECT", "Stellantis-derived variant; treat like FULL_CLIMATE"
+    if cse:
+        return "LEGACY_FLAG", (
+            "features.climate_start_engine only; behaviour depends on extended flags"
+        )
+    return "NO_CLIMATE", "no remote-climate flags set"

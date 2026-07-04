@@ -147,7 +147,7 @@ def charging_status_key(status: str) -> str:
     return status
 
 
-def decode_remote_display(value: Any) -> str:
+def decode_remote_display(value: Any) -> str:  # noqa: ANN401
     """Decode a RemoteDisplayStatus value to its enum name.
 
     ``remote_display`` arrives as an int, a numeric string, or (rarely) an
@@ -167,7 +167,7 @@ def decode_remote_display(value: Any) -> str:
     return "<non-status, see raw>"
 
 
-def predict_climate_class(features: Any, ext: Any) -> tuple[str, str]:
+def predict_climate_class(features: Any, ext: Any) -> tuple[str, str]:  # noqa: ANN401
     """Predict a car's remote-climate archetype from its capability flags.
 
     Lets a diagnostics reader see which climate code path a car should follow

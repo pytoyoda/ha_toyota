@@ -48,6 +48,10 @@ TO_REDACT = {CONF_EMAIL, CONF_PASSWORD}
 # last_good_per_vin holds live pytoyoda Vehicle objects (reduced to presence).
 _BUCKET_PRESENCE_ONLY = {"last_good_per_vin"}
 
+# Recursion caps for the two tree-walkers below (defensive, not expected to hit).
+_MAX_JSONIFY_DEPTH = 8
+_MAX_REDACT_DEPTH = 12
+
 REDACTED = "**REDACTED**"
 
 # Sensitive payload keys to blank. We deliberately do NOT rely on pytoyoda's
@@ -81,7 +85,7 @@ def _jsonify(obj: Any, _depth: int = 0) -> Any:
     Any unknown non-native leaf falls back to ``repr`` so a single odd value can
     never make the whole download fail to encode.
     """
-    if _depth > 8:
+    if _depth > _MAX_JSONIFY_DEPTH:
         return "<max-depth>"
     if obj is None or isinstance(obj, (str, int, float, bool)):
         return obj
@@ -111,7 +115,7 @@ def _true_flags(model: Any) -> list[str] | None:
 
 def _vehicle_summary(vehicle: Any) -> dict[str, Any]:
     """Derived at-a-glance signals off ``_vehicle_info`` — static, no network."""
-    info = getattr(vehicle, "_vehicle_info", None)  # noqa: SLF001
+    info = getattr(vehicle, "_vehicle_info", None)
     if info is None:
         return {"error": "no _vehicle_info"}
 
@@ -195,7 +199,7 @@ def _pytoyoda_meta(coordinator: DataUpdateCoordinator) -> dict[str, Any]:
         None,
     )
     if sample is not None:
-        info = getattr(sample, "_vehicle_info", None)  # noqa: SLF001
+        info = getattr(sample, "_vehicle_info", None)
         meta["accessors"] = {
             "dump_all": hasattr(sample, "_dump_all"),
             "vehicle_info": info is not None,
@@ -242,7 +246,7 @@ def _deep_redact(obj: Any, vin_map: dict[str, str], _depth: int = 0) -> Any:
     blanked so a car can still be correlated across sections. ``None`` values are
     left as-is so the shape of the data stays legible.
     """
-    if _depth > 12:
+    if _depth > _MAX_REDACT_DEPTH:
         return obj
     if isinstance(obj, dict):
         out: dict[Any, Any] = {}
@@ -276,9 +280,10 @@ def _bucket_view(
                 vin: True for vin in value if vins is None or vin in vins
             }
             continue
+        scoped = value
         if vins is not None and isinstance(value, dict):
-            value = {k: v for k, v in value.items() if k in vins}
-        view[key] = _jsonify(value)
+            scoped = {k: v for k, v in value.items() if k in vins}
+        view[key] = _jsonify(scoped)
     return view
 
 

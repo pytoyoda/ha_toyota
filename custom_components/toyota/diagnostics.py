@@ -7,9 +7,12 @@ flag responses, a decoded remote-display gate, every endpoint payload pytoyoda
 last fetched, the coordinator/refresh state, and the outcome of the last remote
 command per car.
 
-Redaction is done by this module, not trusted to pytoyoda: ``Vehicle._dump_all()``
-does not fully censor its nested endpoint payloads (raw VIN, GPS and contract_id
-can appear), so we redact the whole assembled export ourselves:
+Redaction is done by this module, not trusted to pytoyoda. ``Vehicle._dump_all()``
+ends with ``censor_all()``, but that only inspects *top-level* keys: a value is
+recursed into only when its own key is in the sensitive set. ``_dump_all()``'s
+top-level keys are ``vehicle_info`` plus endpoint names — none of them sensitive
+— so every nested payload is returned verbatim, raw VIN/GPS/contract_id included.
+We therefore redact the whole assembled export ourselves:
 - ``_deep_redact`` blanks sensitive keys (GPS, contract id, imei, subscription
   id, e-mail, ...) and tokenises the VIN — as dict keys, standalone values, and
   substrings (subscription ids, links, notification text) — to a stable,
@@ -55,9 +58,10 @@ _MAX_REDACT_DEPTH = 12
 REDACTED = "**REDACTED**"
 
 # Sensitive payload keys to blank. We deliberately do NOT rely on pytoyoda's
-# Vehicle._dump_all() self-censoring: it does not fully censor the nested
-# endpoint payloads (raw VIN, GPS latitude/longitude and contract_id can
-# appear). We reuse pytoyoda's own key list (minus "vin", which is *tokenised*
+# Vehicle._dump_all() self-censoring: its censor_all() only recurses into a value
+# whose own key is sensitive, and _dump_all()'s top-level keys (vehicle_info,
+# endpoint names) are not - so the nested payloads pass through uncensored.
+# We reuse pytoyoda's own key list (minus "vin", which is *tokenised*
 # for cross-section correlation rather than blanked) and apply it ourselves over
 # the whole assembled export, plus a substring VIN tokeniser for values/keys
 # where the VIN is embedded (subscription ids, links, notification text).
@@ -205,9 +209,7 @@ def _pytoyoda_meta(coordinator: DataUpdateCoordinator) -> dict[str, Any]:
             "vehicle_info": info is not None,
             "features": hasattr(info, "features"),
             "extended_capabilities": hasattr(info, "extended_capabilities"),
-            "remote_service_capabilities": hasattr(
-                info, "remote_service_capabilities"
-            ),
+            "remote_service_capabilities": hasattr(info, "remote_service_capabilities"),
             "remote_display": hasattr(info, "remote_display"),
         }
     return meta
@@ -276,9 +278,7 @@ def _bucket_view(
     for key, value in bucket.items():
         if key in _BUCKET_PRESENCE_ONLY and isinstance(value, dict):
             # Holds live Vehicle objects — record presence only, never recurse.
-            view[key] = {
-                vin: True for vin in value if vins is None or vin in vins
-            }
+            view[key] = {vin: True for vin in value if vins is None or vin in vins}
             continue
         scoped = value
         if vins is not None and isinstance(value, dict):

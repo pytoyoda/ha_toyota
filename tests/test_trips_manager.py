@@ -313,6 +313,35 @@ async def test_underfilled_on_load_seeds_once(hass):
 
 
 @pytest.mark.asyncio
+async def test_underfilled_flag_survives_failed_refill(hass):
+    """A failed one-shot refill keeps the underfill flag armed for retry."""
+    seed_mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
+    await seed_mgr.async_setup()
+    seed_mgr.cache.set("VIN1", [_trip_dict(f"old{i}") for i in range(5)])
+    await seed_mgr.cache.save()
+
+    mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=10)
+    await mgr.async_setup()
+    assert "VIN1" in mgr._underfilled_vins
+
+    # Refill attempt fails: flag must stay armed, cache untouched.
+    bad = SimpleNamespace(
+        alias="RAV4",
+        get_recent_trips=AsyncMock(side_effect=Exception("API down")),
+        trip_history=[_wrap_as_trip(_trip_dict("old0"))],
+    )
+    await mgr.async_maybe_refresh(bad, "VIN1", _make_decision(RefreshTrigger.NONE))
+    assert "VIN1" in mgr._underfilled_vins
+    assert len(mgr.cache.get("VIN1")) == 5
+
+    # Next cycle succeeds: refill lands, flag clears.
+    good = _make_vehicle([_trip_dict(f"fresh{i}") for i in range(10)])
+    await mgr.async_maybe_refresh(good, "VIN1", _make_decision(RefreshTrigger.NONE))
+    assert "VIN1" not in mgr._underfilled_vins
+    assert len(mgr.cache.get("VIN1")) == 10
+
+
+@pytest.mark.asyncio
 async def test_seed_failure_leaves_cache_empty(hass):
     """If get_recent_trips raises, cache stays empty rather than partial."""
     mgr = RecentTripsManager(hass, _make_entry(), max_recent_trips=5)
@@ -513,7 +542,7 @@ async def test_piggyback_cold_start_when_history_has_trips(hass):
 
 @pytest.mark.asyncio
 async def test_piggyback_uuid_id_compares_as_string(hass):
-    """pytoyoda Trip._trip.id is a UUID; cache stores str. Compare must align."""
+    """Pytoyoda Trip._trip.id is a UUID; cache stores str. Compare must align."""
     from uuid import UUID
 
     trip_uuid = UUID("49743b6d-3078-4efe-a68f-6c826b2680b6")

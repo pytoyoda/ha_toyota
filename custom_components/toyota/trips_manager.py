@@ -193,10 +193,12 @@ class RecentTripsManager:
                 await self._seed_cache(vehicle, vin, self._max)
                 return
 
-            # Under-filled cache (raise-max via options flow). One-shot refill.
+            # Under-filled cache (raise-max via options flow). One-shot
+            # refill; keep the flag armed if the fetch failed so a later
+            # cycle retries instead of leaving the cache short forever.
             if vin in self._underfilled_vins:
-                await self._seed_cache(vehicle, vin, self._max)
-                self._underfilled_vins.discard(vin)
+                if await self._seed_cache(vehicle, vin, self._max):
+                    self._underfilled_vins.discard(vin)
                 return
 
             # Cache top matches Toyota's latest trip - nothing new since
@@ -279,14 +281,16 @@ class RecentTripsManager:
                 out.append(shape)
         return out
 
-    async def _seed_cache(self, vehicle: Vehicle, vin: str, limit: int) -> None:
-        """Fetch + commit (set + save). On fetch failure, cache untouched.
+    async def _seed_cache(self, vehicle: Vehicle, vin: str, limit: int) -> bool:
+        """Fetch + commit (set + save); True on success.
 
+        On fetch failure the cache is untouched and False is returned so
+        callers can keep retry state (e.g. the underfilled one-shot) armed.
         Caller must hold ``self._lock(vin)``.
         """
         shapes = await self._fetch_shapes(vehicle, vin, limit)
         if shapes is None:
-            return
+            return False
         self._cache.set(vin, shapes)
         await self._cache.save()
         _LOGGER.debug(
@@ -295,6 +299,7 @@ class RecentTripsManager:
             len(shapes),
             limit,
         )
+        return True
 
     async def _delta_fetch(self, vehicle: Vehicle, vin: str) -> bool:
         """Fetch DELTA_FETCH_LIMIT trips, dedup, append. Caller holds the lock.

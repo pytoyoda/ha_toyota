@@ -1118,7 +1118,9 @@ async def _async_register_trips_services(hass: HomeAssistant) -> None:  # noqa: 
                     )
             # Trigger a coordinator refresh so the sensor's state reflects
             # the new cache contents on the next tick.
-            hass.async_create_task(coord.async_request_refresh())
+            hass.async_create_background_task(
+                coord.async_request_refresh(), "toyota_recent_trips_refresh"
+            )
 
     hass.services.async_register(
         DOMAIN,

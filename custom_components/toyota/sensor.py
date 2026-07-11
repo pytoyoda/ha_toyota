@@ -671,7 +671,7 @@ class ToyotaRecentTripsSensor(ToyotaBaseEntity, SensorEntity):
         last_trip_label: str | None = None
         if trips:
             first = trips[0]
-            stats = first.get("stats", {})
+            stats = first.get("stats") or {}
             ts = first.get("start_ts") or "?"
             distance_m = stats.get("distance_m")
             if isinstance(distance_m, (int, float)):

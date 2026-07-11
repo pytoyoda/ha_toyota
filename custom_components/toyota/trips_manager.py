@@ -130,25 +130,44 @@ class RecentTripsManager:
             await self._cache.save()
         return mutated
 
+    def _piggyback_latest_id(self, vehicle: Vehicle) -> str | None:
+        """Latest trip id from the cycle's free ``trip_history`` signal.
+
+        ``trip_history`` is already populated by the cycle's
+        `/v1/trips?summary=True&limit=1&route=False` call, so reading it
+        costs nothing. Returns None when auto-fetch should be skipped:
+
+        - feature disabled (``max_recent_trips <= 0``);
+        - ``trip_history is None``: endpoint failed this cycle (now
+          optional in pytoyoda) - conservative skip, the service-refresh
+          button still works;
+        - ``trip_history == []``: vehicle has no trips data at all (e.g.
+          AYGO X on Toyota Connect Lite tier) - no redundant
+          ``with_route`` fetch;
+        - no id on the record (defensive; production trips have UUIDs).
+
+        Reads via getattr - tests use bare SimpleNamespace stubs that may
+        not declare the attribute.
+        """
+        if self._max <= 0:
+            return None
+        history = getattr(vehicle, "trip_history", None)
+        if not history:
+            return None
+        return self._extract_trip_id(history[0])
+
     async def async_maybe_refresh(
         self,
         vehicle: Vehicle,
-        vin: str,
+        vin: str | None,
         decision: RefreshDecision,
     ) -> None:
         """Fetch trips per the rolling-cache + delta lifecycle.
 
-        Called once per VIN per coordinator cycle. No-op when disabled
-        (``max_recent_trips <= 0``). Uses ``vehicle.trip_history`` -
-        already populated by the cycle's `/v1/trips?summary=True&limit=1
-        &route=False` call - as a free piggyback signal:
+        Called once per VIN per coordinator cycle (vin may be None for a
+        vehicle without one; no-op). Gating on the free piggyback signal
+        is documented on :meth:`_piggyback_latest_id`. Cache semantics:
 
-        - ``trip_history is None``: endpoint failed this cycle (now
-          optional in pytoyoda). Conservative: skip auto-fetch; the
-          service-refresh button still works.
-        - ``trip_history == []``: vehicle has no trips data at all (e.g.
-          AYGO X on Toyota Connect Lite tier). Skip entirely - no
-          redundant ``with_route`` fetch.
         - ``trip_history[0].id == cache[0].id``: cache is in sync with
           Toyota's view. Skip the heavier ``with_route`` fetch; on
           ``JUST_STOPPED`` mark followup-pending in case Toyota's
@@ -157,19 +176,11 @@ class RecentTripsManager:
         - mismatch: there's a new trip we don't have. Cold-start when
           cache empty; delta-fetch on stop triggers; otherwise no-op.
         """
-        if self._max <= 0:
+        if not vin:
             return
-
-        # Read piggyback signal. Use getattr defensively - tests use
-        # bare SimpleNamespace stubs that may not declare the attribute.
-        history = getattr(vehicle, "trip_history", None)
-        if history is None:
-            return
-        if not history:
-            return
-        latest_id = self._extract_trip_id(history[0])
+        latest_id = self._piggyback_latest_id(vehicle)
         if latest_id is None:
-            return  # Defensive; production trips always have UUIDs.
+            return
 
         async with self._lock(vin):
             cache = self._cache.get(vin)

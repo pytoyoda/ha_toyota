@@ -668,8 +668,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         # No-op when CONF_MAX_RECENT_TRIPS is 0 (default). Independent of
         # the /status decision; uses the same trigger info so we fetch trips
         # only on stop-event ticks (just_stopped + conditional followup).
-        if vin:
-            await trips_manager.async_maybe_refresh(vehicle, vin, decision)
+        await trips_manager.async_maybe_refresh(vehicle, vin, decision)
 
         # Movement / sensor state.
         car_currently_moving = (
@@ -989,7 +988,7 @@ def _resolve_devices_to_vins_per_entry(
     return per_entry_vins
 
 
-async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
+async def _async_register_services(hass: HomeAssistant) -> None:
     """Register the toyota.refresh_vehicle_status service exactly once.
 
     Service handlers resolve their target devices to VINs via the device
@@ -1042,6 +1041,11 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
         _handle_refresh_vehicle_status,
     )
 
+    await _async_register_trips_services(hass)
+
+
+async def _async_register_trips_services(hass: HomeAssistant) -> None:  # noqa: C901
+    """Register the recent-trips services exactly once."""
     if hass.services.has_service(DOMAIN, SERVICE_REFRESH_RECENT_TRIPS):
         return
 
@@ -1054,9 +1058,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
         raw = call.data.get("device_id") or []
         device_ids: list[str] = [raw] if isinstance(raw, str) else list(raw)
         if not device_ids:
-            _LOGGER.warning(
-                "toyota.refresh_recent_trips called with no device target"
-            )
+            _LOGGER.warning("toyota.refresh_recent_trips called with no device target")
             return
         try:
             limit = int(call.data.get(ATTR_LIMIT, 0))

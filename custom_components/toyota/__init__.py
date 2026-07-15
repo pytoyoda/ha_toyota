@@ -7,6 +7,7 @@ from __future__ import annotations
 import asyncio
 import asyncio.exceptions as asyncioexceptions
 import contextlib
+import functools
 import logging
 import os
 from datetime import datetime, timedelta
@@ -327,7 +328,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         )
 
     async def _call_tagged(
-        endpoint_name: str, vin: str | None, coro: Awaitable[_T]
+        endpoint_name: str,
+        vin: str | None,
+        coro: Awaitable[_T],
+        log_level: int = logging.WARNING,
     ) -> _T:
         """Await a pytoyoda call, tagging any exception with the endpoint name.
 
@@ -335,13 +339,20 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         ``Toyota 429 on week_summary for vin=...012600``. Needed to interpret
         the inter-call spacing sweep - if one endpoint 429s disproportionately,
         spacing alone won't fix it and we pivot.
+
+        ``log_level`` controls the severity of the logged message.  Use
+        ``logging.DEBUG`` for best-effort calls that are already wrapped in
+        ``contextlib.suppress`` so their failures don't appear as spurious
+        warnings in the HA log.
         """
         try:
             return await coro
         except BaseException as ex:
             code = _error_code(ex)
             vin_tail = f"...{vin[-6:]}" if vin else "<no-vin>"
-            _LOGGER.warning("Toyota %s on %s for vin=%s", code, endpoint_name, vin_tail)
+            _LOGGER.log(
+                log_level, "Toyota %s on %s for vin=%s", code, endpoint_name, vin_tail
+            )
             raise
 
     def _build_vin_state(vin: str) -> VinState:
@@ -416,7 +427,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         """
         opts = _strategy_options()
         post_response = await _call_tagged(
-            "refresh_status", vin, vehicle.refresh_status()
+            "refresh_status", vin, vehicle.refresh_status(), log_level=logging.DEBUG
         )
         state.last_post_attempt_at = dt_util.now()
 
@@ -460,7 +471,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             await asyncio.sleep(10)
             try:
                 await _call_tagged(
-                    "post_status_poll", vin, vehicle.update(only=["status"])
+                    "post_status_poll",
+                    vin,
+                    vehicle.update(only=["status"]),
+                    log_level=logging.DEBUG,
                 )
             except (
                 ToyotaApiError,
@@ -521,7 +535,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             # Legacy path: include /status in the standard sweep.
             with contextlib.suppress(ToyotaApiError, httpx.ReadTimeout):
                 await _call_tagged(
-                    "status_legacy", vin, vehicle.update(only=["status"])
+                    "status_legacy",
+                    vin,
+                    vehicle.update(only=["status"]),
+                    log_level=logging.DEBUG,
                 )
         # SERVE_FROM_CACHE: no new fetch; the cached response gets re-injected
         # via _persist_status_for_cache() below.
@@ -535,7 +552,12 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         and LockStatus serves from the previous cycle's cached value.
         """
         with contextlib.suppress(ToyotaApiError, httpx.ReadTimeout):
-            await _call_tagged("status_only", vin, vehicle.update(only=["status"]))
+            await _call_tagged(
+                "status_only",
+                vin,
+                vehicle.update(only=["status"]),
+                log_level=logging.DEBUG,
+            )
             status_data = vehicle._endpoint_data.get("status")  # noqa: SLF001
             occ = (
                 getattr(
@@ -922,7 +944,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
 
 SERVICE_REFRESH_VEHICLE_STATUS = "refresh_vehicle_status"
+SERVICE_SEND_COMMAND = "send_command"
 ATTR_TIMEOUT_SECONDS = "timeout_seconds"
+ATTR_COMMAND = "command"
+ATTR_BEEPS = "beeps"
 
 
 def _resolve_devices_to_vins_per_entry(
@@ -957,8 +982,104 @@ def _resolve_devices_to_vins_per_entry(
     return per_entry_vins
 
 
+async def _async_dispatch_command_to_entry(
+    hass: HomeAssistant,
+    coord: DataUpdateCoordinator,
+    vins: list[str],
+    command: object,
+    beeps: int,
+) -> None:
+    """Send *command* to every VIN in *vins* using *coord*'s data snapshot.
+
+    For each successful dispatch a coordinator refresh is scheduled so
+    updated vehicle state is visible in HA without waiting for the next
+    polling cycle.
+    """
+    for vin in vins:
+        vehicle = next(
+            (
+                vd["data"]
+                for vd in coord.data
+                if vd.get("data") and vd["data"].vin == vin
+            ),
+            None,
+        )
+        if vehicle is None:
+            _LOGGER.warning(
+                "toyota.send_command: no vehicle found for vin=...%s",
+                vin[-6:],
+            )
+            continue
+        try:
+            await vehicle.post_command(command, beeps=beeps)
+            _LOGGER.debug("Command %s sent to vin=...%s", command.value, vin[-6:])
+        except Exception:
+            _LOGGER.exception(
+                "toyota.send_command: failed to send %s to vin=...%s",
+                command.value,
+                vin[-6:],
+            )
+            continue
+        # Schedule a status refresh so HA shows updated state promptly.
+        hass.async_create_task(coord.async_request_refresh())
+
+
+def _parse_send_command_call(
+    call: ServiceCall,
+) -> tuple[list[str], object, int] | None:
+    """Validate and parse a ``toyota.send_command`` ServiceCall.
+
+    Returns ``(device_ids, CommandType, beeps)`` on success or ``None`` when
+    the call should be rejected (missing target or unknown command).  Keeping
+    validation separate from dispatch reduces the cyclomatic complexity of the
+    handler.
+    """
+    from pytoyoda.models.endpoints.command import CommandType  # noqa: PLC0415
+
+    raw = call.data.get("device_id") or []
+    device_ids: list[str] = [raw] if isinstance(raw, str) else list(raw)
+    if not device_ids:
+        _LOGGER.warning("toyota.send_command called with no device target")
+        return None
+
+    raw_command = call.data.get(ATTR_COMMAND, "")
+    try:
+        command = CommandType(raw_command)
+    except ValueError:
+        valid = ", ".join(c.value for c in CommandType)
+        _LOGGER.warning(
+            "toyota.send_command: unknown command %r. Valid values: %s",
+            raw_command,
+            valid,
+        )
+        return None
+
+    beeps = int(call.data.get(ATTR_BEEPS, 0))
+    return device_ids, command, beeps
+
+
+async def _handle_send_command(hass: HomeAssistant, call: ServiceCall) -> None:
+    """Dispatch a raw pytoyoda command to one or more Toyota vehicles."""
+    parsed = _parse_send_command_call(call)
+    if parsed is None:
+        return
+    device_ids, command, beeps = parsed
+    _LOGGER.info(
+        "toyota.send_command: command=%s beeps=%d devices=%s",
+        command.value,
+        beeps,
+        device_ids,
+    )
+    per_entry_vins = _resolve_devices_to_vins_per_entry(hass, device_ids)
+    for entry_id, vins in per_entry_vins.items():
+        coord = hass.data[DOMAIN].get(entry_id)
+        if coord is None:
+            continue
+        await _async_dispatch_command_to_entry(hass, coord, vins, command, beeps)
+
+
 async def _async_register_services(hass: HomeAssistant) -> None:
-    """Register the toyota.refresh_vehicle_status service exactly once.
+    """Register toyota.refresh_vehicle_status and toyota.send_command once.
 
     Service handlers resolve their target devices to VINs via the device
     registry, set a per-VIN flag in each entry's diag bucket, and trigger
@@ -1009,6 +1130,13 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         SERVICE_REFRESH_VEHICLE_STATUS,
         _handle_refresh_vehicle_status,
     )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_SEND_COMMAND):
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_SEND_COMMAND,
+            functools.partial(_handle_send_command, hass),
+        )
 
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:

@@ -1,3 +1,61 @@
+send_command:
+  name: Send remote command
+  description: >
+    Send any supported remote command to a Toyota vehicle. Use this for
+    commands not exposed as dedicated entities (e.g. hazard lights, engine
+    start/stop, windows). The lock/unlock commands are also available here
+    but the dedicated lock entity is preferred for those.
+  fields:
+    device_id:
+      name: Vehicle
+      description: The Toyota vehicle to send the command to.
+      required: true
+      selector:
+        device:
+          integration: toyota
+    command:
+      name: Command
+      description: >
+        Remote command to send. Supported values: door-lock, door-unlock,
+        engine-start, engine-stop, hazard-on, hazard-off, power-window-on,
+        power-window-off, ac-settings-on, sound-horn, buzzer-warning,
+        find-vehicle, ventilation-on, trunk-lock, trunk-unlock,
+        headlight-on, headlight-off.
+        Note: some models do not support door-unlock when the doors were
+        locked with the physical key; the gateway will reject the command
+        and Home Assistant will surface it as a service-call error.
+      required: true
+      selector:
+        select:
+          options:
+            - door-lock
+            - door-unlock
+            - engine-start
+            - engine-stop
+            - hazard-on
+            - hazard-off
+            - power-window-on
+            - power-window-off
+            - ac-settings-on
+            - sound-horn
+            - buzzer-warning
+            - find-vehicle
+            - ventilation-on
+            - trunk-lock
+            - trunk-unlock
+            - headlight-on
+            - headlight-off
+    beeps:
+      name: Beeps
+      description: Number of beeps for commands that support it (e.g. sound-horn).
+      required: false
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 10
+          step: 1
+
 refresh_vehicle_status:
   name: Refresh vehicle status
   description: >

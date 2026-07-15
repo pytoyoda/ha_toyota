@@ -229,6 +229,11 @@
           }
         }
       }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Door lock"
+      }
     }
   }
 }

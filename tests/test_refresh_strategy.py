@@ -9,9 +9,7 @@ Numbering refers to the steps in `rate-limit-remediation-plan.md` Addendum 4.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
-
-import pytest
+from datetime import UTC, datetime, timedelta
 
 from custom_components.toyota.refresh_strategy import (
     CycleSnapshot,
@@ -27,8 +25,7 @@ from custom_components.toyota.refresh_strategy import (
     on_wake_failed,
 )
 
-
-NOW = datetime(2026, 4, 25, 10, 0, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 4, 25, 10, 0, 0, tzinfo=UTC)
 
 
 def _snap(**overrides) -> CycleSnapshot:
@@ -327,7 +324,8 @@ def test_occurrence_advanced_clears_soft_disable():
 
 def test_first_cycle_no_movement_inferred():
     """First cycle: state.last_odometer_km is None. No movement signal possible.
-    Strategy should NOT classify this as "just stopped" (would falsely POST)."""
+    Strategy should NOT classify this as "just stopped" (would falsely POST).
+    """
     state = VinState(last_odometer_km=None, was_moving_last_cycle=False)
     s = _snap(state=state, current_odometer_km=1000.0)
     d = decide(s)
@@ -338,7 +336,8 @@ def test_first_cycle_no_movement_inferred():
 
 def test_no_telemetry_this_cycle_does_not_crash():
     """Telemetry might be unavailable; current_odometer_km can be None.
-    Strategy must not break."""
+    Strategy must not break.
+    """
     state = VinState(
         last_odometer_km=1000.0,
         last_status_occurrence_date=NOW,

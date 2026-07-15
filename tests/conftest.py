@@ -1,21 +1,22 @@
 """Fixtures for Toyota EU community integration tests."""
 
 import pytest
+from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from custom_components.toyota.const import CONF_METRIC_VALUES, DOMAIN
+
 
 @pytest.fixture(autouse=True)
 def auto_enable_custom_integrations(enable_custom_integrations):
-    yield
+    return
 
 
 @pytest.fixture
 async def init_integration(hass, aioclient_mock) -> MockConfigEntry:
-    #mock_data = load_json_value_fixture("rest_response.json")
-    #url = f"{FERNPORTAL_URL}/{MOCK_SERIAL_NUMBER}"
-    #aioclient_mock.get(url, json=mock_data)
+    # mock_data = load_json_value_fixture("rest_response.json")
+    # url = f"{FERNPORTAL_URL}/{MOCK_SERIAL_NUMBER}"
+    # aioclient_mock.get(url, json=mock_data)
 
     # Create a mock config entry
     entry = MockConfigEntry(

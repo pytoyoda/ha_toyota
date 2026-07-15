@@ -187,6 +187,11 @@
           }
         }
       }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Blocco porte"
+      }
     }
   }
 }

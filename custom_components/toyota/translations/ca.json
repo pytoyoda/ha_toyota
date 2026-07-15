@@ -178,6 +178,11 @@
           }
         }
       }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Bloqueig de portes"
+      }
     }
   }
 }

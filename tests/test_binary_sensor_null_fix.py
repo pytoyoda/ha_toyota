@@ -54,10 +54,13 @@ def test_hood_value_fn_returns_none_when_closed_field_missing():
 
 def test_hood_value_fn_inverts_closed_bool():
     """When the field IS populated, render the inverted bool (HA DOOR class
-    treats True as 'open')."""
+    treats True as 'open').
+    """
     vehicle = _FakeVehicle()
     vehicle.lock_status = _FakeLockStatus(hood=_FakeHood(closed=True))
-    assert HOOD_STATUS_ENTITY_DESCRIPTION.value_fn(vehicle) is False  # closed -> not-open
+    assert (
+        HOOD_STATUS_ENTITY_DESCRIPTION.value_fn(vehicle) is False
+    )  # closed -> not-open
 
     vehicle.lock_status = _FakeLockStatus(hood=_FakeHood(closed=False))
     assert HOOD_STATUS_ENTITY_DESCRIPTION.value_fn(vehicle) is True  # open

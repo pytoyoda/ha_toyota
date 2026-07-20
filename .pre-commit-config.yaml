@@ -7,7 +7,7 @@ repos:
       - id: poetry-check
         name: 📜 Check pyproject with Poetry
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: v2.4.3
     hooks:
       - id: codespell
         name: 👄 Check code spelling
@@ -35,7 +35,7 @@ repos:
       - id: trailing-whitespace
         name: "⬜ Fix trailing whitespaces"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.18
+    rev: v0.15.22
     hooks:
       - id: ruff
         name: "🐶 Ruff Linter"

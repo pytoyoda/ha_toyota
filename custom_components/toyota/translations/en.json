@@ -147,6 +147,9 @@
           "hard_disabled_auto": "Disabled (unsupported)",
           "hard_disabled_user": "Disabled (by user)"
         }
+      },
+      "last_service": {
+        "name": "Last service"
       }
     },
     "button": {

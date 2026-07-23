@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date
 from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from homeassistant.components.sensor import (
@@ -34,6 +35,7 @@ if TYPE_CHECKING:
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
     from homeassistant.helpers.typing import StateType
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+    from pytoyoda.models.service_history import ServiceHistory
     from pytoyoda.models.vehicle import Vehicle
 
     from . import StatisticsData, VehicleData
@@ -253,6 +255,56 @@ REMAINING_CHARGE_TIME_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
 
+
+def _service_recency_key(record: ServiceHistory) -> tuple[date, str]:
+    """Sort key for the newest service record, tolerating null fields."""
+    return (record.service_date or date.min, record.service_category or "")
+
+
+def _latest_service(vehicle: Vehicle) -> ServiceHistory | None:
+    """The newest service record, or None until history reports.
+
+    Not pytoyoda's ``get_latest_service_history()``: that raises ValueError on
+    an empty history list and TypeError when a record's service_date or
+    service_category is null (its max() key compares None against date/str).
+    """
+    history = vehicle.service_history
+    if not history:
+        return None
+    return max(history, key=_service_recency_key)
+
+
+def _last_service_state(vehicle: Vehicle) -> date | None:
+    """State for the last-service sensor: the newest record's service date."""
+    latest = _latest_service(vehicle)
+    return latest.service_date if latest else None
+
+
+def _last_service_attributes(vehicle: Vehicle) -> dict[str, Any] | None:
+    """Attributes for the last-service sensor; None until history reports."""
+    latest = _latest_service(vehicle)
+    if latest is None:
+        return None
+    return {
+        "odometer": latest.odometer,
+        "service_category": latest.service_category,
+        "service_provider": latest.service_provider,
+        "customer_created_record": latest.customer_created_record,
+        "service_count": len(vehicle.service_history),
+    }
+
+
+LAST_SERVICE_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
+    key="last_service",
+    translation_key="last_service",
+    icon="mdi:wrench-clock",
+    entity_category=EntityCategory.DIAGNOSTIC,
+    device_class=SensorDeviceClass.DATE,
+    state_class=None,
+    value_fn=_last_service_state,
+    attributes_fn=_last_service_attributes,
+)
+
 STATISTICS_ENTITY_DESCRIPTIONS_DAILY = ToyotaStatisticsSensorEntityDescription(
     key="current_day_statistics",
     translation_key="current_day_statistics",
@@ -396,6 +448,18 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             ),
             "native_unit": "min",
             "suggested_unit": "min",
+        },
+        {
+            "description": LAST_SERVICE_ENTITY_DESCRIPTION,
+            # Mirror pytoyoda's own gate for the service-history endpoint
+            # (features, not extended_capabilities).
+            "capability_check": lambda v: getattr(
+                getattr(v._vehicle_info, "features", False),  # noqa : SLF001
+                "service_history",
+                False,
+            ),
+            "native_unit": None,
+            "suggested_unit": None,
         },
         {
             "description": STATISTICS_ENTITY_DESCRIPTIONS_DAILY,

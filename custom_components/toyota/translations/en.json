@@ -226,6 +226,9 @@
       },
       "taillights": {
         "name": "Taillights"
+      },
+      "vehicle_health": {
+        "name": "Vehicle health"
       }
     },
     "climate": {

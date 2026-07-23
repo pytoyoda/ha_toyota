@@ -600,6 +600,106 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
         )
 
 
+RECENT_TRIPS_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="recent_trips",
+    translation_key="recent_trips",
+    icon="mdi:road-variant",
+)
+
+
+class ToyotaRecentTripsSensor(ToyotaBaseEntity, SensorEntity):
+    """Sensor exposing the recent-trips rolling cache for one VIN.
+
+    State: count of trips currently in the cache (0 when disabled or not
+    yet seeded). Attributes:
+
+    - ``trips``: list of trip dicts in journey-viewer-card data contract shape
+    - ``last_trip_label``: human-readable label for the most recent trip
+      (convenience for templates that don't want to parse the array)
+    - ``source``: ``"toyota"`` (cosmetic, for cards that group by source)
+
+    Sensor reads from the manager's cache on every coordinator update.
+    Cache mutations happen during _refresh_one_vehicle (in the coordinator's
+    update path), so the next coordinator-driven sensor refresh sees fresh
+    state automatically.
+    """
+
+    @property
+    def available(self) -> bool:
+        """Available once the manager exists; cache being empty is a valid state."""
+        if not super().available:
+            return False
+        mgr = self.hass.data.get(DOMAIN, {}).get(f"{self._entry_id}_trips_manager")
+        return mgr is not None
+
+    @property
+    def native_value(self) -> StateType:
+        """Number of trips currently cached for this VIN."""
+        mgr = self.hass.data.get(DOMAIN, {}).get(f"{self._entry_id}_trips_manager")
+        if mgr is None:
+            return None
+        vin = getattr(self.vehicle, "vin", None)
+        if not vin:
+            return None
+        return len(mgr.cache.get(vin))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose cached trip metadata WITHOUT route polylines.
+
+        Each trip dict in the returned ``trips`` list has its ``route``
+        field stripped and replaced with a ``route_point_count`` integer
+        so callers can decide whether to fetch the full route via the
+        ``toyota.get_trip_route`` service. Stripping the route keeps the
+        attribute payload small (~6 KB for 10 trips vs ~640 KB with
+        polylines for a daily-driver) so the HA recorder, state machine,
+        and WebSocket pipeline don't carry per-cycle bulk. Mirrors HA
+        core's 2024.x weather-forecast pattern: state stays small; bulk
+        data fetched on demand.
+
+        The journey-viewer-card lazy-loads route per trip via the
+        service when the user navigates to a trip.
+        """
+        mgr = self.hass.data.get(DOMAIN, {}).get(f"{self._entry_id}_trips_manager")
+        if mgr is None:
+            return None
+        vin = getattr(self.vehicle, "vin", None)
+        if not vin:
+            return None
+        trips = mgr.cache.get(vin)
+        slim_trips = [_strip_route(t) for t in trips]
+        last_trip_label: str | None = None
+        if trips:
+            first = trips[0]
+            stats = first.get("stats") or {}
+            ts = first.get("start_ts") or "?"
+            distance_m = stats.get("distance_m")
+            if isinstance(distance_m, (int, float)):
+                distance_str = f"{distance_m / 1000:.2f} km"
+            else:
+                distance_str = "?"
+            last_trip_label = f"{ts} ({distance_str})"
+        return {
+            "trips": slim_trips,
+            "last_trip_label": last_trip_label,
+            "source": "toyota",
+        }
+
+
+def _strip_route(trip: dict) -> dict:
+    """Return a shallow copy of ``trip`` with ``route`` removed.
+
+    Replaces ``route`` with an integer ``route_point_count`` so callers
+    can decide whether to lazy-load the route via the get_trip_route
+    service. Other fields (id, start/end, stats, behaviours, scores)
+    are passed through unchanged.
+    """
+    route = trip.get("route") or []
+    out = {k: v for k, v in trip.items() if k != "route"}
+    out["route_point_count"] = len(route)
+    return out
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -661,6 +761,18 @@ async def async_setup_entry(
                 LAST_ERROR_CODE_ENTITY_DESCRIPTION,
                 STATUS_LAST_REPORTED_ENTITY_DESCRIPTION,
                 STATUS_REFRESH_STATE_ENTITY_DESCRIPTION,
+            )
+        )
+
+        # Recent-trips sensor: always created (so users discover the entity);
+        # state reads "0 trips" when CONF_MAX_RECENT_TRIPS=0 and no service
+        # call has been used to seed it.
+        sensors.append(
+            ToyotaRecentTripsSensor(
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=RECENT_TRIPS_ENTITY_DESCRIPTION,
             )
         )
 

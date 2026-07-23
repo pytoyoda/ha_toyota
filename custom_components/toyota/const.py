@@ -57,6 +57,17 @@ DEFAULT_POLLING_INTERVAL_MINUTES = 6
 CONF_POST_COUNT_PER_STOP = "post_count_per_stop"
 DEFAULT_POST_COUNT_PER_STOP = 2
 
+# Recent-trips sensor: rolling cache of the most recent N trips per vehicle,
+# fetched on-demand when the smart-strategy detects a stop event. Surfaces as
+# `sensor.<alias>_recent_trips` with attributes.trips[] in the
+# journey-viewer-card data contract shape. 0 (default) disables the feature
+# entirely (no extra API calls). 1-20 enables auto-fetch + caches that many
+# most-recent trips per VIN. The service `toyota.refresh_recent_trips` works
+# regardless of this setting.
+CONF_MAX_RECENT_TRIPS = "max_recent_trips"
+DEFAULT_MAX_RECENT_TRIPS = 0
+MAX_RECENT_TRIPS_LIMIT = 20
+
 # DEFAULTS
 DEFAULT_LOCALE = "en-gb"
 

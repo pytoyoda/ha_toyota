@@ -25,6 +25,7 @@ from .const import (
     CONF_FAILED_WAKE_THRESHOLD,
     CONF_IDLE_WAKE_HOURS,
     CONF_MAX_CACHE_AGE_MINUTES,
+    CONF_MAX_RECENT_TRIPS,
     CONF_METRIC_VALUES,
     CONF_POLLING_INTERVAL_MINUTES,
     CONF_POST_COUNT_PER_STOP,
@@ -33,10 +34,12 @@ from .const import (
     DEFAULT_FAILED_WAKE_THRESHOLD,
     DEFAULT_IDLE_WAKE_HOURS,
     DEFAULT_MAX_CACHE_AGE_MINUTES,
+    DEFAULT_MAX_RECENT_TRIPS,
     DEFAULT_POLLING_INTERVAL_MINUTES,
     DEFAULT_POST_COUNT_PER_STOP,
     DEFAULT_RETAIN_ON_TRANSIENT_FAILURE,
     DOMAIN,
+    MAX_RECENT_TRIPS_LIMIT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -284,6 +287,20 @@ class ToyotaOptionsFlow(config_entries.OptionsFlow):
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=1, max=5, step=1, mode=selector.NumberSelectorMode.BOX
+                        )
+                    ),
+                    vol.Required(
+                        CONF_MAX_RECENT_TRIPS,
+                        default=opts.get(
+                            CONF_MAX_RECENT_TRIPS,
+                            DEFAULT_MAX_RECENT_TRIPS,
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=MAX_RECENT_TRIPS_LIMIT,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
                 }

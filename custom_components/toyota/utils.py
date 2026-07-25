@@ -180,10 +180,13 @@ def predict_climate_class(features: Any, ext: Any) -> tuple[str, str]:  # noqa: 
     ecc = getattr(ext, "econnect_climate_capable", False)
     res = getattr(ext, "remote_engine_start_stop", False)
 
-    if cc and (ctf or ctl):
-        return "FULL_CLIMATE", "target temp + on/off via V2 climate-control"
-    if cc and not (ctf or ctl):
-        return "CLIMATE_NO_TEMP", "on/off + defrost toggle; no target temp"
+    has_temp_control = ctf or ctl
+    if cc:
+        return (
+            ("FULL_CLIMATE", "target temp + on/off via V2 climate-control")
+            if has_temp_control
+            else ("CLIMATE_NO_TEMP", "on/off + defrost toggle; no target temp")
+        )
     if res:
         return "ENGINE_PREHEAT", "engine-preheat on/off only; auto-off after ~20 min"
     if ecc:

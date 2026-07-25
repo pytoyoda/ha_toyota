@@ -93,16 +93,21 @@ def _jsonify(obj: Any, _depth: int = 0) -> Any:
         return "<max-depth>"
     if obj is None or isinstance(obj, (str, int, float, bool)):
         return obj
+    if isinstance(obj, dict):
+        return {str(k): _jsonify(v, _depth + 1) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple, set)):
+        return [_jsonify(v, _depth + 1) for v in obj]
+    return _jsonify_leaf(obj)
+
+
+def _jsonify_leaf(obj: Any) -> Any:  # noqa: ANN401
+    """Coerce a single non-container object to a JSON-native value."""
     if hasattr(obj, "model_dump_json"):  # pydantic model
         try:
             return json.loads(obj.model_dump_json())
         except Exception:  # noqa: BLE001
             return repr(obj)
-    if isinstance(obj, dict):
-        return {str(k): _jsonify(v, _depth + 1) for k, v in obj.items()}
-    if isinstance(obj, (list, tuple, set)):
-        return [_jsonify(v, _depth + 1) for v in obj]
-    if hasattr(obj, "isoformat"):
+    if hasattr(obj, "isoformat"):  # datetime/date
         return obj.isoformat()
     return repr(obj)
 
@@ -240,6 +245,25 @@ def _tok_str(value: Any, vin_map: dict[str, str]) -> Any:
     return value
 
 
+def _is_redacted_key(key: Any, value: Any) -> bool:  # noqa: ANN401
+    """True when this key names a sensitive field carrying an actual value."""
+    return isinstance(key, str) and key.lower() in _REDACT_KEYS and value is not None
+
+
+def _redact_mapping(
+    obj: dict[Any, Any], vin_map: dict[str, str], _depth: int
+) -> dict[Any, Any]:
+    """Redact one mapping level: blank sensitive keys, recurse into the rest."""
+    return {
+        _tok_str(k, vin_map): (
+            REDACTED
+            if _is_redacted_key(k, v)
+            else _deep_redact(v, vin_map, _depth + 1)
+        )
+        for k, v in obj.items()
+    }
+
+
 def _deep_redact(obj: Any, vin_map: dict[str, str], _depth: int = 0) -> Any:
     """Recursively blank sensitive keys and tokenise VINs across the export.
 
@@ -251,19 +275,24 @@ def _deep_redact(obj: Any, vin_map: dict[str, str], _depth: int = 0) -> Any:
     if _depth > _MAX_REDACT_DEPTH:
         return obj
     if isinstance(obj, dict):
-        out: dict[Any, Any] = {}
-        for k, v in obj.items():
-            key = _tok_str(k, vin_map)
-            if isinstance(k, str) and k.lower() in _REDACT_KEYS and v is not None:
-                out[key] = REDACTED
-            else:
-                out[key] = _deep_redact(v, vin_map, _depth + 1)
-        return out
+        return _redact_mapping(obj, vin_map, _depth)
     if isinstance(obj, list):
         return [_deep_redact(v, vin_map, _depth + 1) for v in obj]
     if isinstance(obj, str):
         return _tok_str(obj, vin_map)
     return obj
+
+
+def _presence_map(value: dict[str, Any], vins: set[str] | None) -> dict[str, bool]:
+    """Record only which VINs are present, never the (live Vehicle) values."""
+    return {vin: True for vin in value if vins is None or vin in vins}
+
+
+def _scope_to_vins(value: Any, vins: set[str] | None) -> Any:  # noqa: ANN401
+    """Narrow a per-VIN map to ``vins``; anything else passes through."""
+    if vins is not None and isinstance(value, dict):
+        return {k: v for k, v in value.items() if k in vins}
+    return value
 
 
 def _bucket_view(
@@ -278,12 +307,9 @@ def _bucket_view(
     for key, value in bucket.items():
         if key in _BUCKET_PRESENCE_ONLY and isinstance(value, dict):
             # Holds live Vehicle objects — record presence only, never recurse.
-            view[key] = {vin: True for vin in value if vins is None or vin in vins}
-            continue
-        scoped = value
-        if vins is not None and isinstance(value, dict):
-            scoped = {k: v for k, v in value.items() if k in vins}
-        view[key] = _jsonify(scoped)
+            view[key] = _presence_map(value, vins)
+        else:
+            view[key] = _jsonify(_scope_to_vins(value, vins))
     return view
 
 

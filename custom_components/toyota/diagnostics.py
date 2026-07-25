@@ -100,7 +100,7 @@ def _jsonify(obj: Any, _depth: int = 0) -> Any:
     return _jsonify_leaf(obj)
 
 
-def _jsonify_leaf(obj: Any) -> Any:  # noqa: ANN401
+def _jsonify_leaf(obj: Any) -> Any:
     """Coerce a single non-container object to a JSON-native value."""
     if hasattr(obj, "model_dump_json"):  # pydantic model
         try:
@@ -245,7 +245,7 @@ def _tok_str(value: Any, vin_map: dict[str, str]) -> Any:
     return value
 
 
-def _is_redacted_key(key: Any, value: Any) -> bool:  # noqa: ANN401
+def _is_redacted_key(key: Any, value: Any) -> bool:
     """True when this key names a sensitive field carrying an actual value."""
     return isinstance(key, str) and key.lower() in _REDACT_KEYS and value is not None
 
@@ -256,9 +256,7 @@ def _redact_mapping(
     """Redact one mapping level: blank sensitive keys, recurse into the rest."""
     return {
         _tok_str(k, vin_map): (
-            REDACTED
-            if _is_redacted_key(k, v)
-            else _deep_redact(v, vin_map, _depth + 1)
+            REDACTED if _is_redacted_key(k, v) else _deep_redact(v, vin_map, _depth + 1)
         )
         for k, v in obj.items()
     }
@@ -288,7 +286,7 @@ def _presence_map(value: dict[str, Any], vins: set[str] | None) -> dict[str, boo
     return {vin: True for vin in value if vins is None or vin in vins}
 
 
-def _scope_to_vins(value: Any, vins: set[str] | None) -> Any:  # noqa: ANN401
+def _scope_to_vins(value: Any, vins: set[str] | None) -> Any:
     """Narrow a per-VIN map to ``vins``; anything else passes through."""
     if vins is not None and isinstance(value, dict):
         return {k: v for k, v in value.items() if k in vins}

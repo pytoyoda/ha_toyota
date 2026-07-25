@@ -18,6 +18,12 @@ requires-poetry = '>=2.0'
 arrow = "^1.3"
 homeassistant = "^2025.4.0"
 pytoyoda = "^5.1.0"
+# Not used directly: pycares 5.0 renamed its result classes, and aiodns 3.5.0
+# still refers to the old names in annotations that are evaluated on import.
+# aiohttp catches only ImportError there, so the AttributeError escapes and
+# `import aiohttp` fails - nothing, including pytest, can start. Home
+# Assistant pins aiodns==3.5.0, so pycares is the side that has to give.
+pycares = "<5.0.0"
 
 [tool.poetry.group.dev.dependencies]
 homeassistant-stubs = "^2025.4"

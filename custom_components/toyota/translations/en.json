@@ -243,6 +243,11 @@
           }
         }
       }
+    },
+    "lock": {
+      "vehicle_lock_control": {
+        "name": "Lock"
+      }
     }
   }
 }

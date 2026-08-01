@@ -72,6 +72,8 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
     """Handle a config flow for Toyota Connected Services."""
 
     VERSION = 1
+    # 1.2 repairs entries created with a 1-tuple title, see async_migrate_entry.
+    MINOR_VERSION = 2
 
     @staticmethod
     def async_get_options_flow(

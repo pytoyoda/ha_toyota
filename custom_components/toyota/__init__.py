@@ -151,6 +151,34 @@ class VehicleData(TypedDict):
     is_cached: bool
 
 
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate a config entry to the current version.
+
+    1.1 -> 1.2: repair a non-string title. Entries created before the config
+    flow stopped building its title as a 1-tuple persist it as a JSON list
+    (``["Toyota - user@example.com"]``), which breaks every consumer that
+    reads a config entry title as text. Users cannot clear this themselves:
+    the ``config_entries/update`` websocket command validates ``title`` as
+    ``str``, so a client that echoes the stored value back is rejected.
+    """
+    if entry.version == 1 and entry.minor_version < 2:
+        title = entry.title
+
+        if not isinstance(title, str):
+            if isinstance(title, (list, tuple)) and title:
+                title = str(title[0])
+            else:
+                # No usable title to unwrap; rebuild the one the flow would
+                # have created from the entry's own data.
+                brand = str(entry.data.get(CONF_BRAND, "toyota")).capitalize()
+                title = f"{brand} - {entry.data.get(CONF_EMAIL, '')}"
+            _LOGGER.info("Repaired non-string config entry title: %s", title)
+
+        hass.config_entries.async_update_entry(entry, title=title, minor_version=2)
+
+    return True
+
+
 async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0915, C901
     hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:

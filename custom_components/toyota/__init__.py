@@ -34,6 +34,8 @@ from .const import (
     CONF_POLLING_INTERVAL_MINUTES,
     CONF_POST_COUNT_PER_STOP,
     CONF_RETAIN_ON_TRANSIENT_FAILURE,
+    CONFIG_ENTRY_MINOR_VERSION,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_AUTO_DISABLED_STATUS_REFRESH,
     DEFAULT_ENABLE_STATUS_REFRESH,
     DEFAULT_FAILED_WAKE_THRESHOLD,
@@ -161,7 +163,10 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     the ``config_entries/update`` websocket command validates ``title`` as
     ``str``, so a client that echoes the stored value back is rejected.
     """
-    if entry.version == 1 and entry.minor_version < 2:
+    if (
+        entry.version == CONFIG_ENTRY_VERSION
+        and entry.minor_version < CONFIG_ENTRY_MINOR_VERSION
+    ):
         title = entry.title
 
         if not isinstance(title, str):
@@ -174,7 +179,9 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
                 title = f"{brand} - {entry.data.get(CONF_EMAIL, '')}"
             _LOGGER.info("Repaired non-string config entry title: %s", title)
 
-        hass.config_entries.async_update_entry(entry, title=title, minor_version=2)
+        hass.config_entries.async_update_entry(
+            entry, title=title, minor_version=CONFIG_ENTRY_MINOR_VERSION
+        )
 
     return True
 

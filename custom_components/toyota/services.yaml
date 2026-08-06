@@ -61,6 +61,22 @@ refresh_recent_trips:
           step: 1
           mode: box
 
+refresh_electric_realtime_status:
+  name: Refresh electric realtime status
+  description: >
+    Wakes the vehicle to force a fresh read of the electric/EV realtime
+    status (battery level, charging state, range). Use sparingly - each
+    call uses cellular airtime and, per the underlying API, can drain a
+    small amount of 12V battery if called too often.
+  fields:
+    device_id:
+      name: Vehicle
+      description: The Toyota vehicle whose electric realtime status to refresh.
+      required: true
+      selector:
+        device:
+          integration: toyota
+
 get_trip_route:
   name: Get trip route
   description: >

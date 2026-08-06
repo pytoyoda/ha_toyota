@@ -158,6 +158,9 @@
       },
       "refresh_recent_trips": {
         "name": "Refresh recent trips"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Refresh electric realtime status"
       }
     },
     "binary_sensor": {

@@ -1054,8 +1054,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
         device_ids: list[str] = [raw] if isinstance(raw, str) else list(raw)
         if not device_ids:
             _LOGGER.warning(
-                "toyota.refresh_electric_realtime_status called with no "
-                "device target"
+                "toyota.refresh_electric_realtime_status called with no device target"
             )
             return
         _LOGGER.info(
@@ -1087,8 +1086,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
                     await vehicle.refresh_electric_realtime_status()
                 except Exception:
                     _LOGGER.exception(
-                        "toyota.refresh_electric_realtime_status failed for "
-                        "vin=...%s",
+                        "toyota.refresh_electric_realtime_status failed for vin=...%s",
                         vin[-6:],
                     )
             # Schedule a refresh so the electric/battery sensors pick up the

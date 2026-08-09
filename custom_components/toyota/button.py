@@ -82,9 +82,10 @@ async def async_setup_entry(
                 description=REFRESH_RECENT_TRIPS_BUTTON_DESCRIPTION,
             )
         )
-        if get_vehicle_capability(
-            vehicle, "econnect_vehicle_status_capable"
-        ) or vehicle.type == "electric":
+        if (
+            get_vehicle_capability(vehicle, "econnect_vehicle_status_capable")
+            or vehicle.type == "electric"
+        ):
             buttons.append(
                 ToyotaRefreshElectricRealtimeStatusButton(
                     coordinator=coordinator,

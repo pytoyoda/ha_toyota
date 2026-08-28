@@ -22,6 +22,25 @@ DOMAIN = "toyota"
 NAME = "Toyota Connected Services"
 ISSUES_URL = "https://github.com/pytoyoda/ha_toyota/issues"
 
+# RemoteDisplayStatus enum (reverse-engineered from the MyToyota app, where the
+# ordinal == backendValue). The app gates ALL remote commands on this being
+# ACTIVATED (7); in any other state the gateway may ACCEPT a command while the
+# car silently does nothing. Surfaced in diagnostics so a "command ran but
+# nothing happened" report is explainable without a debug-log round-trip.
+REMOTE_DISPLAY_NAMES = {
+    0: "UNKNOWN",
+    1: "AUTH_REQUIRED",
+    2: "SUBSCRIPTION_CANCELLED_REMOTE_USER",
+    3: "SUBSCRIPTION_CANCELLED_PRIMARY_USER",
+    4: "FAILED",
+    5: "PENDING",
+    6: "ERROR",
+    7: "ACTIVATED",
+    8: "SUBSCRIPTION_EXPIRED_REMOTE_USER",
+    9: "SUBSCRIPTION_EXPIRED_PRIMARY_USER",
+    10: "STOLEN_LOST_VEHICLE",
+}
+
 # CONF
 CONF_BRAND = "Brand"
 CONF_BRAND_MAPPING = {"T": "Toyota", "L": "Lexus"}

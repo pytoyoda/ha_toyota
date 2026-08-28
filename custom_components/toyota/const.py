@@ -9,6 +9,7 @@ PLATFORMS = [
     Platform.DEVICE_TRACKER,
     Platform.SENSOR,
     Platform.CLIMATE,
+    Platform.LOCK,
 ]
 
 # CONFIG ENTRY SCHEMA

@@ -1,0 +1,253 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Selecione a marca do seu veículo e informe seu e-mail e senha do MyT/Lexus Link abaixo.",
+        "data": {
+          "brand": "Marca do veículo",
+          "email": "E-mail",
+          "password": "Senha",
+          "use_metric_values": "Usar unidades métricas (ex.: km em vez de milhas)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "O e-mail deve conter @.",
+      "invalid_auth": "E-mail/senha incorretos.",
+      "unknown": "Erro inesperado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opções do Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Intervalo de consulta (minutos)",
+          "retain_on_transient_failure": "Manter os últimos dados válidos em falhas temporárias (recomendado)",
+          "enable_status_refresh": "Atualizar o status do veículo remotamente (recomendado)",
+          "idle_wake_hours": "Acordar veículo parado a cada N horas (0 = desativado)",
+          "failed_wake_threshold": "Marcar como inacessível após N tentativas de acordar sem sucesso",
+          "max_cache_age_minutes": "Atualizar o cache de status se mais antigo que",
+          "post_count_per_stop": "POSTs de wake por evento de parada",
+          "max_recent_trips": "Viagens recentes a manter em cache (0 = desativado)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Com que frequência a integração consulta a Toyota em busca de dados novos (5-60 minutos; padrão 6). Valores menores podem esbarrar em limites de requisição.",
+          "retain_on_transient_failure": "Quando ativado, uma falha temporária da API da Toyota (HTTP 429, tempo esgotado, erro de conexão) mantém os últimos dados obtidos com sucesso de cada veículo em vez de marcar todas as entidades Toyota como indisponíveis. Os sensores de diagnóstico 'Última consulta bem-sucedida', 'Último erro' e 'Código do último erro' mostram o estado real da integração.",
+          "enable_status_refresh": "O gateway da API da Toyota costuma devolver estado de travas e portas preso em valores desatualizados, a menos que o modem do carro seja acordado explicitamente. Quando ativado, a integração envia uma requisição de wake antes de ler o status, imitando o aplicativo da Toyota. Cada wake consome um pouco de tráfego celular e da bateria de 12 V; os gatilhos inteligentes (detecção de parada recente, wake periódico opcional) mantêm o custo baixo. Desative para veículos cuja conta Toyota não tem suporte a refresh-status; a integração desativa isso automaticamente se detectar respostas sem suporte. Observação: o escopo é apenas o endpoint /v1/global/remote/status (estado de portas, vidros, travas e capô); os demais dados (odômetro, combustível, localização etc.) são obtidos a cada ciclo de qualquer forma. Quando esta opção está DESLIGADA, as quatro opções abaixo (wake periódico, limite de falhas de wake, idade do cache de status, POSTs de wake por parada) não têm efeito.",
+          "idle_wake_hours": "Acorda o carro periodicamente mesmo que ele não tenha se movido. Útil para carros que ficam dias parados e para os quais você ainda quer o estado atual das travas. 0 (padrão) desativa totalmente; 1-72 = acordar a cada N horas. Cada wake consome tráfego celular e um pouco da bateria de 12 V. Observação: o wake atualiza apenas o endpoint /v1/global/remote/status (estado de portas, vidros, travas e capô). Os demais dados (odômetro, combustível, localização etc.) são obtidos a cada ciclo de forma independente e não precisam de wake.",
+          "failed_wake_threshold": "Se um veículo deixar de responder a requisições de wake esta quantidade de vezes seguidas, ele é marcado como inacessível por VIN até dar algum sinal de vida (evento de condução, atualização por outro aplicativo, chamada manual de serviço). Padrão 3.",
+          "max_cache_age_minutes": "Idade máxima aceitável dos dados de status em cache antes de disparar um novo GET (5-180 minutos; padrão 30). Observação: isto controla apenas o endpoint /v1/global/remote/status, que carrega o estado de portas, vidros, travas e capô. Os demais dados (odômetro, combustível, localização etc.) são obtidos a cada ciclo de forma independente.",
+          "post_count_per_stop": "Quantos POSTs de wake disparar quando o veículo é detectado como recém-parado, um por ciclo do coordenador. 1 = um único POST. 2 (padrão) = um POST adicional no ciclo seguinte, que normalmente captura mudanças feitas logo após a parada (travar as portas, abrir o porta-malas etc.) - esses eventos geram novos relatos do modem que o laço de consulta do segundo POST recolhe. Valores maiores raramente ajudam e consomem a bateria de 12 V.",
+          "max_recent_trips": "Preenche um sensor 'Viagens recentes' por veículo com as últimas N viagens (pontos da rota + estatísticas de cada viagem), adequado para cards personalizados de visualização de percurso. 0 (padrão) desativa totalmente a busca automática (sem chamadas extras à API). 1-20 ativa a busca automática em eventos de parada; o cache sobrevive a reinicializações do HA. O serviço toyota.refresh_recent_trips e o botão 'Atualizar viagens recentes' de cada veículo funcionam independentemente desta configuração, então você pode manter a busca automática desligada e disparar as buscas por automações diárias."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Local de estacionamento"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Número de identificação do veículo (VIN)"
+      },
+      "recent_trips": {
+        "name": "Viagens recentes"
+      },
+      "odometer": {
+        "name": "Odômetro"
+      },
+      "fuel_level": {
+        "name": "Nível de combustível"
+      },
+      "fuel_range": {
+        "name": "Autonomia com combustível"
+      },
+      "battery_level": {
+        "name": "Nível da bateria"
+      },
+      "battery_range_ac": {
+        "name": "Autonomia da bateria com ar-condicionado"
+      },
+      "battery_range": {
+        "name": "Autonomia da bateria"
+      },
+      "total_range": {
+        "name": "Autonomia total"
+      },
+      "charging_status": {
+        "name": "Status de carregamento",
+        "state": {
+          "charge_complete": "Carga concluída",
+          "charging": "Carregando",
+          "none": "Não conectado",
+          "plugged": "Conectado"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutos até completar"
+          },
+          "has_charging_schedule": {
+            "name": "Possui agendamento de carga"
+          },
+          "scheduled_charging_start": {
+            "name": "Início da carga agendada"
+          },
+          "scheduled_charging_end": {
+            "name": "Fim da carga agendada"
+          },
+          "scheduled_charging_duration": {
+            "name": "Duração da carga agendada"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Tempo restante de carga"
+      },
+      "current_day_statistics": {
+        "name": "Estatísticas do dia atual"
+      },
+      "current_week_statistics": {
+        "name": "Estatísticas da semana atual"
+      },
+      "current_month_statistics": {
+        "name": "Estatísticas do mês atual"
+      },
+      "current_year_statistics": {
+        "name": "Estatísticas do ano atual"
+      },
+      "last_successful_fetch": {
+        "name": "Última consulta bem-sucedida"
+      },
+      "last_error_time": {
+        "name": "Último erro"
+      },
+      "last_error_code": {
+        "name": "Código do último erro"
+      },
+      "status_last_reported": {
+        "name": "Status informado pelo carro pela última vez"
+      },
+      "status_refresh_state": {
+        "name": "Estado da atualização de status",
+        "state": {
+          "active": "Ativo",
+          "soft_disabled_unreachable": "Inacessível",
+          "hard_disabled_auto": "Desativado (sem suporte)",
+          "hard_disabled_user": "Desativado (pelo usuário)"
+        }
+      },
+      "last_service": {
+        "name": "Última revisão"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Atualizar status do veículo"
+      },
+      "refresh_recent_trips": {
+        "name": "Atualizar viagens recentes"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Status geral"
+      },
+      "hood": {
+        "name": "Capô"
+      },
+      "key_in_car": {
+        "name": "Chave no carro"
+      },
+      "front_defogger": {
+        "name": "Desembaçador dianteiro"
+      },
+      "rear_defogger": {
+        "name": "Desembaçador traseiro"
+      },
+      "driverseat_window": {
+        "name": "Vidro do motorista"
+      },
+      "passengerseat_window": {
+        "name": "Vidro do passageiro"
+      },
+      "leftrearseat_window": {
+        "name": "Vidro traseiro esquerdo"
+      },
+      "rightrearseat_window": {
+        "name": "Vidro traseiro direito"
+      },
+      "driverseat_door": {
+        "name": "Porta do motorista"
+      },
+      "driverseat_lock": {
+        "name": "Trava da porta do motorista"
+      },
+      "passengerseat_door": {
+        "name": "Porta do passageiro"
+      },
+      "passengerseat_lock": {
+        "name": "Trava da porta do passageiro"
+      },
+      "leftrearseat_door": {
+        "name": "Porta traseira esquerda"
+      },
+      "leftrearseat_lock": {
+        "name": "Trava da porta traseira esquerda"
+      },
+      "rightrearseat_door": {
+        "name": "Porta traseira direita"
+      },
+      "rightrearseat_lock": {
+        "name": "Trava da porta traseira direita"
+      },
+      "trunk_door": {
+        "name": "Porta-malas"
+      },
+      "trunk_lock": {
+        "name": "Trava do porta-malas"
+      },
+      "hazardlights": {
+        "name": "Pisca-alerta"
+      },
+      "headlights": {
+        "name": "Faróis"
+      },
+      "taillights": {
+        "name": "Lanternas traseiras"
+      },
+      "vehicle_health": {
+        "name": "Saúde do veículo"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Desembaçador dianteiro",
+              "rear_defrost": "Desembaçador traseiro",
+              "both_defrost": "Ambos os desembaçadores"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "vehicle_lock_control": {
+        "name": "Trava"
+      }
+    }
+  }
+}

@@ -11,6 +11,12 @@ PLATFORMS = [
     Platform.CLIMATE,
 ]
 
+# CONFIG ENTRY SCHEMA
+# 1.2 repairs entries whose title was stored as a 1-tuple; the migration
+# lives in async_migrate_entry.
+CONFIG_ENTRY_VERSION = 1
+CONFIG_ENTRY_MINOR_VERSION = 2
+
 # INTEGRATION ATTRIBUTES
 DOMAIN = "toyota"
 NAME = "Toyota Connected Services"

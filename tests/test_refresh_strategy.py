@@ -22,9 +22,11 @@ from custom_components.toyota.refresh_strategy import (
     VinState,
     decide,
     on_occurrence_advanced,
+    on_post_layer1_result,
     on_post_layer1_failure,
     on_post_layer1_success,
     on_wake_failed,
+    transient_post_status,
 )
 
 
@@ -65,6 +67,51 @@ def test_auto_disabled_returns_hard_disabled_auto():
     d = decide(s)
     assert d.action is RefreshAction.HARD_DISABLED
     assert d.refresh_state is RefreshState.HARD_DISABLED_AUTO
+
+
+def test_service_call_bypasses_hard_disabled_auto():
+    """Service call overrides auto-disable so the user can retry manually."""
+    s = _snap(
+        options=StrategyOptions(
+            enable_status_refresh=True, auto_disabled_status_refresh=True
+        ),
+        user_service_call_pending=True,
+    )
+    d = decide(s)
+    assert d.action is RefreshAction.POST_THEN_GET
+    assert d.trigger is RefreshTrigger.SERVICE_CALL
+
+
+def test_service_call_bypasses_hard_disabled_user():
+    """Service call also bypasses user-disable, matching HA convention.
+
+    `enable_status_refresh: False` stops the automatic cadence; explicit
+    service-call invocations (e.g. a garage-door automation calling
+    `refresh_vehicle_status`) still go through. Users who want full lockout
+    simply do not invoke the service.
+    """
+    s = _snap(
+        options=StrategyOptions(
+            enable_status_refresh=False, auto_disabled_status_refresh=False
+        ),
+        user_service_call_pending=True,
+    )
+    d = decide(s)
+    assert d.action is RefreshAction.POST_THEN_GET
+    assert d.trigger is RefreshTrigger.SERVICE_CALL
+
+
+def test_user_disable_blocks_non_service_triggers():
+    """Without a service call, user-disable still blocks the strategy."""
+    s = _snap(
+        options=StrategyOptions(
+            enable_status_refresh=False, auto_disabled_status_refresh=False
+        ),
+        user_service_call_pending=False,
+    )
+    d = decide(s)
+    assert d.action is RefreshAction.HARD_DISABLED
+    assert d.refresh_state is RefreshState.HARD_DISABLED_USER
 
 
 # ---------------------------------------------------------------------------
@@ -350,3 +397,45 @@ def test_no_telemetry_this_cycle_does_not_crash():
     # No movement detected (current_odometer_km is None -> not moving).
     # Cache fresh, no other triggers -> serve from cache.
     assert d.action is RefreshAction.SERVE_FROM_CACHE
+
+
+# ---------------------------------------------------------------------------
+# Transient POST failures (403/429) vs counted rejections
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("message", "transient"),
+    [
+        ('Request Failed. 403, {"code":"APIGW-403"}', True),
+        ("Request Failed. 429, Too Many Requests", True),
+        ("Request Failed. 500, Internal Server Error", False),
+        ("Request Failed. 502, Bad Gateway", False),
+        ("Request Failed. 400, Bad Request", False),
+        ("Authentication Failed. 403, nope", False),
+        ("something else entirely", False),
+    ],
+)
+def test_transient_post_status(message, transient):
+    """403/429 transport failures are transient; 5xx and everything else is not.
+
+    Only the controller's "Request Failed." shape qualifies - auth failures
+    raise before the POST is attempted and follow their own path.
+    """
+    status = transient_post_status(message)
+    assert (status is not None) is transient
+    if transient:
+        assert status in message
+
+
+def test_rejection_counter_untouched_by_transient_path():
+    """Two transient (403/429) cycles followed by two counted (5xx) cycles:
+    only the counted ones advance the rejection counter / trip auto-disable."""
+    state = VinState()
+    opts = StrategyOptions()
+    assert on_post_layer1_result(state, opts, transient=True) is False
+    assert on_post_layer1_result(state, opts, transient=True) is False
+    assert state.consecutive_post_rejections == 0
+    assert on_post_layer1_result(state, opts, transient=False) is False
+    assert on_post_layer1_result(state, opts, transient=False) is True
+    assert state.consecutive_post_rejections == 2

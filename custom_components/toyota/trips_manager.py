@@ -21,7 +21,10 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from datetime import timedelta
 from typing import TYPE_CHECKING
+
+from homeassistant.util import dt as dt_util
 
 from .refresh_strategy import RefreshTrigger
 from .trips_cache import TripsCacheStore
@@ -44,13 +47,29 @@ _LOGGER = logging.getLogger(__name__)
 # refill via ``max_recent_trips``.
 DELTA_FETCH_LIMIT = 2
 
+# How far back to look when asking Toyota for the most recent trips. The
+# endpoint is date-windowed, so a window is mandatory; 90 days is what
+# pytoyoda itself uses for ``Vehicle.get_last_trip()``.
+TRIPS_LOOKBACK_DAYS = 90
+
+
+def _shape_sort_key(shape: dict) -> float:
+    """Sortable epoch for a card-shaped trip; unknown timestamps sort last."""
+    ts = shape.get("start_ts")
+    if isinstance(ts, str):
+        ts = dt_util.parse_datetime(ts)
+    try:
+        return ts.timestamp()  # type: ignore[union-attr]
+    except (AttributeError, ValueError, OSError, OverflowError):
+        return 0.0
+
 
 class RecentTripsManager:
     """Per-config-entry orchestrator for the recent-trips sensor data path.
 
     Independent of the existing cycle's ``trip_history`` endpoint (which
     stays at limit=1, route=False for backward compatibility). This manager
-    issues separate ``Vehicle.get_recent_trips()`` calls when configured.
+    issues separate trip-history calls (see ``_fetch_trips``) when configured.
     """
 
     def __init__(
@@ -74,7 +93,7 @@ class RecentTripsManager:
         self._underfilled_vins: set[str] = set()
         # Per-VIN locks serialise cache mutation paths (cold-start seed,
         # delta-fetch, service refresh). Without them a coordinator stop tick
-        # racing a service/button call can issue duplicate get_recent_trips
+        # racing a service/button call can issue duplicate trip-history
         # calls and last-writer-wins on the cache + _followup_pending state.
         self._locks: dict[str, asyncio.Lock] = {}
 
@@ -264,7 +283,7 @@ class RecentTripsManager:
     ) -> list[dict] | None:
         """Fetch + transform. Returns None on fetch failure, list on success."""
         try:
-            trips = await vehicle.get_recent_trips(limit=limit, with_route=True)
+            trips = await self._fetch_trips(vehicle, limit)
         except Exception:
             _LOGGER.exception(
                 "Toyota recent-trips fetch failed for vin=...%s", vin[-6:]
@@ -279,7 +298,53 @@ class RecentTripsManager:
             shape = to_card_shape(raw, alias)
             if shape is not None:
                 out.append(shape)
+        # The delta/dedup path walks the list newest-first; don't rely on the
+        # endpoint's ordering for that invariant.
+        out.sort(key=_shape_sort_key, reverse=True)
         return out
+
+    async def _fetch_trips(self, vehicle: Vehicle, limit: int) -> list:
+        """Return up to ``limit`` most recent pytoyoda ``Trip`` objects.
+
+        pytoyoda 5.x has no recent-trips helper, and the public
+        ``Vehicle.get_trips()`` pages the whole window five trips per
+        request (with full routes attached that is a lot of calls against an
+        endpoint that rate-limits bursts). So we hit the same endpoint
+        ``Vehicle.get_last_trip()`` uses - once, asking for ``limit`` trips
+        with route data - and only fall back to the paginated public call if
+        that private path ever stops working.
+        """
+        getter = getattr(vehicle, "get_recent_trips", None)
+        if callable(getter):
+            # Fork / future pytoyoda that ships a first-class helper.
+            return list(await getter(limit=limit, with_route=True) or [])
+
+        to_date = dt_util.now().date()
+        from_date = to_date - timedelta(days=TRIPS_LOOKBACK_DAYS)
+        try:
+            from pytoyoda.models.trips import Trip  # noqa: PLC0415
+
+            resp = await vehicle._api.get_trips(  # noqa: SLF001
+                vehicle.vin,
+                from_date,
+                to_date,
+                route=True,
+                summary=False,
+                limit=limit,
+                offset=0,
+            )
+            payload = getattr(resp, "payload", None)
+            raw = list(getattr(payload, "trips", None) or [])
+            if raw:
+                return [Trip(t, vehicle._metric) for t in raw[:limit]]  # noqa: SLF001
+        except Exception:  # noqa: BLE001
+            _LOGGER.debug(
+                "Toyota recent-trips direct endpoint call failed, "
+                "falling back to paginated get_trips",
+                exc_info=True,
+            )
+        trips = await vehicle.get_trips(from_date, to_date, full_route=True)
+        return list(trips or [])[:limit]
 
     async def _seed_cache(self, vehicle: Vehicle, vin: str, limit: int) -> bool:
         """Fetch + commit (set + save); True on success.

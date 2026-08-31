@@ -17,6 +17,7 @@ from .const import (
     DOMAIN,
 )
 from .entity import ToyotaBaseEntity
+from .sensor import get_vehicle_capability
 
 # Default fetch size for the manual button when auto-fetch is off
 # (max_recent_trips=0). Picked as a sensible "show me the last few drives".
@@ -45,6 +46,13 @@ REFRESH_RECENT_TRIPS_BUTTON_DESCRIPTION = ButtonEntityDescription(
     icon="mdi:refresh-auto",
 )
 
+REFRESH_ELECTRIC_REALTIME_STATUS_BUTTON_DESCRIPTION = ButtonEntityDescription(
+    key="refresh_electric_realtime_status",
+    translation_key="refresh_electric_realtime_status",
+    name="Refresh electric realtime status",
+    icon="mdi:battery-sync",
+)
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -57,6 +65,7 @@ async def async_setup_entry(
     ]
     buttons: list[ButtonEntity] = []
     for index in range(len(coordinator.data)):
+        vehicle = coordinator.data[index]["data"]
         buttons.append(
             ToyotaRefreshStatusButton(
                 coordinator=coordinator,
@@ -73,6 +82,18 @@ async def async_setup_entry(
                 description=REFRESH_RECENT_TRIPS_BUTTON_DESCRIPTION,
             )
         )
+        if (
+            get_vehicle_capability(vehicle, "econnect_vehicle_status_capable")
+            or vehicle.type == "electric"
+        ):
+            buttons.append(
+                ToyotaRefreshElectricRealtimeStatusButton(
+                    coordinator=coordinator,
+                    entry_id=entry.entry_id,
+                    vehicle_index=index,
+                    description=REFRESH_ELECTRIC_REALTIME_STATUS_BUTTON_DESCRIPTION,
+                )
+            )
     async_add_entities(buttons)
 
 
@@ -129,5 +150,32 @@ class ToyotaRefreshRecentTripsButton(ToyotaBaseEntity, ButtonEntity):
             DOMAIN,
             "refresh_recent_trips",
             {"device_id": [device.id], "limit": limit},
+            blocking=False,
+        )
+
+
+class ToyotaRefreshElectricRealtimeStatusButton(ToyotaBaseEntity, ButtonEntity):
+    """One-tap wrapper around toyota.refresh_electric_realtime_status.
+
+    Only added for vehicles that support the EV/electric status endpoint.
+    Wakes the vehicle to force a fresh battery/charging state read; use
+    sparingly as each call uses cellular airtime and a small amount of
+    12V battery.
+    """
+
+    async def async_press(self) -> None:
+        """Fire toyota.refresh_electric_realtime_status for this vehicle."""
+        from homeassistant.helpers import device_registry as dr  # noqa: PLC0415
+
+        device_reg = dr.async_get(self.hass)
+        device = device_reg.async_get_device(
+            identifiers={(DOMAIN, self.vehicle.vin or "")}
+        )
+        if device is None:
+            return
+        await self.hass.services.async_call(
+            DOMAIN,
+            "refresh_electric_realtime_status",
+            {"device_id": [device.id]},
             blocking=False,
         )

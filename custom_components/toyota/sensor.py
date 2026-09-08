@@ -840,4 +840,17 @@ async def async_setup_entry(
             )
         )
 
-    async_add_devices(sensors)
+        # Extra sensors (community data not exposed by base platform).
+        from .sensor_extra import DESCRIPTIONS, _CLASSES  # noqa: PLC0415
+
+        sensors.extend(
+            _CLASSES[key](
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=DESCRIPTIONS[key],
+            )
+            for key in _CLASSES
+        )
+
+        async_add_devices(sensors)

@@ -17,14 +17,11 @@ device and unique-id namespace as the base integration sensors.
 from __future__ import annotations
 
 import logging
-from datetime import date
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import (
-    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
-    SensorStateClass,
 )
 from homeassistant.const import UnitOfSpeed, UnitOfTemperature
 from homeassistant.helpers.entity import EntityCategory
@@ -148,7 +145,9 @@ class ToyotaWarningLightsSensor(ToyotaExtraSensorBase):
         if dash is None:
             return None
         lights = getattr(dash, "warning_lights", None) or []
-        return sum(1 for l in lights if getattr(l, "status", None) not in (None, False, "off"))
+        return sum(
+            1 for l in lights if getattr(l, "status", None) not in (None, False, "off")
+        )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
@@ -270,7 +269,9 @@ async def async_setup_entry(
     async_add_devices: AddEntitiesCallback,
 ) -> None:
     """Set up the extra Toyota sensors."""
-    coordinator: DataUpdateCoordinator[list[VehicleData]] = hass.data[DOMAIN][entry.entry_id]
+    coordinator: DataUpdateCoordinator[list[VehicleData]] = hass.data[DOMAIN][
+        entry.entry_id
+    ]
 
     devices = []
     for index in range(len(coordinator.data)):

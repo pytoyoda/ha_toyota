@@ -841,7 +841,7 @@ async def async_setup_entry(
         )
 
         # Extra sensors (community data not exposed by base platform).
-        from .sensor_extra import DESCRIPTIONS, _CLASSES  # noqa: PLC0415
+        from .sensor_extra import _CLASSES, DESCRIPTIONS  # noqa: PLC0415
 
         sensors.extend(
             _CLASSES[key](

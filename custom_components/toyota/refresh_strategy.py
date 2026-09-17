@@ -52,6 +52,7 @@ in the caller so retain-vs-propagate failure semantics stay there.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from enum import StrEnum
@@ -191,15 +192,30 @@ class RefreshDecision:
 # ----------------------------------------------------------------------------
 
 
-def _hard_disable_decision(opts: StrategyOptions) -> RefreshDecision | None:
-    """Return a HARD_DISABLED decision if either disable flag is set, else None."""
-    if not opts.enable_status_refresh:
+def _hard_disable_decision(
+    opts: StrategyOptions,
+    *,
+    user_service_call_pending: bool = False,
+) -> RefreshDecision | None:
+    """Return a HARD_DISABLED decision if either disable flag is set, else None.
+
+    Service calls bypass BOTH disable forms. The convention everywhere in
+    HA is "polling toggle stops automatic polling, manual service calls
+    still work" - so enable_status_refresh:False means "stop the strategy's
+    cadence" rather than "lock out POSTs entirely". Users who want a
+    bespoke schedule (geofence arrival, garage-door close, etc.) disable
+    the cadence and drive POSTs from their own automations against the
+    refresh_vehicle_status service. After a successful service-call POST,
+    auto_disabled_status_refresh is cleared by the integration so a future
+    cadence re-enable doesn't land in the auto-disabled state.
+    """
+    if not opts.enable_status_refresh and not user_service_call_pending:
         return RefreshDecision(
             action=RefreshAction.HARD_DISABLED,
             trigger=RefreshTrigger.NONE,
             refresh_state=RefreshState.HARD_DISABLED_USER,
         )
-    if opts.auto_disabled_status_refresh:
+    if opts.auto_disabled_status_refresh and not user_service_call_pending:
         return RefreshDecision(
             action=RefreshAction.HARD_DISABLED,
             trigger=RefreshTrigger.NONE,
@@ -250,7 +266,9 @@ def decide(snapshot: CycleSnapshot) -> RefreshDecision:
     state = snapshot.state
     now = snapshot.now
 
-    hard = _hard_disable_decision(opts)
+    hard = _hard_disable_decision(
+        opts, user_service_call_pending=snapshot.user_service_call_pending
+    )
     if hard is not None:
         return hard
 
@@ -341,6 +359,39 @@ def on_post_layer1_failure(state: VinState, _options: StrategyOptions) -> bool:
 def on_post_layer1_success(state: VinState) -> None:
     """Reset the rejection counter; POST was accepted by the gateway."""
     state.consecutive_post_rejections = 0
+
+
+# Transport statuses that must NOT advance the Layer 1 rejection counter.
+# 429 is gateway throttling; 403 is what Toyota returns fleet-wide when an
+# endpoint's entitlement/mapping breaks (e.g. the 2026-06 retirement of
+# /v1/global/remote/*). Both clear without user action once the throttle
+# lifts or the endpoint mapping is fixed, so auto-disabling on them would
+# silence vehicles that are otherwise fine. Persistent 5xx stays counted.
+TRANSIENT_POST_STATUSES = frozenset({"403", "429"})
+
+# pytoyoda's ToyotaApiError carries no structured status code, only the
+# "Request Failed. <status>, <body>." message built in its controller.
+_REQUEST_FAILED_RE = re.compile(r"Request Failed\. (\d{3})")
+
+
+def transient_post_status(message: str) -> str | None:
+    """The transient (403/429) HTTP status in a ToyotaApiError message, if any."""
+    match = _REQUEST_FAILED_RE.search(message)
+    if match is not None and match.group(1) in TRANSIENT_POST_STATUSES:
+        return match.group(1)
+    return None
+
+
+def on_post_layer1_result(
+    state: VinState, options: StrategyOptions, *, transient: bool
+) -> bool:
+    """Record a POST failure; transient (403/429) ones don't advance the counter.
+
+    Returns True when the failure should trigger auto-disable.
+    """
+    if transient:
+        return False
+    return on_post_layer1_failure(state, options)
 
 
 def on_wake_failed(state: VinState, options: StrategyOptions) -> None:

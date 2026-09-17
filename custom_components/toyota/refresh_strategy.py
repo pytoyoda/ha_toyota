@@ -1,4 +1,3 @@
-# Copyright (c) 2021 Simon Hansen
 """Smart status-refresh decision tree (per-VIN, per coordinator cycle).
 
 Pure function module: takes a state snapshot, returns a RefreshDecision

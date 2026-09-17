@@ -1,4 +1,3 @@
-# Copyright (c) 2021 Simon Hansen
 """Sensor platform for Toyota integration."""
 
 # pylint: disable=W0212, W0511
@@ -496,9 +495,8 @@ class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
 
     vehicle: Vehicle
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
-        *,
         coordinator: DataUpdateCoordinator[list[VehicleData]],
         entry_id: str,
         vehicle_index: int,
@@ -632,9 +630,8 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
 
     statistics: StatisticsData
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
-        *,
         coordinator: DataUpdateCoordinator[list[VehicleData]],
         entry_id: str,
         vehicle_index: int,

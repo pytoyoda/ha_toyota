@@ -1,4 +1,3 @@
-# Copyright (c) 2021 Simon Hansen
 """Toyota EU community integration."""
 
 # pylint: disable=W0212, W0511

@@ -1,4 +1,3 @@
-# Copyright (c) 2021 Simon Hansen
 """Diagnostics support for the Toyota Connected Services integration.
 
 Produces a one-click, auto-redacted "Download diagnostics" export — at both the

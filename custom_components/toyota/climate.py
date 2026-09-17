@@ -1,4 +1,3 @@
-# Copyright (c) 2021 Simon Hansen
 """Toyota Connected Services Climate Control."""
 
 from __future__ import annotations

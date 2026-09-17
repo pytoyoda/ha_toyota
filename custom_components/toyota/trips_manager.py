@@ -1,4 +1,3 @@
-# Copyright (c) 2021 Simon Hansen
 """Recent-trips manager: glues TripsCacheStore + transform + fetch logic.
 
 One manager per config entry. Lifecycle:

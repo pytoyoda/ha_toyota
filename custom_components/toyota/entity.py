@@ -1,4 +1,3 @@
-# Copyright (c) 2021 Simon Hansen
 """Custom coordinator entity base classes for Toyota Connected Services integration."""
 
 # pylint: disable=W0212, W0511

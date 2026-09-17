@@ -1,4 +1,3 @@
-# Copyright (c) 2021 Simon Hansen
 """Per-vehicle refresh-status button.
 
 Wraps the toyota.refresh_vehicle_status service with a one-tap dashboard

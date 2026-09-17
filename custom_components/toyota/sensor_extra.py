@@ -20,8 +20,10 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.components.sensor import (
+    SensorDeviceClass,
     SensorEntity,
     SensorEntityDescription,
+    SensorStateClass,
 )
 from homeassistant.const import UnitOfSpeed, UnitOfTemperature
 from homeassistant.helpers.entity import EntityCategory
@@ -30,19 +32,41 @@ from .const import DOMAIN
 from .entity import ToyotaBaseEntity
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import HomeAssistant
-    from homeassistant.helpers.entity_platform import AddEntitiesCallback
     from homeassistant.helpers.typing import StateType
-    from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 
-    from . import VehicleData
+    from .trips_manager import RecentTripsManager
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def _trips_mgr(hass, entry_id):
+def _trips_mgr(hass: HomeAssistant, entry_id: str) -> RecentTripsManager | None:
+    """Return the per-entry RecentTripsManager, or None if not yet set up."""
     return hass.data.get(DOMAIN, {}).get(f"{entry_id}_trips_manager")
+
+
+def _attr(obj: object, key: str, default: Any = None) -> Any:
+    """Read ``key`` from ``obj`` whether it is a mapping or an attribute-bearing object.
+
+    Some pytoyoda payloads (e.g. ``Dashboard.warning_lights``) are typed
+    ``list[Any]`` and arrive as raw, undocumented JSON - which pydantic/httpx
+    deserialise as plain ``dict``s, not attribute-bearing models. Reading
+    those with ``getattr`` alone silently always returns ``default``.
+    """
+    if isinstance(obj, dict):
+        return obj.get(key, default)
+    return getattr(obj, key, default)
+
+
+def _cabin_temperature(vehicle: object) -> float | None:
+    """Return the cabin temperature value in degrees, or None if unavailable.
+
+    ``ClimateStatus.current_temperature`` is a ``UnitValueModel`` (``value`` +
+    ``unit``), not a bare number - the caller must unwrap ``.value``.
+    """
+    cs = getattr(vehicle, "climate_status", None)
+    current = getattr(cs, "current_temperature", None)
+    return current.value if current is not None else None
 
 
 class ToyotaExtraSensorBase(ToyotaBaseEntity, SensorEntity):
@@ -62,6 +86,7 @@ class ToyotaLastTripScoreSensor(ToyotaExtraSensorBase):
 
     @property
     def native_value(self) -> StateType:
+        """Return the driving score of the most recent trip."""
         trip = self._last_trip()
         if not trip:
             return None
@@ -71,6 +96,7 @@ class ToyotaLastTripScoreSensor(ToyotaExtraSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return trip timing/distance and behaviour-score attributes."""
         trip = self._last_trip()
         if not trip:
             return None
@@ -100,12 +126,8 @@ class ToyotaCabinTemperatureSensor(ToyotaExtraSensorBase):
 
     @property
     def native_value(self) -> StateType:
-        cs = getattr(self.vehicle, "climate_status", None)
-        return getattr(cs, "current_temperature", None)
-
-    @property
-    def unit_of_measurement(self) -> str:
-        return UnitOfTemperature.CELSIUS
+        """Return the cabin (interior) temperature."""
+        return _cabin_temperature(self.vehicle)
 
 
 class ToyotaNotificationsSensor(ToyotaExtraSensorBase):
@@ -113,11 +135,13 @@ class ToyotaNotificationsSensor(ToyotaExtraSensorBase):
 
     @property
     def native_value(self) -> StateType:
+        """Return the total number of notifications."""
         notes = getattr(self.vehicle, "notifications", None) or []
         return len(notes)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the unread count and the most recent notification details."""
         notes = getattr(self.vehicle, "notifications", None) or []
         if not notes:
             return None
@@ -139,30 +163,35 @@ class ToyotaNotificationsSensor(ToyotaExtraSensorBase):
 class ToyotaWarningLightsSensor(ToyotaExtraSensorBase):
     """Dashboard warning lights count and detail."""
 
-    @property
-    def native_value(self) -> StateType:
+    def _lights(self) -> list[Any]:
         dash = getattr(self.vehicle, "dashboard", None)
         if dash is None:
-            return None
-        lights = getattr(dash, "warning_lights", None) or []
+            return []
+        return getattr(dash, "warning_lights", None) or []
+
+    @property
+    def native_value(self) -> StateType:
+        """Return the number of active dashboard warning lights."""
         return sum(
-            1 for l in lights if getattr(l, "status", None) not in (None, False, "off")
+            1
+            for light in self._lights()
+            if _attr(light, "status") not in (None, False, "off")
         )
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        dash = getattr(self.vehicle, "dashboard", None)
-        if dash is None:
+        """Return the name/status/category detail for each warning light."""
+        lights = self._lights()
+        if not lights:
             return None
-        lights = getattr(dash, "warning_lights", None) or []
         return {
             "lights": [
                 {
-                    "name": getattr(l, "name", None),
-                    "status": getattr(l, "status", None),
-                    "category": getattr(l, "category", None),
+                    "name": _attr(light, "name"),
+                    "status": _attr(light, "status"),
+                    "category": _attr(light, "category"),
                 }
-                for l in lights
+                for light in lights
             ]
         }
 
@@ -172,6 +201,7 @@ class ToyotaServiceDetailSensor(ToyotaExtraSensorBase):
 
     @property
     def native_value(self) -> StateType:
+        """Return the date of the most recent service record."""
         hist = getattr(self.vehicle, "service_history", None) or []
         if not hist:
             return None
@@ -180,6 +210,7 @@ class ToyotaServiceDetailSensor(ToyotaExtraSensorBase):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the full service history detail."""
         hist = getattr(self.vehicle, "service_history", None) or []
         if not hist:
             return None
@@ -201,11 +232,19 @@ class ToyotaServiceDetailSensor(ToyotaExtraSensorBase):
         }
 
 
+def _speed_unit(metric_values: bool) -> str:  # noqa: FBT001
+    """Return km/h or mph for the given account metric_values setting."""
+    return (
+        UnitOfSpeed.KILOMETERS_PER_HOUR if metric_values else UnitOfSpeed.MILES_PER_HOUR
+    )
+
+
 class ToyotaAverageSpeedWeekSensor(ToyotaExtraSensorBase):
     """Average speed from the current week summary."""
 
     @property
     def native_value(self) -> StateType:
+        """Return the average speed for the current week."""
         stats = self.statistics
         if not stats:
             return None
@@ -213,8 +252,16 @@ class ToyotaAverageSpeedWeekSensor(ToyotaExtraSensorBase):
         return getattr(data, "average_speed", None) if data else None
 
     @property
-    def unit_of_measurement(self) -> str:
-        return UnitOfSpeed.KILOMETERS_PER_HOUR
+    def native_unit_of_measurement(self) -> str:
+        """Return km/h or mph, matching the account's metric_values setting.
+
+        pytoyoda's ``Summary.average_speed`` already reports in the unit the
+        account is configured for (see ``metric_values`` / ``use_metric``),
+        so the declared unit must follow ``self.metric_values`` rather than
+        being hardcoded - otherwise imperial accounts show mph values
+        mislabelled as km/h.
+        """
+        return _speed_unit(self.metric_values)
 
 
 DESCRIPTIONS: dict[str, SensorEntityDescription] = {
@@ -227,6 +274,9 @@ DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         key="cabin_temperature",
         translation_key="cabin_temperature",
         icon="mdi:thermometer",
+        device_class=SensorDeviceClass.TEMPERATURE,
+        state_class=SensorStateClass.MEASUREMENT,
+        native_unit_of_measurement=UnitOfTemperature.CELSIUS,
     ),
     "notifications": SensorEntityDescription(
         key="notifications",
@@ -250,6 +300,11 @@ DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         key="average_speed_week",
         translation_key="average_speed_week",
         icon="mdi:speedometer",
+        device_class=SensorDeviceClass.SPEED,
+        state_class=SensorStateClass.MEASUREMENT,
+        # No native_unit_of_measurement here: ToyotaAverageSpeedWeekSensor
+        # overrides native_unit_of_measurement per-instance based on the
+        # account's metric_values setting (km/h vs mph).
     ),
 }
 
@@ -261,27 +316,3 @@ _CLASSES = {
     "last_service_detail": ToyotaServiceDetailSensor,
     "average_speed_week": ToyotaAverageSpeedWeekSensor,
 }
-
-
-async def async_setup_entry(
-    hass: HomeAssistant,
-    entry: ConfigEntry,
-    async_add_devices: AddEntitiesCallback,
-) -> None:
-    """Set up the extra Toyota sensors."""
-    coordinator: DataUpdateCoordinator[list[VehicleData]] = hass.data[DOMAIN][
-        entry.entry_id
-    ]
-
-    devices = []
-    for index in range(len(coordinator.data)):
-        for key, cls in _CLASSES.items():
-            devices.append(
-                cls(
-                    coordinator=coordinator,
-                    entry_id=entry.entry_id,
-                    vehicle_index=index,
-                    description=DESCRIPTIONS[key],
-                )
-            )
-    async_add_devices(devices)

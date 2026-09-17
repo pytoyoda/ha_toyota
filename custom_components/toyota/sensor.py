@@ -19,6 +19,8 @@ from homeassistant.helpers.entity import EntityCategory
 
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
+from .sensor_extra import _CLASSES as _EXTRA_SENSOR_CLASSES
+from .sensor_extra import DESCRIPTIONS as _EXTRA_SENSOR_DESCRIPTIONS
 from .utils import (
     charging_status_key,
     format_statistics_attributes,
@@ -841,16 +843,14 @@ async def async_setup_entry(
         )
 
         # Extra sensors (community data not exposed by base platform).
-        from .sensor_extra import _CLASSES, DESCRIPTIONS  # noqa: PLC0415
-
         sensors.extend(
-            _CLASSES[key](
+            _EXTRA_SENSOR_CLASSES[key](
                 coordinator=coordinator,
                 entry_id=entry.entry_id,
                 vehicle_index=index,
-                description=DESCRIPTIONS[key],
+                description=_EXTRA_SENSOR_DESCRIPTIONS[key],
             )
-            for key in _CLASSES
+            for key in _EXTRA_SENSOR_CLASSES
         )
 
-        async_add_devices(sensors)
+    async_add_devices(sensors)

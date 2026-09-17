@@ -96,6 +96,24 @@
       },
       "current_year_statistics": {
         "name": "Estadísticas de este año"
+      },
+      "last_trip_score": {
+        "name": "Puntuación último viaje"
+      },
+      "cabin_temperature": {
+        "name": "Temperatura cabina"
+      },
+      "notifications": {
+        "name": "Notificaciones"
+      },
+      "warning_lights": {
+        "name": "Testigos del cuadro"
+      },
+      "last_service_detail": {
+        "name": "Detalle último servicio"
+      },
+      "average_speed_week": {
+        "name": "Velocidad media semanal"
       }
     },
     "binary_sensor": {

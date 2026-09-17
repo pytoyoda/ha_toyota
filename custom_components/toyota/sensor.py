@@ -5,7 +5,8 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal
+from datetime import date
+from typing import TYPE_CHECKING, Any, ClassVar, Literal
 
 from homeassistant.components.sensor import (
     SensorDeviceClass,
@@ -18,6 +19,8 @@ from homeassistant.helpers.entity import EntityCategory
 
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
+from .sensor_extra import _CLASSES as _EXTRA_SENSOR_CLASSES
+from .sensor_extra import DESCRIPTIONS as _EXTRA_SENSOR_DESCRIPTIONS
 from .utils import (
     charging_status_key,
     format_statistics_attributes,
@@ -34,6 +37,7 @@ if TYPE_CHECKING:
     from homeassistant.helpers.entity_platform import AddEntitiesCallback
     from homeassistant.helpers.typing import StateType
     from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+    from pytoyoda.models.service_history import ServiceHistory
     from pytoyoda.models.vehicle import Vehicle
 
     from . import StatisticsData, VehicleData
@@ -253,6 +257,56 @@ REMAINING_CHARGE_TIME_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
     attributes_fn=lambda vehicle: None,  # noqa : ARG005
 )
 
+
+def _service_recency_key(record: ServiceHistory) -> tuple[date, str]:
+    """Sort key for the newest service record, tolerating null fields."""
+    return (record.service_date or date.min, record.service_category or "")
+
+
+def _latest_service(vehicle: Vehicle) -> ServiceHistory | None:
+    """The newest service record, or None until history reports.
+
+    Not pytoyoda's ``get_latest_service_history()``: that raises ValueError on
+    an empty history list and TypeError when a record's service_date or
+    service_category is null (its max() key compares None against date/str).
+    """
+    history = vehicle.service_history
+    if not history:
+        return None
+    return max(history, key=_service_recency_key)
+
+
+def _last_service_state(vehicle: Vehicle) -> date | None:
+    """State for the last-service sensor: the newest record's service date."""
+    latest = _latest_service(vehicle)
+    return latest.service_date if latest else None
+
+
+def _last_service_attributes(vehicle: Vehicle) -> dict[str, Any] | None:
+    """Attributes for the last-service sensor; None until history reports."""
+    latest = _latest_service(vehicle)
+    if latest is None:
+        return None
+    return {
+        "odometer": latest.odometer,
+        "service_category": latest.service_category,
+        "service_provider": latest.service_provider,
+        "customer_created_record": latest.customer_created_record,
+        "service_count": len(vehicle.service_history),
+    }
+
+
+LAST_SERVICE_ENTITY_DESCRIPTION = ToyotaSensorEntityDescription(
+    key="last_service",
+    translation_key="last_service",
+    icon="mdi:wrench-clock",
+    entity_category=EntityCategory.DIAGNOSTIC,
+    device_class=SensorDeviceClass.DATE,
+    state_class=None,
+    value_fn=_last_service_state,
+    attributes_fn=_last_service_attributes,
+)
+
 STATISTICS_ENTITY_DESCRIPTIONS_DAILY = ToyotaStatisticsSensorEntityDescription(
     key="current_day_statistics",
     translation_key="current_day_statistics",
@@ -398,6 +452,18 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "suggested_unit": "min",
         },
         {
+            "description": LAST_SERVICE_ENTITY_DESCRIPTION,
+            # Mirror pytoyoda's own gate for the service-history endpoint
+            # (features, not extended_capabilities).
+            "capability_check": lambda v: getattr(
+                getattr(v._vehicle_info, "features", False),  # noqa : SLF001
+                "service_history",
+                False,
+            ),
+            "native_unit": None,
+            "suggested_unit": None,
+        },
+        {
             "description": STATISTICS_ENTITY_DESCRIPTIONS_DAILY,
             "capability_check": lambda v: True,  # noqa : ARG005
             "native_unit": get_length_unit(metric_values),
@@ -429,7 +495,7 @@ class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
 
     vehicle: Vehicle
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         coordinator: DataUpdateCoordinator[list[VehicleData]],
         entry_id: str,
@@ -455,12 +521,116 @@ class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
         return self.description.attributes_fn(self.vehicle)
 
 
+LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="last_successful_fetch",
+    translation_key="last_successful_fetch",
+    name="Last successful fetch",
+    icon="mdi:clock-check-outline",
+    device_class=SensorDeviceClass.TIMESTAMP,
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+LAST_ERROR_TIME_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="last_error_time",
+    translation_key="last_error_time",
+    name="Last error",
+    icon="mdi:clock-alert-outline",
+    device_class=SensorDeviceClass.TIMESTAMP,
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+LAST_ERROR_CODE_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="last_error_code",
+    translation_key="last_error_code",
+    name="Last error code",
+    icon="mdi:alert-outline",
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+STATUS_LAST_REPORTED_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="status_last_reported",
+    translation_key="status_last_reported",
+    name="Status last reported by car",
+    icon="mdi:car-clock",
+    device_class=SensorDeviceClass.TIMESTAMP,
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+STATUS_REFRESH_STATE_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="status_refresh_state",
+    translation_key="status_refresh_state",
+    name="Status refresh state",
+    icon="mdi:refresh-auto",
+    device_class=SensorDeviceClass.ENUM,
+    options=[
+        "active",
+        "soft_disabled_unreachable",
+        "hard_disabled_auto",
+        "hard_disabled_user",
+    ],
+    entity_category=EntityCategory.DIAGNOSTIC,
+)
+
+
+class ToyotaCoordinatorStateSensor(ToyotaBaseEntity, SensorEntity):
+    """Sensor backed by per-VIN diagnostic dicts on the coordinator.
+
+    Used for observability sensors (last_successful_fetch, last_error_time,
+    last_error_code, status_last_reported, status_refresh_state) that
+    describe the fetch itself or the strategy's state, not the vehicle.
+
+    Two overrides are in play:
+
+    1. `available` is forced True. These sensors exist to explain WHY the
+       data sensors went unavailable, so they themselves must never go
+       unavailable. HA's DataUpdateCoordinator drives CoordinatorEntity's
+       availability off `last_update_success`, which flips False on
+       UpdateFailed; we explicitly unbind from that signal.
+
+    2. `native_value` reads from the per-VIN dicts attached to the
+       coordinator (`_diag_last_fetch_per_vin`, `_diag_last_error_per_vin`)
+       instead of `coordinator.data`. With retain_on_transient=False and a
+       full-fleet 429, `async_get_vehicle_data` raises UpdateFailed before
+       appending any VehicleData, so coordinator.data stays frozen at the
+       last SUCCESSFUL refresh (where the error fields were None). Reading
+       from the per-VIN dicts instead means error info appears as soon as
+       it's known, regardless of retain toggle or UpdateFailed.
+    """
+
+    _DIAG_KEY_MAP: ClassVar[dict[str, tuple[str, int | None]]] = {
+        "last_successful_fetch": ("_diag_last_fetch_per_vin", None),
+        "last_error_time": ("_diag_last_error_per_vin", 0),
+        "last_error_code": ("_diag_last_error_per_vin", 1),
+        "status_last_reported": ("_diag_status_occurrence_per_vin", None),
+        "status_refresh_state": ("_diag_status_refresh_state_per_vin", None),
+    }
+
+    @property
+    def available(self) -> bool:
+        """Diagnostic sensors are always considered available."""
+        return True
+
+    @property
+    def native_value(self) -> StateType:
+        """Return the value from the coordinator's per-VIN diagnostic dicts."""
+        vin = getattr(self.vehicle, "vin", None)
+        if not vin:
+            return None
+        key = self.entity_description.key
+        attr_name, tuple_idx = self._DIAG_KEY_MAP.get(key, (None, None))
+        if attr_name is None:
+            return None
+        per_vin = getattr(self.coordinator, attr_name, None)
+        if per_vin is None:
+            return None
+        value = per_vin.get(vin)
+        if value is None:
+            return None
+        return value if tuple_idx is None else value[tuple_idx]
+
+
 class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
     """Representation of a Toyota statistics sensor."""
 
     statistics: StatisticsData
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         coordinator: DataUpdateCoordinator[list[VehicleData]],
         entry_id: str,
@@ -478,18 +648,122 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
     @property
     def native_value(self) -> StateType:
         """Return the state of the sensor."""
+        if self.statistics is None:
+            return None
         data = self.statistics[self.period]
         return round(data.distance, 1) if data and data.distance else None
 
     @property
     def extra_state_attributes(self) -> dict | None:
         """Return the state attributes."""
+        if self.statistics is None:
+            return None
         data = self.statistics[self.period]
         return (
             format_statistics_attributes(data, self.vehicle._vehicle_info)  # noqa : SLF001
             if data
             else None
         )
+
+
+RECENT_TRIPS_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="recent_trips",
+    translation_key="recent_trips",
+    icon="mdi:road-variant",
+)
+
+
+class ToyotaRecentTripsSensor(ToyotaBaseEntity, SensorEntity):
+    """Sensor exposing the recent-trips rolling cache for one VIN.
+
+    State: count of trips currently in the cache (0 when disabled or not
+    yet seeded). Attributes:
+
+    - ``trips``: list of trip dicts in journey-viewer-card data contract shape
+    - ``last_trip_label``: human-readable label for the most recent trip
+      (convenience for templates that don't want to parse the array)
+    - ``source``: ``"toyota"`` (cosmetic, for cards that group by source)
+
+    Sensor reads from the manager's cache on every coordinator update.
+    Cache mutations happen during _refresh_one_vehicle (in the coordinator's
+    update path), so the next coordinator-driven sensor refresh sees fresh
+    state automatically.
+    """
+
+    @property
+    def available(self) -> bool:
+        """Available once the manager exists; cache being empty is a valid state."""
+        if not super().available:
+            return False
+        mgr = self.hass.data.get(DOMAIN, {}).get(f"{self._entry_id}_trips_manager")
+        return mgr is not None
+
+    @property
+    def native_value(self) -> StateType:
+        """Number of trips currently cached for this VIN."""
+        mgr = self.hass.data.get(DOMAIN, {}).get(f"{self._entry_id}_trips_manager")
+        if mgr is None:
+            return None
+        vin = getattr(self.vehicle, "vin", None)
+        if not vin:
+            return None
+        return len(mgr.cache.get(vin))
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Expose cached trip metadata WITHOUT route polylines.
+
+        Each trip dict in the returned ``trips`` list has its ``route``
+        field stripped and replaced with a ``route_point_count`` integer
+        so callers can decide whether to fetch the full route via the
+        ``toyota.get_trip_route`` service. Stripping the route keeps the
+        attribute payload small (~6 KB for 10 trips vs ~640 KB with
+        polylines for a daily-driver) so the HA recorder, state machine,
+        and WebSocket pipeline don't carry per-cycle bulk. Mirrors HA
+        core's 2024.x weather-forecast pattern: state stays small; bulk
+        data fetched on demand.
+
+        The journey-viewer-card lazy-loads route per trip via the
+        service when the user navigates to a trip.
+        """
+        mgr = self.hass.data.get(DOMAIN, {}).get(f"{self._entry_id}_trips_manager")
+        if mgr is None:
+            return None
+        vin = getattr(self.vehicle, "vin", None)
+        if not vin:
+            return None
+        trips = mgr.cache.get(vin)
+        slim_trips = [_strip_route(t) for t in trips]
+        last_trip_label: str | None = None
+        if trips:
+            first = trips[0]
+            stats = first.get("stats") or {}
+            ts = first.get("start_ts") or "?"
+            distance_m = stats.get("distance_m")
+            if isinstance(distance_m, (int, float)):
+                distance_str = f"{distance_m / 1000:.2f} km"
+            else:
+                distance_str = "?"
+            last_trip_label = f"{ts} ({distance_str})"
+        return {
+            "trips": slim_trips,
+            "last_trip_label": last_trip_label,
+            "source": "toyota",
+        }
+
+
+def _strip_route(trip: dict) -> dict:
+    """Return a shallow copy of ``trip`` with ``route`` removed.
+
+    Replaces ``route`` with an integer ``route_point_count`` so callers
+    can decide whether to lazy-load the route via the get_trip_route
+    service. Other fields (id, start/end, stats, behaviours, scores)
+    are passed through unchanged.
+    """
+    route = trip.get("route") or []
+    out = {k: v for k, v in trip.items() if k != "route"}
+    out["route_point_count"] = len(route)
+    return out
 
 
 async def async_setup_entry(
@@ -536,6 +810,47 @@ async def async_setup_entry(
             for config in sensor_configs
             if config["description"].key.startswith("current_")
             and config["capability_check"](vehicle)
+        )
+
+        # Add coordinator-state observability sensors (always on, not
+        # gated by CONF_RETAIN_ON_TRANSIENT_FAILURE; they are read-only).
+        sensors.extend(
+            ToyotaCoordinatorStateSensor(
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=desc,
+            )
+            for desc in (
+                LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION,
+                LAST_ERROR_TIME_ENTITY_DESCRIPTION,
+                LAST_ERROR_CODE_ENTITY_DESCRIPTION,
+                STATUS_LAST_REPORTED_ENTITY_DESCRIPTION,
+                STATUS_REFRESH_STATE_ENTITY_DESCRIPTION,
+            )
+        )
+
+        # Recent-trips sensor: always created (so users discover the entity);
+        # state reads "0 trips" when CONF_MAX_RECENT_TRIPS=0 and no service
+        # call has been used to seed it.
+        sensors.append(
+            ToyotaRecentTripsSensor(
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=RECENT_TRIPS_ENTITY_DESCRIPTION,
+            )
+        )
+
+        # Extra sensors (community data not exposed by base platform).
+        sensors.extend(
+            _EXTRA_SENSOR_CLASSES[key](
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=_EXTRA_SENSOR_DESCRIPTIONS[key],
+            )
+            for key in _EXTRA_SENSOR_CLASSES
         )
 
     async_add_devices(sensors)

@@ -40,7 +40,7 @@ jobs:
           release-signing-artifacts: false
 
       - name: ⬆️ Upload zip to release
-        uses: softprops/action-gh-release@v3.0.2
+        uses: softprops/action-gh-release@v3.0.3
         with:
           files: ${{ github.workspace }}/custom_components/toyota/toyota.zip
 

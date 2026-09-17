@@ -26,6 +26,11 @@ voluptuous-stubs = "^0.1"
 pytest = "^9.0.0"
 pytest-asyncio = "^1.0.0"
 pytest-homeassistant-custom-component = "^0.13"
+# aiodns 3.5.0 (pinned by homeassistant) references
+# pycares.ares_query_a_result at class-definition time, an attribute removed
+# in pycares 5.x. Cap pycares below 5 until aiodns/homeassistant move to a
+# pycares-5-compatible release. See https://github.com/pytoyoda/ha_toyota/issues/347
+pycares = "<5"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
@@ -40,7 +45,10 @@ asyncio_default_fixture_loop_scope = "function"
 fix = true
 extend-exclude = ["tests"]
 lint.select = ["ALL"]
-lint.extend-ignore = ["D203", "D213", "COM812"]
+# CPY001 (flake8-copyright) became a stable rule in ruff 0.16; this project
+# has never carried per-file copyright headers, so it is disabled like the
+# other opinionated/conflicting rules below rather than retrofitting one now.
+lint.extend-ignore = ["D203", "D213", "COM812", "CPY001"]
 # diagnostics.py is a redacting serializer over arbitrary pytoyoda objects:
 # typing.Any is intrinsic (ANN401) and _jsonify is a type-dispatch with many
 # returns (PLR0911). Scope the allowance to that one file.

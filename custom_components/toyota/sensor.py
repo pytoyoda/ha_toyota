@@ -495,7 +495,7 @@ class ToyotaSensor(ToyotaBaseEntity, SensorEntity):
 
     vehicle: Vehicle
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         coordinator: DataUpdateCoordinator[list[VehicleData]],
         entry_id: str,
@@ -630,7 +630,7 @@ class ToyotaStatisticsSensor(ToyotaBaseEntity, SensorEntity):
 
     statistics: StatisticsData
 
-    def __init__(  # noqa: PLR0913
+    def __init__(  # noqa: PLR0913, PLR0917
         self,
         coordinator: DataUpdateCoordinator[list[VehicleData]],
         entry_id: str,

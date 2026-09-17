@@ -30,6 +30,7 @@ jobs:
         run: "poetry install"
       - name: "🚀 Run pytest with coverage"
         run: |
+          set -o pipefail
           poetry run pytest tests --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=custom_components/toyota | tee pytest-coverage.txt
       - name: Add pytest coverage comment to PR
         if: github.event_name == 'pull_request_target'

@@ -1,3 +1,4 @@
+# Copyright (c) 2021 Simon Hansen
 """Transform pytoyoda's _TripModel dicts to the journey-viewer-card Trip shape.
 
 pytoyoda exposes trips through Pydantic-aliased camelCase keys (Toyota's

@@ -1,3 +1,4 @@
+# Copyright (c) 2021 Simon Hansen
 """Constants for the Toyota Connected Services integration."""
 
 from homeassistant.const import Platform

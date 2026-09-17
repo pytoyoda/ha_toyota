@@ -1,3 +1,4 @@
+# Copyright (c) 2021 Simon Hansen
 """Persistent rolling-window cache of recent trips per vehicle.
 
 Backed by Home Assistant's Store helper, which serialises to JSON under

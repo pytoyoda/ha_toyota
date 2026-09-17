@@ -1,3 +1,4 @@
+# Copyright (c) 2021 Simon Hansen
 """Device tracker platform for Toyota Connected Services."""
 
 # pylint: disable=W0212, W0511

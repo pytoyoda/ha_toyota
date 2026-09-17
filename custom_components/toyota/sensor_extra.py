@@ -1,3 +1,4 @@
+# Copyright (c) 2021 Simon Hansen
 """Extra sensors for data the base integration does not expose.
 
 Adds per-vehicle sensors:

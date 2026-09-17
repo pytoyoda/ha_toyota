@@ -16,14 +16,14 @@ requires-poetry = '>=2.0'
 
 [tool.poetry.dependencies]
 arrow = "^1.3"
-homeassistant = "^2025.4.0"
+homeassistant = "^2026.0.0"
 pytoyoda = "^5.1.0"
 
 [tool.poetry.group.dev.dependencies]
-homeassistant-stubs = "^2025.4"
+homeassistant-stubs = "^2026.0.0"
 pre-commit = "^4.1"
 voluptuous-stubs = "^0.1"
-pytest = "^8.3.5"
+pytest = "^9.0.0"
 pytest-asyncio = "^1.0.0"
 pytest-homeassistant-custom-component = "^0.13"
 # aiodns 3.5.0 (pinned by homeassistant) references
@@ -49,6 +49,6 @@ lint.extend-ignore = ["D203", "D213", "COM812"]
 # diagnostics.py is a redacting serializer over arbitrary pytoyoda objects:
 # typing.Any is intrinsic (ANN401) and _jsonify is a type-dispatch with many
 # returns (PLR0911). Scope the allowance to that one file.
-lint.per-file-ignores = { "custom_components/toyota/diagnostics.py" = ["ANN401", "PLR0911"] }
+lint.per-file-ignores = { "custom_components/toyota/diagnostics.py" = ["ANN401", "PLR0911"], "custom_components/toyota/sensor_extra.py" = ["ANN401"] }
 lint.pydocstyle.convention = "google"
 format.docstring-code-format = true

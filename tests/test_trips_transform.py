@@ -12,12 +12,12 @@ def _full_trip_dict() -> dict:
     return {
         "id": "trip-uuid-1",
         "summary": {
-            "startTs": "2026-04-26T07:06:45Z",
-            "endTs": "2026-04-26T07:15:54Z",
-            "startLat": 47.1652,
-            "startLon": 20.2178,
-            "endLat": 47.1927,
-            "endLon": 20.1938,
+            "startTs": "2026-01-01T08:00:00Z",
+            "endTs": "2026-01-01T08:09:09Z",
+            "startLat": 47.1,
+            "startLon": 20.2,
+            "endLat": 47.2,
+            "endLon": 20.3,
             "length": 4943,
             "duration": 549,
             "durationIdle": 30,
@@ -43,11 +43,11 @@ def _full_trip_dict() -> dict:
         },
         "scores": {"acceleration": 90, "braking": 71, "global": 81},
         "behaviours": [
-            {"lat": 47.1642, "lon": 20.2029, "type": "A", "good": True}
+            {"lat": 47.15, "lon": 20.25, "type": "A", "good": True}
         ],
         "route": [
-            {"lat": 47.1652, "lon": 20.2178, "isEv": True, "overspeed": False},
-            {"lat": 47.1927, "lon": 20.1938, "isEv": False, "overspeed": False},
+            {"lat": 47.1, "lon": 20.2, "isEv": True, "overspeed": False},
+            {"lat": 47.2, "lon": 20.3, "isEv": False, "overspeed": False},
         ],
     }
 
@@ -81,21 +81,21 @@ def test_basic_top_level_fields():
     assert out["id"] == "trip-uuid-1"
     assert out["source"] == "rav4"
     assert out["activity_type"] == "drive"
-    assert out["start_ts"] == "2026-04-26T07:06:45Z"
-    assert out["end_ts"] == "2026-04-26T07:15:54Z"
+    assert out["start_ts"] == "2026-01-01T08:00:00Z"
+    assert out["end_ts"] == "2026-01-01T08:09:09Z"
 
 
 def test_start_end_coords():
     out = to_card_shape(_full_trip_dict(), "RAV4")
-    assert out["start"] == {"lat": 47.1652, "lon": 20.2178}
-    assert out["end"] == {"lat": 47.1927, "lon": 20.1938}
+    assert out["start"] == {"lat": 47.1, "lon": 20.2}
+    assert out["end"] == {"lat": 47.2, "lon": 20.3}
 
 
 def test_route_keeps_optional_flags():
     out = to_card_shape(_full_trip_dict(), "RAV4")
     assert len(out["route"]) == 2
     assert out["route"][0] == {
-        "lat": 47.1652, "lon": 20.2178, "isEv": True, "overspeed": False,
+        "lat": 47.1, "lon": 20.2, "isEv": True, "overspeed": False,
     }
 
 
@@ -213,3 +213,88 @@ def test_route_optional_flags_with_none_dropped():
     pt = out["route"][0]
     assert "isEv" not in pt
     assert pt["overspeed"] is True
+
+
+def test_returns_none_when_start_coords_null():
+    """Toyota nulls startLat/startLon: pytoyoda's _SummaryModel types them
+    ``float | None``, so a null passes validation and reaches us. The card
+    cannot place a pin at None, so the trip is untransformable."""
+    trip = _aygo_trip_dict()
+    trip["summary"]["startLat"] = None
+    assert to_card_shape(trip, "AYGO") is None
+
+
+def test_returns_none_when_end_coords_absent():
+    """Same guard, for a summary that omits the end coordinates entirely."""
+    trip = _aygo_trip_dict()
+    del trip["summary"]["endLat"]
+    del trip["summary"]["endLon"]
+    assert to_card_shape(trip, "AYGO") is None
+
+
+def test_start_end_never_contain_none_coords():
+    """Contract: if a trip is returned at all, start/end are real points.
+
+    Mirrors what _coerce_route already guarantees per route point.
+    """
+    for key in ("startLat", "startLon", "endLat", "endLon"):
+        trip = _aygo_trip_dict()
+        trip["summary"][key] = None
+        assert to_card_shape(trip, "AYGO") is None, f"{key}=None must drop the trip"
+
+
+def test_falsy_stats_values_are_preserved():
+    """Regression guard: 0, False and [] are meaningful, only None is absent.
+
+    _build_stats must test ``is not None``, not truthiness - a zero-distance
+    trip, a non-night trip and an empty country list are all real data.
+    """
+    trip = _aygo_trip_dict()
+    trip["summary"].update(
+        length=0,
+        duration=0,
+        lengthOverspeed=0,
+        durationOverspeed=0,
+        nightTrip=False,
+        countries=[],
+    )
+    s = to_card_shape(trip, "AYGO")["stats"]
+    assert s["distance_m"] == 0
+    assert s["duration_s"] == 0
+    assert s["length_overspeed_m"] == 0
+    assert s["duration_overspeed_s"] == 0
+    assert s["night_trip"] is False
+    assert s["countries"] == []
+
+
+def test_every_summary_stat_key_is_mapped():
+    """Each _STATS_KEYS_FROM_SUMMARY entry round-trips to its card key."""
+    s = to_card_shape(_full_trip_dict(), "RAV4")["stats"]
+    assert s["duration_idle_s"] == 30
+    assert s["length_overspeed_m"] == 0
+    assert s["duration_overspeed_s"] == 0
+    assert s["length_highway_m"] == 0
+    assert s["duration_highway_s"] == 0
+    assert s["countries"] == ["HU"]
+    assert s["night_trip"] is False
+
+
+def test_every_hdc_stat_key_is_mapped():
+    """Each _STATS_KEYS_FROM_HDC entry round-trips - including the abbreviated
+    Toyota aliases (chargeDist/ecoDist/powerDist) that are easy to mistype."""
+    s = to_card_shape(_full_trip_dict(), "RAV4")["stats"]
+    assert s["charge_time_s"] == 0
+    assert s["charge_distance_m"] == 0
+    assert s["eco_time_s"] == 0
+    assert s["eco_distance_m"] == 0
+    assert s["power_time_s"] == 0
+    assert s["power_distance_m"] == 0
+
+
+def test_non_dict_hdc_is_ignored():
+    """hdc arrives as a non-dict (unexpected API shape): no hdc stats, no crash."""
+    trip = _aygo_trip_dict()
+    trip["hdc"] = "unexpected"
+    s = to_card_shape(trip, "AYGO")["stats"]
+    assert "ev_time_s" not in s
+    assert s["distance_m"] == 5000

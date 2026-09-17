@@ -151,12 +151,24 @@
       "last_service": {
         "name": "Last service"
       },
-      "last_trip_score": "Last trip score",
-      "cabin_temperature": "Cabin temperature",
-      "notifications": "Notifications",
-      "warning_lights": "Warning lights",
-      "last_service_detail": "Last service detail",
-      "average_speed_week": "Average speed week"
+      "last_trip_score": {
+        "name": "Last trip score"
+      },
+      "cabin_temperature": {
+        "name": "Cabin temperature"
+      },
+      "notifications": {
+        "name": "Notifications"
+      },
+      "warning_lights": {
+        "name": "Warning lights"
+      },
+      "last_service_detail": {
+        "name": "Last service detail"
+      },
+      "average_speed_week": {
+        "name": "Average speed week"
+      }
     },
     "button": {
       "refresh_vehicle_status": {

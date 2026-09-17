@@ -337,7 +337,7 @@ class RecentTripsManager:
             raw = list(getattr(payload, "trips", None) or [])
             if raw:
                 return [Trip(t, vehicle._metric) for t in raw[:limit]]  # noqa: SLF001
-        except Exception:  # noqa: BLE001
+        except Exception:
             _LOGGER.debug(
                 "Toyota recent-trips direct endpoint call failed, "
                 "falling back to paginated get_trips",

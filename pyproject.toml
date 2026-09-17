@@ -41,5 +41,9 @@ fix = true
 extend-exclude = ["tests"]
 lint.select = ["ALL"]
 lint.extend-ignore = ["D203", "D213", "COM812"]
+# diagnostics.py is a redacting serializer over arbitrary pytoyoda objects:
+# typing.Any is intrinsic (ANN401) and _jsonify is a type-dispatch with many
+# returns (PLR0911). Scope the allowance to that one file.
+lint.per-file-ignores = { "custom_components/toyota/diagnostics.py" = ["ANN401", "PLR0911"] }
 lint.pydocstyle.convention = "google"
 format.docstring-code-format = true

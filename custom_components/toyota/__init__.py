@@ -29,15 +29,19 @@ from .const import (
     CONF_FAILED_WAKE_THRESHOLD,
     CONF_IDLE_WAKE_HOURS,
     CONF_MAX_CACHE_AGE_MINUTES,
+    CONF_MAX_RECENT_TRIPS,
     CONF_METRIC_VALUES,
     CONF_POLLING_INTERVAL_MINUTES,
     CONF_POST_COUNT_PER_STOP,
     CONF_RETAIN_ON_TRANSIENT_FAILURE,
+    CONFIG_ENTRY_MINOR_VERSION,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_AUTO_DISABLED_STATUS_REFRESH,
     DEFAULT_ENABLE_STATUS_REFRESH,
     DEFAULT_FAILED_WAKE_THRESHOLD,
     DEFAULT_IDLE_WAKE_HOURS,
     DEFAULT_MAX_CACHE_AGE_MINUTES,
+    DEFAULT_MAX_RECENT_TRIPS,
     DEFAULT_POLLING_INTERVAL_MINUTES,
     DEFAULT_POST_COUNT_PER_STOP,
     DEFAULT_RETAIN_ON_TRANSIENT_FAILURE,
@@ -54,10 +58,12 @@ from .refresh_strategy import (
     VinState,
     decide,
     on_occurrence_advanced,
-    on_post_layer1_failure,
+    on_post_layer1_result,
     on_post_layer1_success,
     on_wake_failed,
+    transient_post_status,
 )
+from .trips_manager import RecentTripsManager
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -114,7 +120,8 @@ if TYPE_CHECKING:
     from collections.abc import Awaitable
 
     from homeassistant.config_entries import ConfigEntry
-    from homeassistant.core import HomeAssistant, ServiceCall
+    from homeassistant.core import HomeAssistant, ServiceCall, ServiceResponse
+    from pytoyoda.models.endpoints.refresh_status import RefreshStatusResponseModel
     from pytoyoda.models.summary import Summary
     from pytoyoda.models.vehicle import Vehicle
 
@@ -146,6 +153,39 @@ class VehicleData(TypedDict):
     # True when this poll's data is a cached fallback because the live fetch
     # failed. Used by downstream sensors as a diagnostic.
     is_cached: bool
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate a config entry to the current version.
+
+    1.1 -> 1.2: repair a non-string title. Entries created before the config
+    flow stopped building its title as a 1-tuple persist it as a JSON list
+    (``["Toyota - user@example.com"]``), which breaks every consumer that
+    reads a config entry title as text. Users cannot clear this themselves:
+    the ``config_entries/update`` websocket command validates ``title`` as
+    ``str``, so a client that echoes the stored value back is rejected.
+    """
+    if (
+        entry.version == CONFIG_ENTRY_VERSION
+        and entry.minor_version < CONFIG_ENTRY_MINOR_VERSION
+    ):
+        title = entry.title
+
+        if not isinstance(title, str):
+            if isinstance(title, (list, tuple)) and title:
+                title = str(title[0])
+            else:
+                # No usable title to unwrap; rebuild the one the flow would
+                # have created from the entry's own data.
+                brand = str(entry.data.get(CONF_BRAND, "toyota")).capitalize()
+                title = f"{brand} - {entry.data.get(CONF_EMAIL, '')}"
+            _LOGGER.info("Repaired non-string config entry title: %s", title)
+
+        hass.config_entries.async_update_entry(
+            entry, title=title, minor_version=CONFIG_ENTRY_MINOR_VERSION
+        )
+
+    return True
 
 
 async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0915, C901
@@ -230,6 +270,9 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     post_count_per_stop: int = entry.options.get(
         CONF_POST_COUNT_PER_STOP, DEFAULT_POST_COUNT_PER_STOP
     )
+    max_recent_trips: int = int(
+        entry.options.get(CONF_MAX_RECENT_TRIPS, DEFAULT_MAX_RECENT_TRIPS)
+    )
     # Persist per-VIN state in hass.data so it survives config entry reload
     # (options flow triggers a reload, which would otherwise recreate these as
     # empty and wipe both the retain cache and the diag sensor history). Scoped
@@ -300,7 +343,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         msg = str(exc)
         # Toyota 429s embed the status code in the ToyotaApiError message:
         # "Request Failed. 429, {...}." Extract it when present.
-        for code in ("429", "500", "502", "503", "504"):
+        for code in ("403", "429", "500", "502", "503", "504"):
             if f"Request Failed. {code}," in msg:
                 return f"HTTP {code}"
         for exc_types, label in exception_code_map:
@@ -397,11 +440,87 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             post_count_per_stop=post_count_per_stop,
         )
 
+    async def _post_refresh_status(
+        vehicle: Vehicle, vin: str
+    ) -> tuple[RefreshStatusResponseModel | None, str | None]:
+        """Issue the wake POST; classify failures as transient or counted.
+
+        Returns (response, transient_status). response is None when the POST
+        raised after pytoyoda's retries were exhausted - the caller treats
+        that the same as a non-"000000" returnCode ("gateway will not process
+        this POST"); _call_tagged has already logged the underlying error.
+        transient_status is "403"/"429" for transient transport failures:
+        429 is throttling and 403 is what Toyota returns fleet-wide when an
+        endpoint's entitlement or mapping breaks (e.g. the 2026-06
+        /v1/global/remote retirement). Both recover without user action, so
+        they must not advance the auto-disable counter the way a persistent
+        per-vehicle 5xx does. A 200 whose body fails to parse (pydantic
+        ValidationError, or json.JSONDecodeError -> ValueError) is counted
+        like any other rejection instead of stubbing the whole vehicle.
+        """
+        try:
+            response = await _call_tagged(
+                "refresh_status", vin, vehicle.refresh_status()
+            )
+        except ToyotaApiError as err:
+            status = transient_post_status(str(err))
+            if status:
+                _LOGGER.debug(
+                    "Toyota refresh-status transient failure (%s) for "
+                    "vin=...%s; not counted toward auto-disable",
+                    status,
+                    vin[-6:],
+                )
+            return None, status
+        except (
+            httpx.ConnectTimeout,
+            httpcore.ConnectTimeout,
+            asyncioexceptions.TimeoutError,
+            httpx.ReadTimeout,
+            ValidationError,
+            ValueError,
+        ):
+            return None, None
+        return response, None
+
+    async def _post_failure_status_fallback(
+        vehicle: Vehicle, vin: str, state: VinState, transient_status: str | None
+    ) -> None:
+        """Bare GET after a failed wake POST so /status still refreshes.
+
+        Matches the HARD_DISABLED legacy path, with the normal GET-path
+        bookkeeping (last_status_fetch_at / occurrence_date). Skipped when
+        the POST failed with 429: pytoyoda already burned its 4-attempt
+        backoff against a throttled gateway, and the GET would add four more.
+        """
+        if transient_status == "429":
+            return
+        await _execute_get_only(vehicle, vin, state)
+
+    def _clear_auto_disable(vin: str) -> None:
+        """Lift HARD_DISABLED_AUTO; the strategy returns to ACTIVE next cycle."""
+        if not entry.options.get(CONF_AUTO_DISABLED_STATUS_REFRESH, False):
+            return
+        hass.config_entries.async_update_entry(
+            entry,
+            options={
+                **entry.options,
+                CONF_AUTO_DISABLED_STATUS_REFRESH: False,
+            },
+        )
+        _LOGGER.info(
+            "Toyota auto-disable cleared for vin=...%s after successful "
+            "service-call POST",
+            vin[-6:],
+        )
+
     async def _execute_post_then_get(
         vehicle: Vehicle,
         vin: str,
         state: VinState,
         timeout_s: int = STRATEGY_DEFAULT_WAKE_TIMEOUT_S,
+        *,
+        via_service_call: bool = False,
     ) -> None:
         """Issue POST /refresh-status, then poll GET /status until cache advances.
 
@@ -413,30 +532,43 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         retries 429/5xx with exponential backoff, so this loop only iterates
         if the gateway returned 200 with a stale occurrence_date (legitimate
         "POST accepted but cache not yet warm").
+
+        On POST failure (exception OR non-"000000" returnCode): record a
+        Layer 1 rejection, possibly auto-disable, then fall back to a bare
+        GET so /status entities still refresh this cycle. See ha_toyota#293.
+        On POST success: clear any prior auto-disable flag so a service-call
+        retry (or a transient-5xx recovery) restores normal operation
+        without requiring the user to toggle the option manually.
         """
         opts = _strategy_options()
-        post_response = await _call_tagged(
-            "refresh_status", vin, vehicle.refresh_status()
-        )
+        post_response, transient_status = await _post_refresh_status(vehicle, vin)
         state.last_post_attempt_at = dt_util.now()
 
         # Layer 1: gateway-level acceptance. payload.return_code "000000" =
-        # accepted; anything else = vehicle does not support refresh-status.
-        # (pytoyoda exposes the field as snake_case via Pydantic Field alias.)
-        payload = getattr(post_response, "payload", None)
+        # accepted; anything else (or no response = exception path) =
+        # vehicle does not support refresh-status this cycle.
+        payload = getattr(post_response, "payload", None) if post_response else None
         return_code = getattr(payload, "return_code", None) if payload else None
 
         if return_code != "000000":
-            should_auto_disable = on_post_layer1_failure(state, opts)
-            _LOGGER.warning(
-                "Toyota refresh-status rejected for vin=...%s (returnCode=%s)",
-                vin[-6:],
-                return_code,
+            should_auto_disable = on_post_layer1_result(
+                state, opts, transient=transient_status is not None
             )
-            if should_auto_disable:
+            if post_response is not None:
+                # 200 OK with non-000000 returnCode (gateway-level rejection).
+                _LOGGER.warning(
+                    "Toyota refresh-status rejected for vin=...%s (returnCode=%s)",
+                    vin[-6:],
+                    return_code,
+                )
+            if should_auto_disable and not entry.options.get(
+                CONF_AUTO_DISABLED_STATUS_REFRESH, False
+            ):
                 # Persist auto-disable to config_entry.options. Triggers a
-                # listener-driven reload, which is fine - state survives via
-                # diag_bucket.
+                # listener-driven reload, which is fine - state survives
+                # via diag_bucket. Guarded against re-entrance: a service-
+                # call retry that still 500s would otherwise trip the
+                # threshold every cycle and trigger a redundant reload.
                 hass.config_entries.async_update_entry(
                     entry,
                     options={
@@ -445,13 +577,22 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                     },
                 )
                 _LOGGER.warning(
-                    "Toyota auto-disabled smart refresh for vin=...%s after "
-                    "%d consecutive Layer 1 rejections",
+                    "Toyota auto-disabled smart refresh for vin=...%s "
+                    "after %d consecutive Layer 1 rejections",
                     vin[-6:],
                     state.consecutive_post_rejections,
                 )
+            await _post_failure_status_fallback(vehicle, vin, state, transient_status)
             return
         on_post_layer1_success(state)
+        # Auto-recovery from HARD_DISABLED_AUTO: a successful SERVICE-CALL
+        # POST proves the gateway can process this endpoint. The flag is
+        # entry-wide while rejection counters are per-VIN, so only the
+        # explicit user retry may clear it - a healthy sibling vehicle's
+        # cadence POST must not undo an auto-disable earned by a
+        # persistently rejecting one.
+        if via_service_call:
+            _clear_auto_disable(vin)
 
         # Layer 2: poll for occurrence_date advancement.
         deadline = dt_util.now() + timedelta(seconds=timeout_s)
@@ -514,7 +655,13 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                 state.remaining_post_cycles = max(0, post_count_per_stop - 1)
             elif decision.trigger is RefreshTrigger.JUST_STOPPED_FOLLOWUP:
                 state.remaining_post_cycles = max(0, state.remaining_post_cycles - 1)
-            await _execute_post_then_get(vehicle, vin, state, wake_timeout_s)
+            await _execute_post_then_get(
+                vehicle,
+                vin,
+                state,
+                wake_timeout_s,
+                via_service_call=decision.trigger is RefreshTrigger.SERVICE_CALL,
+            )
         elif decision.action is RefreshAction.GET_ONLY:
             await _execute_get_only(vehicle, vin, state)
         elif decision.action is RefreshAction.HARD_DISABLED:
@@ -534,7 +681,13 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         429s and read-timeouts are swallowed: the rest of vehicle data is fresh
         and LockStatus serves from the previous cycle's cached value.
         """
-        with contextlib.suppress(ToyotaApiError, httpx.ReadTimeout):
+        with contextlib.suppress(
+            ToyotaApiError,
+            httpx.ConnectTimeout,
+            httpcore.ConnectTimeout,
+            asyncioexceptions.TimeoutError,
+            httpx.ReadTimeout,
+        ):
             await _call_tagged("status_only", vin, vehicle.update(only=["status"]))
             status_data = vehicle._endpoint_data.get("status")  # noqa: SLF001
             occ = (
@@ -593,11 +746,21 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         # Bounded so a slow/flaky non-status endpoint can't stall first_refresh
         # past HA's setup budget. On timeout the TimeoutError propagates to the
         # caller's per-vehicle handler, which serves cache or a stub - same
-        # degrade path as any other transient Toyota failure.
-        await asyncio.wait_for(
-            _call_tagged("vehicle.update", vin, vehicle.update(skip=["status"])),
-            STATUS_FETCH_BUDGET_S,
-        )
+        # degrade path as any other transient Toyota failure. A climate-settings
+        # (or other endpoint) HTTP 500 surfaces here as a ToyotaApiError/
+        # ToyotaInternalError - swallow it so a single bad endpoint doesn't fail
+        # the whole refresh; the rest of the snapshot still builds from cache.
+        try:
+            await asyncio.wait_for(
+                _call_tagged("vehicle.update", vin, vehicle.update(skip=["status"])),
+                STATUS_FETCH_BUDGET_S,
+            )
+        except (ToyotaApiError, ToyotaInternalError) as ex:
+            _LOGGER.warning(
+                "vehicle.update partial failure for vin=...%s (%s), continuing",
+                (vin or "")[-6:],
+                _error_code(ex),
+            )
 
         # Build snapshot for the strategy.
         current_odometer_km: float | None = None
@@ -647,6 +810,12 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
         if vin:
             _persist_status_for_cache(vehicle, vin)
+
+        # Phase 2b: recent-trips manager.
+        # No-op when CONF_MAX_RECENT_TRIPS is 0 (default). Independent of
+        # the /status decision; uses the same trigger info so we fetch trips
+        # only on stop-event ticks (just_stopped + conditional followup).
+        await trips_manager.async_maybe_refresh(vehicle, vin, decision)
 
         # Movement / sensor state.
         car_currently_moving = (
@@ -875,6 +1044,14 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         _LOGGER.debug(vehicle_informations)
         return vehicle_informations
 
+    # Recent-trips manager. Lives alongside the coordinator (not part of it)
+    # because the trips data lifecycle is decoupled from the cycle's
+    # /status work. Cache survives HA restart via Store; auto-fetch is gated
+    # on max_recent_trips > 0 + smart-strategy stop triggers.
+    trips_manager = RecentTripsManager(hass, entry, max_recent_trips)
+    await trips_manager.async_setup()
+    hass.data[DOMAIN][f"{entry.entry_id}_trips_manager"] = trips_manager
+
     coordinator = DataUpdateCoordinator(
         hass,
         _LOGGER,
@@ -900,6 +1077,13 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
     await coordinator.async_config_entry_first_refresh()
 
+    # Prune cached trips for VINs that are no longer on the account.
+    if coordinator.data:
+        known_vins = [
+            vd["data"].vin for vd in coordinator.data if vd.get("data") is not None
+        ]
+        await trips_manager.async_prune_orphans(known_vins)
+
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
@@ -913,6 +1097,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
 SERVICE_REFRESH_VEHICLE_STATUS = "refresh_vehicle_status"
 ATTR_TIMEOUT_SECONDS = "timeout_seconds"
+SERVICE_REFRESH_RECENT_TRIPS = "refresh_recent_trips"
+ATTR_LIMIT = "limit"
+SERVICE_GET_TRIP_ROUTE = "get_trip_route"
+ATTR_TRIP_ID = "trip_id"
 
 
 def _resolve_devices_to_vins_per_entry(
@@ -1000,6 +1188,141 @@ async def _async_register_services(hass: HomeAssistant) -> None:
         _handle_refresh_vehicle_status,
     )
 
+    await _async_register_trips_services(hass)
+
+
+async def _async_register_trips_services(hass: HomeAssistant) -> None:  # noqa: C901
+    """Register the recent-trips services exactly once."""
+    if hass.services.has_service(DOMAIN, SERVICE_REFRESH_RECENT_TRIPS):
+        return
+
+    async def _handle_refresh_recent_trips(call: ServiceCall) -> None:
+        """Discard the cached trips for the targeted VINs and refetch limit=N.
+
+        Works regardless of CONF_MAX_RECENT_TRIPS (so users with auto-fetch
+        disabled can drive on-demand fetches via daily automations).
+        """
+        raw = call.data.get("device_id") or []
+        device_ids: list[str] = [raw] if isinstance(raw, str) else list(raw)
+        if not device_ids:
+            _LOGGER.warning("toyota.refresh_recent_trips called with no device target")
+            return
+        try:
+            limit = int(call.data.get(ATTR_LIMIT, 0))
+        except (TypeError, ValueError):
+            _LOGGER.warning(
+                "toyota.refresh_recent_trips: invalid limit value %r",
+                call.data.get(ATTR_LIMIT),
+            )
+            return
+        if not 1 <= limit <= 50:  # noqa: PLR2004
+            _LOGGER.warning(
+                "toyota.refresh_recent_trips: limit must be 1..50, got %s",
+                limit,
+            )
+            return
+        _LOGGER.info(
+            "toyota.refresh_recent_trips invoked for devices=%s (limit=%d)",
+            device_ids,
+            limit,
+        )
+        per_entry_vins = _resolve_devices_to_vins_per_entry(hass, device_ids)
+        for entry_id, vins in per_entry_vins.items():
+            mgr = hass.data[DOMAIN].get(f"{entry_id}_trips_manager")
+            coord = hass.data[DOMAIN].get(entry_id)
+            if mgr is None or coord is None or coord.data is None:
+                continue
+            # Find each VIN's Vehicle object inside the most recent
+            # coordinator data. We need the live Vehicle (with auth + api)
+            # to issue get_recent_trips, not just the stored trip dicts.
+            for vin in vins:
+                vehicle = next(
+                    (
+                        vd["data"]
+                        for vd in coord.data
+                        if vd.get("data") is not None and vd["data"].vin == vin
+                    ),
+                    None,
+                )
+                if vehicle is None:
+                    _LOGGER.warning(
+                        "toyota.refresh_recent_trips: VIN ...%s not in "
+                        "coordinator data; skipping",
+                        vin[-6:],
+                    )
+                    continue
+                try:
+                    count = await mgr.async_service_refresh(vin, vehicle, limit)
+                    _LOGGER.info(
+                        "toyota.refresh_recent_trips vin=...%s -> %d trips",
+                        vin[-6:],
+                        count,
+                    )
+                except Exception:
+                    _LOGGER.exception(
+                        "toyota.refresh_recent_trips failed for vin=...%s",
+                        vin[-6:],
+                    )
+            # Trigger a coordinator refresh so the sensor's state reflects
+            # the new cache contents on the next tick.
+            hass.async_create_background_task(
+                coord.async_request_refresh(), "toyota_recent_trips_refresh"
+            )
+
+    hass.services.async_register(
+        DOMAIN,
+        SERVICE_REFRESH_RECENT_TRIPS,
+        _handle_refresh_recent_trips,
+    )
+
+    if not hass.services.has_service(DOMAIN, SERVICE_GET_TRIP_ROUTE):
+        from homeassistant.core import SupportsResponse  # noqa: PLC0415
+
+        async def _handle_get_trip_route(call: ServiceCall) -> ServiceResponse:
+            """Return the cached route polyline for a single trip by id.
+
+            Read-only lookup against the per-entry trips cache. The card
+            calls this lazily when the user navigates to a trip - keeps
+            sensor.<alias>_recent_trips's `attributes.trips` payload
+            small (no per-trip polyline) so the recorder, state machine,
+            and WebSocket subscribers don't carry the bulk on every
+            cache mutation. Mirrors HA core's 2024.x weather-forecast
+            shape (state stays small; bulk fetched on demand).
+            """
+            raw = call.data.get("device_id") or []
+            device_ids: list[str] = [raw] if isinstance(raw, str) else list(raw)
+            trip_id = str(call.data.get(ATTR_TRIP_ID) or "").strip()
+            if not device_ids or not trip_id:
+                _LOGGER.warning(
+                    "toyota.get_trip_route called with missing device or "
+                    "trip_id (devices=%s, trip_id=%r)",
+                    device_ids,
+                    trip_id,
+                )
+                return {"found": False, "route": []}
+
+            per_entry_vins = _resolve_devices_to_vins_per_entry(hass, device_ids)
+            for entry_id, vins in per_entry_vins.items():
+                mgr = hass.data[DOMAIN].get(f"{entry_id}_trips_manager")
+                if mgr is None:
+                    continue
+                for vin in vins:
+                    for trip in mgr.cache.get(vin):
+                        if str(trip.get("id")) == trip_id:
+                            return {
+                                "found": True,
+                                "trip_id": trip_id,
+                                "route": list(trip.get("route") or []),
+                            }
+            return {"found": False, "trip_id": trip_id, "route": []}
+
+        hass.services.async_register(
+            DOMAIN,
+            SERVICE_GET_TRIP_ROUTE,
+            _handle_get_trip_route,
+            supports_response=SupportsResponse.ONLY,
+        )
+
 
 async def _async_update_listener(hass: HomeAssistant, entry: ConfigEntry) -> None:
     """Reload the integration when options change so the new toggle takes effect."""
@@ -1012,5 +1335,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if unload_ok:
         hass.data[DOMAIN].pop(entry.entry_id)
+        # Drop the trips manager too. The cache is on disk and survives;
+        # the diag bucket intentionally stays in hass.data so per-VIN
+        # state survives a reload (matches the existing pattern).
+        hass.data[DOMAIN].pop(f"{entry.entry_id}_trips_manager", None)
 
     return unload_ok

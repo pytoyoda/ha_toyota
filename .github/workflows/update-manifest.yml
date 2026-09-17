@@ -34,13 +34,13 @@ jobs:
           zip toyota.zip -r ./
 
       - name: 🔏 Sign release package
-        uses: sigstore/gh-action-sigstore-python@v3.4.0
+        uses: sigstore/gh-action-sigstore-python@v3.5.0
         with:
           inputs: ${{ github.workspace }}/custom_components/toyota/toyota.zip
           release-signing-artifacts: false
 
       - name: ⬆️ Upload zip to release
-        uses: softprops/action-gh-release@v3.0.2
+        uses: softprops/action-gh-release@v3.0.3
         with:
           files: ${{ github.workspace }}/custom_components/toyota/toyota.zip
 

@@ -463,7 +463,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         # Confirm the actual state (stopped -> starting/running) best-effort.
         try:
             await self._poll_status()
-        except Exception:  # noqa: BLE001  # best-effort poll; any failure is non-fatal
+        except Exception:  # best-effort poll; any failure is non-fatal
             _LOGGER.debug("Post-start status poll failed (non-fatal)", exc_info=True)
 
     async def _turn_off_climate(self) -> None:

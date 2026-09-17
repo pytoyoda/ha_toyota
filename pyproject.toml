@@ -2,12 +2,12 @@
 name = "toyota"
 description = "Toyota Connected Services EU community integration for Home Assistant"
 license = "MIT"
-version = "v2.3.0"
+version = "v2.5.0"
 authors = [
   { name = "CM000n", email = "simon.hoerrle@gmail.com" },
   { name = "deejay1", email = "deejay1@srem.org" },
 ]
-requires-python = '>=3.13,<3.14'
+requires-python = '>=3.13.2,<3.15'
 dynamic = ["dependencies"]
 
 [tool.poetry]
@@ -24,7 +24,7 @@ homeassistant-stubs = "^2025.4"
 pre-commit = "^4.1"
 voluptuous-stubs = "^0.1"
 pytest = "^8.3.5"
-pytest-asyncio = "^0.26"
+pytest-asyncio = "^1.0.0"
 pytest-homeassistant-custom-component = "^0.13"
 
 [build-system]
@@ -41,5 +41,9 @@ fix = true
 extend-exclude = ["tests"]
 lint.select = ["ALL"]
 lint.extend-ignore = ["D203", "D213", "COM812"]
+# diagnostics.py is a redacting serializer over arbitrary pytoyoda objects:
+# typing.Any is intrinsic (ANN401) and _jsonify is a type-dispatch with many
+# returns (PLR0911). Scope the allowance to that one file.
+lint.per-file-ignores = { "custom_components/toyota/diagnostics.py" = ["ANN401", "PLR0911"], "custom_components/toyota/sensor_extra.py" = ["ANN401"] }
 lint.pydocstyle.convention = "google"
 format.docstring-code-format = true

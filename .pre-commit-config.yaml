@@ -2,12 +2,12 @@ ci:
   autofix_prs: true
 repos:
   - repo: https://github.com/python-poetry/poetry
-    rev: 2.3.2
+    rev: 2.4.3
     hooks:
       - id: poetry-check
         name: 📜 Check pyproject with Poetry
   - repo: https://github.com/codespell-project/codespell
-    rev: v2.4.2
+    rev: v2.4.3
     hooks:
       - id: codespell
         name: 👄 Check code spelling
@@ -35,7 +35,7 @@ repos:
       - id: trailing-whitespace
         name: "⬜ Fix trailing whitespaces"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.5
+    rev: v0.16.7
     hooks:
       - id: ruff
         name: "🐶 Ruff Linter"

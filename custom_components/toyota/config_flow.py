@@ -2,8 +2,12 @@
 
 # pylint: disable=W0212, W0511
 
+import asyncio
 import logging
-from collections.abc import Mapping
+import os
+from collections.abc import Generator, Mapping
+from contextlib import contextmanager
+from pathlib import Path
 from typing import Any
 
 import voluptuous as vol
@@ -21,18 +25,23 @@ from .const import (
     CONF_FAILED_WAKE_THRESHOLD,
     CONF_IDLE_WAKE_HOURS,
     CONF_MAX_CACHE_AGE_MINUTES,
+    CONF_MAX_RECENT_TRIPS,
     CONF_METRIC_VALUES,
     CONF_POLLING_INTERVAL_MINUTES,
     CONF_POST_COUNT_PER_STOP,
     CONF_RETAIN_ON_TRANSIENT_FAILURE,
+    CONFIG_ENTRY_MINOR_VERSION,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_ENABLE_STATUS_REFRESH,
     DEFAULT_FAILED_WAKE_THRESHOLD,
     DEFAULT_IDLE_WAKE_HOURS,
     DEFAULT_MAX_CACHE_AGE_MINUTES,
+    DEFAULT_MAX_RECENT_TRIPS,
     DEFAULT_POLLING_INTERVAL_MINUTES,
     DEFAULT_POST_COUNT_PER_STOP,
     DEFAULT_RETAIN_ON_TRANSIENT_FAILURE,
     DOMAIN,
+    MAX_RECENT_TRIPS_LIMIT,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -49,10 +58,23 @@ BRAND_API_MAP = {
 }
 
 
+@contextmanager
+def _writable_cwd(path: str) -> Generator[None]:
+    """Temporarily change cwd so pytoyoda/hishel can create its cache."""
+    (Path(path) / ".cache" / "hishel").mkdir(parents=True, exist_ok=True)
+    old_cwd = Path.cwd()
+    os.chdir(path)
+    try:
+        yield
+    finally:
+        os.chdir(old_cwd)
+
+
 class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: disable=W0223
     """Handle a config flow for Toyota Connected Services."""
 
-    VERSION = 1
+    VERSION = CONFIG_ENTRY_VERSION
+    MINOR_VERSION = CONFIG_ENTRY_MINOR_VERSION
 
     @staticmethod
     def async_get_options_flow(
@@ -99,8 +121,14 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
             await self.async_set_unique_id(unique_id)
             if not self._reauth_entry:
                 self._abort_if_unique_id_configured()
+            config_dir = self.hass.config.config_dir
+
+            def _login() -> None:
+                with _writable_cwd(config_dir):
+                    asyncio.run(client.login())
+
             try:
-                await client.login()
+                await self.hass.async_add_executor_job(_login)
             except ToyotaLoginError:
                 errors["base"] = "invalid_auth"
                 _LOGGER.exception("Toyota login error: Invalid auth")
@@ -113,7 +141,7 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
             else:
                 if not self._reauth_entry:
                     entry_title = (
-                        f"{BRAND_OPTIONS[self._brand]} - {user_input[CONF_EMAIL]}",
+                        f"{BRAND_OPTIONS[self._brand]} - {user_input[CONF_EMAIL]}"
                     )
                     return self.async_create_entry(
                         title=entry_title,
@@ -262,6 +290,20 @@ class ToyotaOptionsFlow(config_entries.OptionsFlow):
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
                             min=1, max=5, step=1, mode=selector.NumberSelectorMode.BOX
+                        )
+                    ),
+                    vol.Required(
+                        CONF_MAX_RECENT_TRIPS,
+                        default=opts.get(
+                            CONF_MAX_RECENT_TRIPS,
+                            DEFAULT_MAX_RECENT_TRIPS,
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=MAX_RECENT_TRIPS_LIMIT,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
                 }

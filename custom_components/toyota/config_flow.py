@@ -2,18 +2,18 @@
 
 # pylint: disable=W0212, W0511
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
-from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 from pytoyoda.client import MyT
 from pytoyoda.exceptions import ToyotaInvalidUsernameError, ToyotaLoginError
@@ -30,6 +30,8 @@ from .const import (
     CONF_POLLING_INTERVAL_MINUTES,
     CONF_POST_COUNT_PER_STOP,
     CONF_RETAIN_ON_TRANSIENT_FAILURE,
+    CONFIG_ENTRY_MINOR_VERSION,
+    CONFIG_ENTRY_VERSION,
     DEFAULT_ENABLE_STATUS_REFRESH,
     DEFAULT_FAILED_WAKE_THRESHOLD,
     DEFAULT_IDLE_WAKE_HOURS,
@@ -41,6 +43,11 @@ from .const import (
     DOMAIN,
     MAX_RECENT_TRIPS_LIMIT,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Mapping
+
+    from homeassistant.data_entry_flow import FlowResult
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -71,12 +78,13 @@ def _writable_cwd(path: str) -> Generator[None]:
 class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: disable=W0223
     """Handle a config flow for Toyota Connected Services."""
 
-    VERSION = 1
+    VERSION = CONFIG_ENTRY_VERSION
+    MINOR_VERSION = CONFIG_ENTRY_MINOR_VERSION
 
     @staticmethod
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,  # noqa: ARG004
-    ) -> "ToyotaOptionsFlow":
+    ) -> ToyotaOptionsFlow:
         """Return the options flow handler.
 
         ``config_entry`` is part of HA's options-flow signature contract; we
@@ -138,7 +146,7 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
             else:
                 if not self._reauth_entry:
                     entry_title = (
-                        f"{BRAND_OPTIONS[self._brand]} - {user_input[CONF_EMAIL]}",
+                        f"{BRAND_OPTIONS[self._brand]} - {user_input[CONF_EMAIL]}"
                     )
                     return self.async_create_entry(
                         title=entry_title,

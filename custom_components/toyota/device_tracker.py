@@ -2,16 +2,23 @@
 
 # pylint: disable=W0212, W0511
 
-from homeassistant.components.device_tracker import SourceType, TrackerEntity
-from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant
-from homeassistant.helpers.entity import EntityDescription
-from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+from __future__ import annotations
 
-from . import VehicleData
+from typing import TYPE_CHECKING
+
+from homeassistant.components.device_tracker import SourceType, TrackerEntity
+from homeassistant.helpers.entity import EntityDescription
+
 from .const import DOMAIN, ICON_PARKING
 from .entity import ToyotaBaseEntity
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+    from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.entity_platform import AddEntitiesCallback
+    from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
+
+    from . import VehicleData
 
 PARKING_TRACKER_DESCRIPTION: EntityDescription = EntityDescription(
     key="parking_location",

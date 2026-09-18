@@ -12,10 +12,35 @@ PLATFORMS = [
     Platform.LOCK,
 ]
 
+# CONFIG ENTRY SCHEMA
+# 1.2 repairs entries whose title was stored as a 1-tuple; the migration
+# lives in async_migrate_entry.
+CONFIG_ENTRY_VERSION = 1
+CONFIG_ENTRY_MINOR_VERSION = 2
+
 # INTEGRATION ATTRIBUTES
 DOMAIN = "toyota"
 NAME = "Toyota Connected Services"
 ISSUES_URL = "https://github.com/pytoyoda/ha_toyota/issues"
+
+# RemoteDisplayStatus enum (reverse-engineered from the MyToyota app, where the
+# ordinal == backendValue). The app gates ALL remote commands on this being
+# ACTIVATED (7); in any other state the gateway may ACCEPT a command while the
+# car silently does nothing. Surfaced in diagnostics so a "command ran but
+# nothing happened" report is explainable without a debug-log round-trip.
+REMOTE_DISPLAY_NAMES = {
+    0: "UNKNOWN",
+    1: "AUTH_REQUIRED",
+    2: "SUBSCRIPTION_CANCELLED_REMOTE_USER",
+    3: "SUBSCRIPTION_CANCELLED_PRIMARY_USER",
+    4: "FAILED",
+    5: "PENDING",
+    6: "ERROR",
+    7: "ACTIVATED",
+    8: "SUBSCRIPTION_EXPIRED_REMOTE_USER",
+    9: "SUBSCRIPTION_EXPIRED_PRIMARY_USER",
+    10: "STOLEN_LOST_VEHICLE",
+}
 
 # CONF
 CONF_BRAND = "Brand"
@@ -30,11 +55,14 @@ DEFAULT_RETAIN_ON_TRANSIENT_FAILURE = False
 # Smart status refresh strategy. POSTs /v1/global/remote/refresh-status to
 # wake the car's modem before reading /status, mimicking the Toyota mobile
 # app's two-stage protocol. Reduces stuck-stale lock/door state and 429s.
-# See rate-limit-remediation-plan.md Addendum 4.
+# Off = stop the automatic cadence; explicit refresh_vehicle_status service
+# calls still go through (per HA polling-toggle convention). See
+# rate-limit-remediation-plan.md Addendum 4.
 CONF_ENABLE_STATUS_REFRESH = "enable_status_refresh"
 DEFAULT_ENABLE_STATUS_REFRESH = True
 # Set automatically when the gateway repeatedly rejects the POST (vehicle
-# does not support refresh-status). Cleared when user toggles
+# does not support refresh-status). Cleared by either: (a) a successful
+# service-call POST proving the gateway works, or (b) the user toggling
 # CONF_ENABLE_STATUS_REFRESH OFF then ON. Hidden in the UI.
 CONF_AUTO_DISABLED_STATUS_REFRESH = "auto_disabled_status_refresh"
 DEFAULT_AUTO_DISABLED_STATUS_REFRESH = False

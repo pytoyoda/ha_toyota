@@ -11,8 +11,12 @@ Lifted with minor adjustments from
 
 - Drops absent optional fields (None-valued) entirely, per the multi-source
   design (each source's normaliser only writes fields its source has).
-- Returns immediately on missing summary - the trip can't be rendered
-  meaningfully without start/end.
+- Returns immediately on a missing summary, or on a summary without usable
+  start/end coordinates - the trip can't be rendered meaningfully without
+  start/end. Toyota's ``startLat``/``startLon``/``endLat``/``endLon`` are
+  nullable in pytoyoda's ``_SummaryModel`` (required fields, but typed
+  ``float | None``), so a null slips through validation and would otherwise
+  reach the card as ``{"lat": None, "lon": None}``.
 
 Pure function, no I/O. Tested in tests/test_trips_transform.py.
 """
@@ -72,6 +76,19 @@ def _coerce_route(route_in: list[dict]) -> list[dict]:
     return out
 
 
+def _coerce_endpoint(summary: dict, lat_key: str, lon_key: str) -> dict | None:
+    """Return a ``{"lat", "lon"}`` point, or None if either coordinate is absent.
+
+    Mirrors the contract ``_coerce_route`` already applies per route point:
+    a point without both coordinates is not a point.
+    """
+    lat = summary.get(lat_key)
+    lon = summary.get(lon_key)
+    if lat is None or lon is None:
+        return None
+    return {"lat": lat, "lon": lon}
+
+
 def _build_stats(summary: dict, hdc: dict | None) -> dict:
     """Build the stats dict, omitting keys whose source value is None.
 
@@ -95,8 +112,9 @@ def _build_stats(summary: dict, hdc: dict | None) -> dict:
 def to_card_shape(trip_dict: dict, vehicle_alias: str | None) -> dict | None:
     """Map a pytoyoda _TripModel dict to the journey-viewer-card Trip shape.
 
-    Returns None if the trip has no summary - we can't render a trip with
-    no start/end timestamps or coordinates.
+    Returns None if the trip has no summary, or if its summary is missing
+    either start or end coordinates - we can't render a trip with no
+    start/end timestamps or coordinates.
 
     Args:
         trip_dict: Result of ``_TripModel.model_dump(by_alias=True)`` or the
@@ -112,6 +130,11 @@ def to_card_shape(trip_dict: dict, vehicle_alias: str | None) -> dict | None:
     if not summary:
         return None
 
+    start = _coerce_endpoint(summary, "startLat", "startLon")
+    end = _coerce_endpoint(summary, "endLat", "endLon")
+    if start is None or end is None:
+        return None
+
     hdc = trip_dict.get("hdc")
     scores = trip_dict.get("scores")
     behaviours = trip_dict.get("behaviours")
@@ -123,8 +146,8 @@ def to_card_shape(trip_dict: dict, vehicle_alias: str | None) -> dict | None:
         "activity_type": "drive",
         "start_ts": summary.get("startTs"),
         "end_ts": summary.get("endTs"),
-        "start": {"lat": summary.get("startLat"), "lon": summary.get("startLon")},
-        "end": {"lat": summary.get("endLat"), "lon": summary.get("endLon")},
+        "start": start,
+        "end": end,
         "route": _coerce_route(route_in),
         "stats": _build_stats(summary, hdc if isinstance(hdc, dict) else None),
     }

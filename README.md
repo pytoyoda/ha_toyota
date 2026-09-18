@@ -289,6 +289,25 @@ Defaults are tuned for a typical daily-driven car.
 | **Refresh status cache if older**                  | 30      | 5 - 180 | Maximum acceptable age of the cached `/status` data before issuing a fresh GET. Controls only the `/v1/global/remote/status` endpoint (door / window / lock / hood). Other data (odometer, fuel, location, etc.) is fetched every cycle regardless.                                                                                                                                                                                                                                                       |
 | **Wake POSTs per stop event**                      | 2       | 1 - 5   | Number of wake POSTs fired when a stop event is detected, one per coordinator cycle. 1 = single POST. 2 = an additional POST on the next cycle, which typically catches state the user changes shortly after stopping (locking the doors, opening the trunk) - those events trigger fresh modem reports that the second POST's poll loop picks up. Higher rarely helps and burns 12 V battery.                                                                                                            |
 
+#### ⚠️ 12 V battery drain
+
+Every poll and every "wake" POST asks the car's telematics module to talk to Toyota's
+servers, which briefly draws on the 12 V starter battery. Some owners — especially of
+hybrids without a full alternator-based charging path, or vehicles that already sit
+unused for long stretches — have reported a nearly-depleted 12 V battery after leaving
+the integration on its defaults for several days (see
+[#229](https://github.com/pytoyoda/ha_toyota/issues/229)). If that applies to you:
+
+- Raise **Polling interval (minutes)** instead of lowering it.
+- Leave **Wake idle vehicle every N hours** at `0` (disabled) unless you specifically
+  need fresh lock/door state while the car is unused for days.
+- Keep **Wake POSTs per stop event** at its default of `2`; higher rarely helps and
+  only adds extra wake-ups.
+
+This does not replace addressing a car with a genuinely weak 12 V battery (check with
+your dealer), but it minimizes how much the integration itself contributes to the
+drain.
+
 ## Contribution
 
 Contributions are more the welcome. This project uses `poetry` and `pre-commit` to make sure that

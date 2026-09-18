@@ -14,7 +14,6 @@ jobs:
     runs-on: "ubuntu-latest"
     permissions:
       contents: read
-      pull-requests: write
     steps:
       - name: "⤵️ Check out code from GitHub"
         uses: "actions/checkout@v7"
@@ -32,9 +31,25 @@ jobs:
         run: |
           set -o pipefail
           poetry run pytest tests --junitxml=pytest.xml --cov-report=term-missing:skip-covered --cov=custom_components/toyota | tee pytest-coverage.txt
-      - name: Add pytest coverage comment to PR
-        if: github.event_name == 'pull_request_target'
-        uses: MishaKav/pytest-coverage-comment@main
+      - name: "⬆️ Archive pytest junitxml results"
+        uses: actions/upload-artifact@v7
         with:
-          pytest-coverage-path: pytest-coverage.txt
-          junitxml-path: pytest.xml
+          name: pytest
+          path: ./pytest.xml
+          retention-days: 1
+      - name: "⬆️ Archive pytest coverage results"
+        uses: actions/upload-artifact@v7
+        with:
+          name: pytest-coverage
+          path: ./pytest-coverage.txt
+          retention-days: 1
+      - name: "⬆️ Archive PR number"
+        if: github.event_name == 'pull_request'
+        run: echo "${{ github.event.number }}" > pr_number.txt
+      - name: "⬆️ Upload PR number"
+        if: github.event_name == 'pull_request'
+        uses: actions/upload-artifact@v7
+        with:
+          name: pr_number
+          path: ./pr_number.txt
+          retention-days: 1

@@ -770,7 +770,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             odo_obj = getattr(payload, "odometer", None) if payload else None
             if odo_obj is not None and odo_obj.value is not None:
                 current_odometer_km = float(odo_obj.value)
-        except (AttributeError, TypeError, ValueError):
+        except AttributeError, TypeError, ValueError:
             current_odometer_km = None
 
         state = _build_vin_state(vin) if vin else VinState()
@@ -1267,7 +1267,7 @@ async def _async_register_trips_services(hass: HomeAssistant) -> None:  # noqa: 
             return
         try:
             limit = int(call.data.get(ATTR_LIMIT, 0))
-        except (TypeError, ValueError):
+        except TypeError, ValueError:
             _LOGGER.warning(
                 "toyota.refresh_recent_trips: invalid limit value %r",
                 call.data.get(ATTR_LIMIT),

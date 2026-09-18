@@ -1,0 +1,57 @@
+name: "Pytest coverage comment"
+
+# Runs in the context of the base repo (not the fork), triggered after "Test
+# code" finishes, so the GITHUB_TOKEN keeps normal write permissions even for
+# PRs opened from forks. It never checks out or executes fork-provided code —
+# it only downloads the coverage artifacts that the (read-only, untrusted)
+# "Test code" run already produced and posts them as a PR comment.
+#
+# Do NOT fold this back into testing.yml via pull_request_target: that would
+# run fork-controlled test code (poetry install / pytest) with a
+# write-privileged token.
+on:
+  workflow_run:
+    workflows: ["Test code"]
+    types: [completed]
+
+permissions: {}
+
+jobs:
+  coverage_comment:
+    name: "Pytest coverage comment"
+    if: |
+      github.event.workflow_run.event == 'pull_request' &&
+      github.event.workflow_run.conclusion != 'cancelled' &&
+      github.event.workflow_run.conclusion != 'skipped'
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      pull-requests: write
+    steps:
+      - name: "⤵️ Download PR number"
+        uses: actions/download-artifact@v8
+        with:
+          name: pr_number
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "📎 Read PR number"
+        id: pr_number
+        run: echo "number=$(cat pr_number.txt)" >> "$GITHUB_OUTPUT"
+      - name: "⤵️ Download pytest junitxml artifact"
+        uses: actions/download-artifact@v8
+        with:
+          name: pytest
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "⤵️ Download pytest coverage artifact"
+        uses: actions/download-artifact@v8
+        with:
+          name: pytest-coverage
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: "💬 Add pytest coverage comment to PR"
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-coverage-path: pytest-coverage.txt
+          junitxml-path: pytest.xml
+          issue-number: ${{ steps.pr_number.outputs.number }}

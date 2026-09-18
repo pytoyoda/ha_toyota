@@ -60,7 +60,7 @@ def _shape_sort_key(shape: dict) -> float:
         ts = dt_util.parse_datetime(ts)
     try:
         return ts.timestamp()  # type: ignore[union-attr]
-    except (AttributeError, ValueError, OSError, OverflowError):
+    except AttributeError, ValueError, OSError, OverflowError:
         return 0.0
 
 

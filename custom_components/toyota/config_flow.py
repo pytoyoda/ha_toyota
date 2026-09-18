@@ -2,18 +2,18 @@
 
 # pylint: disable=W0212, W0511
 
+from __future__ import annotations
+
 import asyncio
 import logging
 import os
-from collections.abc import Generator, Mapping
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import selector
 from pytoyoda.client import MyT
 from pytoyoda.exceptions import ToyotaInvalidUsernameError, ToyotaLoginError
@@ -43,6 +43,11 @@ from .const import (
     DOMAIN,
     MAX_RECENT_TRIPS_LIMIT,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Generator, Mapping
+
+    from homeassistant.data_entry_flow import FlowResult
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -79,7 +84,7 @@ class ToyotaConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # pylint: dis
     @staticmethod
     def async_get_options_flow(
         config_entry: config_entries.ConfigEntry,  # noqa: ARG004
-    ) -> "ToyotaOptionsFlow":
+    ) -> ToyotaOptionsFlow:
         """Return the options flow handler.
 
         ``config_entry`` is part of HA's options-flow signature contract; we

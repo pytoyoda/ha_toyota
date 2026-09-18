@@ -75,7 +75,7 @@ class ToyotaBaseEntity(CoordinatorEntity):
             return False
         try:
             vd = self.coordinator.data[self.index]
-        except (IndexError, TypeError):
+        except IndexError, TypeError:
             return False
         return vd.get("is_cached") or vd.get("last_successful_fetch") is not None
 

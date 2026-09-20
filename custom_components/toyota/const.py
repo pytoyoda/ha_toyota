@@ -10,6 +10,8 @@ PLATFORMS = [
     Platform.SENSOR,
     Platform.CLIMATE,
     Platform.LOCK,
+    Platform.SELECT,
+    Platform.SWITCH,
 ]
 
 # CONFIG ENTRY SCHEMA

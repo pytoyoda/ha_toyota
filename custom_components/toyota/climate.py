@@ -66,6 +66,93 @@ async def async_setup_entry(
     async_add_entities(entities)
 
 
+def _climate_command_ok(response: object) -> bool:
+    """Whether a V2 climate-control response reported command success."""
+    payload = getattr(response, "payload", None)
+    return payload is not None and payload.return_code == CLIMATE_COMMAND_OK
+
+
+def _onoff(*, value: bool | None) -> str | None:
+    """Convert a read tri-state bool back to the wire "on"/"off" string.
+
+    ``pytoyoda``'s ``HeatingOptions`` wrapper (front/rear defrost + steering
+    heater) coerces the backend's raw "on"/"off" strings to ``bool | None``.
+    ``HeatingOptionsModel`` (the write body) expects the original strings, so
+    echoing a read value straight into a new write model silently drops it to
+    ``None`` (``CustomEndpointBaseModel`` sets invalid field values to `None`
+    instead of raising) - and ``model_dump(exclude_none=True)`` then omits it
+    from the outgoing request entirely. Always run a read value through this
+    before feeding it into a write model.
+    """
+    if value is None:
+        return None
+    return "on" if value else "off"
+
+
+async def async_apply_climate_settings(
+    vehicle: Vehicle,
+    *,
+    steering_heater: str | None = None,
+    seat_overrides: dict[str, str] | None = None,
+) -> None:
+    """Send a V2 climate-control ``start``, echoing current settings + overrides.
+
+    Toyota's remote API has no settings-only write: the only way to change a
+    seat-heater level or the steering-wheel heater is a ``start`` command that
+    carries the full desired body (this mirrors the MyToyota app, which also
+    starts climate control when these controls are touched). Front/rear
+    defrost and target temperature are echoed unchanged from the last
+    climate-settings read so this can't clobber values the climate entity or
+    user has already set. Used by the seat-heater select entities and the
+    steering-heater switch.
+
+    Raises:
+        HomeAssistantError: if Toyota rejects the command.
+
+    """
+    settings = getattr(vehicle, "climate_settings", None)
+    read_heating = getattr(settings, "heating_options", None)
+    read_seats = getattr(settings, "seat_options", None)
+    read_temp = getattr(settings, "temperature", None)
+
+    heating = HeatingOptionsModel(
+        front_defroster=_onoff(value=getattr(read_heating, "front_defroster", None)),
+        rear_defogger=_onoff(value=getattr(read_heating, "rear_defogger", None)),
+        steering_heater=(
+            steering_heater
+            if steering_heater is not None
+            else _onoff(value=getattr(read_heating, "steering_heater", None))
+        ),
+    )
+    seat_values = {
+        "driver_seat": getattr(read_seats, "driver_seat", None),
+        "passenger_seat": getattr(read_seats, "passenger_seat", None),
+        "rear_driver_seat": getattr(read_seats, "rear_driver_seat", None),
+        "rear_passenger_seat": getattr(read_seats, "rear_passenger_seat", None),
+    }
+    if seat_overrides:
+        seat_values.update(seat_overrides)
+    seats = SeatOptionsModel(**seat_values)
+
+    temp_value = read_temp.value if read_temp is not None else DEFAULT_MIN_TEMP + 3
+    temp_unit = (read_temp.unit if read_temp is not None else "C") or "C"
+
+    request = V2RemoteClimateControlRequestModel(
+        command="start",
+        temperature=UnitValueModel(unit=temp_unit, value=temp_value),
+        heating_options=heating,
+        seat_options=seats,
+        save_settings=True,
+    )
+    response = await vehicle.set_climate(request)
+    if not _climate_command_ok(response):
+        msg = (
+            "Toyota did not accept the climate-control update. Common causes: "
+            "the car is unlocked, a door/window/trunk is open, or a key is inside."
+        )
+        raise HomeAssistantError(msg)
+
+
 def _vehicle_has_climate_capability(vehicle: Vehicle) -> bool:
     """Check if vehicle supports climate control."""
     try:
@@ -221,10 +308,12 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Surface the new climate capabilities (read-only until the V2 PR).
+        """Surface the climate capabilities as read-only attributes here too.
 
         Seat heaters are multi-level (off/low/medium/high); steering heater and the
-        defroster/defogger are on/off. These are not yet writable entities.
+        defroster/defogger are on/off. Seat heaters and the steering heater are also
+        independently controllable via ``select.*_seat_heater`` and
+        ``switch.*_steering_wheel_heater`` entities (see select.py/switch.py).
         """
         settings = getattr(self.vehicle, "climate_settings", None)
         if settings is None:
@@ -314,10 +403,13 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             front_defroster=_wire(flag=self.front_defrost),
             rear_defogger=_wire(flag=self.rear_defrost),
             # Steering: echo the car's current value so a start doesn't change it.
-            # The read is ALREADY an "on"/"off" string, so pass it through raw — do
-            # NOT _wire() it (that turned "off" into "on", silently switching the
-            # wheel heater on with every start).
-            steering_heater=getattr(read_heating, "steering_heater", None),
+            # ``HeatingOptions.steering_heater`` reads back as bool | None (see
+            # _onoff's docstring), so it must go through _onoff() before being
+            # fed into the write model - passing the bool straight through
+            # silently drops it to None and omits it from the request.
+            steering_heater=_onoff(
+                value=getattr(read_heating, "steering_heater", None)
+            ),
         )
         seats = None
         if read_seats is not None:
@@ -345,8 +437,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     @staticmethod
     def _command_ok(response: object) -> bool:
         """Whether a V2 climate-control response reported command success."""
-        payload = getattr(response, "payload", None)
-        return payload is not None and payload.return_code == CLIMATE_COMMAND_OK
+        return _climate_command_ok(response)
 
     async def _poll_status(self) -> None:
         """Wake + refetch climate_status and reflect it on the entity."""

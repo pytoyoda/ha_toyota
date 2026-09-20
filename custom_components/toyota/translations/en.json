@@ -269,6 +269,25 @@
       "door_lock": {
         "name": "Door lock"
       }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Driver seat heater"
+      },
+      "seat_heater_passenger": {
+        "name": "Passenger seat heater"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Rear driver seat heater"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Rear passenger seat heater"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Steering wheel heater"
+      }
     }
   }
 }

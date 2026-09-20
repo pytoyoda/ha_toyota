@@ -456,18 +456,28 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
         },
         {
             "description": FUEL_LEVEL_ENTITY_DESCRIPTION,
+            # Toyota's registry has been observed reporting
+            # fuel_level_available=False for brand-new model-year vehicles
+            # (see ha_toyota#322 - RAV4 2026) even though the vehicle
+            # obviously has a fuel tank and the MyToyota app shows the
+            # value correctly. Mirrors the electric/climate capability
+            # widening pattern (ha_toyota#300, ha_toyota#302): any
+            # definitively non-electric vehicle type is a strong enough
+            # signal on its own, the flag no longer needs to gate it.
             "capability_check": lambda v: (
                 get_vehicle_capability(v, "fuel_level_available")
-                and v.type != "electric"
+                or v.type != "electric"
             ),
             "native_unit": PERCENTAGE,
             "suggested_unit": None,
         },
         {
             "description": FUEL_RANGE_ENTITY_DESCRIPTION,
+            # See FUEL_LEVEL_ENTITY_DESCRIPTION above - fuel_range_available
+            # has the same false-negative-on-new-vehicles failure mode.
             "capability_check": lambda v: (
                 get_vehicle_capability(v, "fuel_range_available")
-                and v.type != "electric"
+                or v.type != "electric"
             ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),

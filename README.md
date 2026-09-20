@@ -283,6 +283,7 @@ All values will show `None` if no data is available for the period.
 | `Average_speed`         | The average speed in the respective period (can be km/h or mph).                |
 | `Countries`             | The countries travelled through in the respective period.                       |
 | `Duration`              | The total driving time in the respective period.                                |
+| `Hybrid_score`          | Toyota's eco-driving/hybrid score (0-100) for the respective period.            |
 | `Total_fuel_consumed`   | The total fuel consumption in the respective period (can be litres or gallons). |
 | `Average_fuel_consumed` | The average fuel consumption in the respective period (can be l/100km or mpg).  |
 | `EV_distance`           | The driving distiance in EV mode in the respective period .                     |

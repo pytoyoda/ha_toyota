@@ -102,6 +102,9 @@ def format_statistics_attributes(
         else None,
         "Countries": statistics.countries or [],
         "Duration": str(statistics.duration) if statistics.duration else None,
+        "Hybrid_score": round(statistics.hybrid_score, 1)
+        if statistics.hybrid_score is not None
+        else None,
     }
 
     if vehicle_info.fuel_type is not None:

@@ -1144,6 +1144,17 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     coordinator._diag_status_refresh_state_per_vin = diag_bucket[  # noqa: SLF001
         "last_status_refresh_state_per_vin"
     ]
+    # Bound to the same dict the refresh loop writes was_moving_last_cycle
+    # into (via _persist_vin_state), so binary_sensor.py's driving entity
+    # sees the freshest value without needing coordinator.data to change.
+    coordinator._diag_was_moving_last_cycle_per_vin = diag_bucket[  # noqa: SLF001
+        "was_moving_last_cycle_per_vin"
+    ]
+    # Used by the driving binary sensor to tell "never seen odometer data"
+    # (report unknown) apart from "odometer seen but unchanged" (report off).
+    coordinator._diag_last_odometer_km_per_vin = diag_bucket[  # noqa: SLF001
+        "last_odometer_km_per_vin"
+    ]
 
     await coordinator.async_config_entry_first_refresh()
 

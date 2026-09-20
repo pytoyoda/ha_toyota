@@ -369,6 +369,72 @@ VEHICLE_HEALTH_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
 )
 
 
+DRIVING_STATUS_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
+    key="driving",
+    translation_key="driving",
+    icon="mdi:car-brake-parking",
+    entity_category=EntityCategory.DIAGNOSTIC,
+    device_class=BinarySensorDeviceClass.MOVING,
+    # value_fn/attributes_fn are unused for this entity (it reads coordinator
+    # diag dicts, not `vehicle`, via ToyotaDrivingStatusBinarySensor below) but
+    # ToyotaBinaryEntityDescription requires them.
+    value_fn=lambda _vehicle: None,
+    attributes_fn=lambda _vehicle: None,
+)
+
+
+class ToyotaDrivingStatusBinarySensor(ToyotaBaseEntity, BinarySensorEntity):
+    """Best-effort "is the car currently driving" binary sensor.
+
+    IMPORTANT LIMITATION: Toyota's API does not expose a live ignition/GPS
+    "driving" signal. This entity infers movement by comparing the vehicle's
+    odometer reading against the value recorded on the previous successful
+    poll cycle: if the odometer advanced, the car is considered to have been
+    "driving" since the last check. This means the state can lag by up to
+    your configured polling interval (``polling_interval_minutes``, default
+    6 minutes, up to 1440 minutes / disabled) - it is NOT a real-time signal
+    and should not be used where instant detection is required. When no
+    odometer reading has ever been recorded for this vehicle (e.g. right
+    after setup, or on a cycle where the odometer endpoint didn't report),
+    the sensor reports ``unknown`` rather than falsely "off".
+    """
+
+    @property
+    def available(self) -> bool:
+        """Diagnostic sensor: always considered available, like other diag sensors."""
+        return True
+
+    @property
+    def is_on(self) -> bool | None:
+        """Return whether the odometer advanced between the last two poll cycles."""
+        vin = getattr(self.vehicle, "vin", None)
+        if not vin:
+            return None
+        last_odometer_per_vin = getattr(
+            self.coordinator, "_diag_last_odometer_km_per_vin", None
+        )
+        if last_odometer_per_vin is None or last_odometer_per_vin.get(vin) is None:
+            # Odometer has never been recorded for this vehicle yet.
+            return None
+        was_moving_per_vin = getattr(
+            self.coordinator, "_diag_was_moving_last_cycle_per_vin", None
+        )
+        if was_moving_per_vin is None:
+            return None
+        return was_moving_per_vin.get(vin, False)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the attributes of the sensor."""
+        return {
+            "note": (
+                "Reflects whether the odometer advanced between the last two "
+                "poll cycles; bound by your configured polling interval, not "
+                "a live GPS/ignition signal."
+            ),
+        }
+
+
 async def async_setup_entry(
     hass: HomeAssistant,
     entry: ConfigEntry,
@@ -527,6 +593,17 @@ async def async_setup_entry(
             )
             for capability, description in capabilities_descriptions
             if capability
+        )
+        # Deliberately not gated on a capability flag: the odometer is a
+        # baseline signal every supported vehicle reports, unlike the
+        # extended_capabilities-gated door/window sensors above.
+        binary_sensors.append(
+            ToyotaDrivingStatusBinarySensor(
+                coordinator=coordinator,
+                entry_id=entry.entry_id,
+                vehicle_index=index,
+                description=DRIVING_STATUS_ENTITY_DESCRIPTION,
+            )
         )
     async_add_devices(binary_sensors, True)  # noqa : FBT003
 

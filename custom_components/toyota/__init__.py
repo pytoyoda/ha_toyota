@@ -116,6 +116,8 @@ from pytoyoda.exceptions import (  # noqa: E402
     ToyotaLoginError,
 )
 
+from .vehicle_list_cache import VehicleListStore  # noqa: E402
+
 if TYPE_CHECKING:
     from collections.abc import Awaitable
 
@@ -329,6 +331,8 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     last_error_per_vin: dict[str, tuple[datetime, str]] = diag_bucket[
         "last_error_per_vin"
     ]
+    vehicle_list_store = VehicleListStore(hass, entry.entry_id)
+    await vehicle_list_store.load()
 
     exception_code_map: list[tuple[tuple[type[BaseException], ...], str]] = [
         ((httpx.ConnectTimeout, httpcore.ConnectTimeout), "connect timeout"),
@@ -368,6 +372,30 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             last_error_code=err[1] if err else None,
             is_cached=True,
         )
+
+    def _rebuild_persisted_vehicles(code: str) -> list[Vehicle] | None:
+        """Rebuild a cold-start fallback fleet from the persisted GUID cache."""
+        if last_good_per_vin:
+            return None
+        if not vehicle_list_store.get():
+            return None
+        try:
+            vehicles = vehicle_list_store.rebuild_vehicles(
+                client._api,  # noqa: SLF001
+                metric=metric_values,
+            )
+        except TypeError, ValidationError:
+            _LOGGER.exception("Toyota persisted vehicle list validation error")
+            return None
+        _LOGGER.warning(
+            "Toyota get_vehicles failed on cold start (%s); using persisted "
+            "vehicle list from last successful run",
+            code,
+        )
+        # This account-level snapshot can lag add/remove events while `/guid`
+        # is flaky; the next successful live get_vehicles() call overwrites it
+        # and self-heals the cache.
+        return vehicles
 
     async def _call_tagged(
         endpoint_name: str, vin: str | None, coro: Awaitable[_T]
@@ -913,7 +941,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             is_cached=False,
         )
 
-    async def async_get_vehicle_data() -> list[VehicleData] | None:  # noqa: C901, PLR0912
+    async def async_get_vehicle_data() -> list[VehicleData] | None:  # noqa: C901, PLR0912, PLR0915
         """Fetch vehicle data from Toyota API, per-car error handling.
 
         Branch count is intentional: each except-arm maps to a distinct
@@ -926,6 +954,8 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         # fleet data if any exists.
         try:
             vehicles = await asyncio.wait_for(client.get_vehicles(), 15)
+            vehicle_list_store.replace_from_vehicles(vehicles or [])
+            await vehicle_list_store.save()
         except ToyotaLoginError:
             # Credentials invalid - not transient, surface as auth error.
             _LOGGER.exception("Toyota login error")
@@ -949,8 +979,11 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                 return [
                     _build_vehicle_data_from_cache(vin) for vin in last_good_per_vin
                 ]
-            msg = f"Toyota get_vehicles failed: {ex}"
-            raise UpdateFailed(msg) from ex
+            if persisted_vehicles := _rebuild_persisted_vehicles(code):
+                vehicles = persisted_vehicles
+            else:
+                msg = f"Toyota get_vehicles failed: {ex}"
+                raise UpdateFailed(msg) from ex
         except ValidationError:
             _LOGGER.exception("Toyota validation error on get_vehicles")
             code = "validation error"
@@ -961,7 +994,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
                 return [
                     _build_vehicle_data_from_cache(vin) for vin in last_good_per_vin
                 ]
-            return None
+            if persisted_vehicles := _rebuild_persisted_vehicles(code):
+                vehicles = persisted_vehicles
+            else:
+                return None
 
         # Step 2: fetch each vehicle's data independently, so a failure on
         # one does not drop the others. Per-vehicle error recovery honors

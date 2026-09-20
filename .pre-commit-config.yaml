@@ -18,6 +18,7 @@ repos:
     hooks:
       - id: check-json
         name: "✅ Check JSON files"
+        exclude: ^\.devcontainer/devcontainer\.json$
       - id: check-toml
         name: "✅ Check TOML files"
       - id: check-yaml

@@ -8,7 +8,7 @@ from unittest.mock import AsyncMock
 
 import pytest
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from pytoyoda.exceptions import ToyotaApiError
+from pytoyoda.exceptions import ToyotaApiError, ToyotaLoginError
 from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
 from pytoyoda.models.vehicle import Vehicle
 
@@ -223,3 +223,119 @@ async def test_cold_start_without_persisted_vehicle_list_still_fails_setup(
     monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
 
     assert await hass.config_entries.async_setup(entry.entry_id) is False
+
+
+@pytest.mark.asyncio
+async def test_periodic_refresh_login_error_triggers_reauth(hass, monkeypatch):
+    """A ToyotaLoginError during a *periodic* refresh must start reauth.
+
+    Regression test for https://github.com/pytoyoda/ha_toyota/issues/269:
+    entities going unavailable after an hour with no way to recover short of
+    manually removing and re-adding the integration. The bug was that a
+    login/token failure surfacing from get_vehicles() during a coordinator
+    refresh (as opposed to the initial async_setup_entry login) was swallowed
+    into a plain "no data" result instead of raising ConfigEntryAuthFailed,
+    so Home Assistant never prompted the user to reauthenticate.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "email": "test@example.com",
+            "password": "password",
+            CONF_METRIC_VALUES: True,
+        },
+        entry_id="entry1",
+        title="Toyota test",
+    )
+    entry.add_to_hass(hass)
+
+    fake_client_cls = _fake_client_factory([_vehicle_from_payload(_vehicle_guid_payload())])
+    monkeypatch.setattr("custom_components.toyota.MyT", fake_client_cls)
+    monkeypatch.setattr(
+        "custom_components.toyota._async_register_services", AsyncMock()
+    )
+    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
+    monkeypatch.setattr(Vehicle, "update", _noop_update)
+    monkeypatch.setattr(Vehicle, "get_current_day_summary", _noop_summary)
+    monkeypatch.setattr(Vehicle, "get_current_week_summary", _noop_summary)
+    monkeypatch.setattr(Vehicle, "get_current_month_summary", _noop_summary)
+    monkeypatch.setattr(Vehicle, "get_current_year_summary", _noop_summary)
+
+    assert await hass.config_entries.async_setup(entry.entry_id) is True
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    assert coordinator.last_update_success is True
+
+    # Simulate the token/refresh-token failing on a later periodic poll.
+    async def _get_vehicles_login_error(*_args, **_kwargs):
+        raise ToyotaLoginError("Token refresh failed. 401, invalid_grant.")
+
+    monkeypatch.setattr(fake_client_cls, "get_vehicles", _get_vehicles_login_error)
+
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert coordinator.last_update_success is False
+    reauth_flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert any(flow["context"].get("source") == "reauth" for flow in reauth_flows)
+
+
+@pytest.mark.asyncio
+async def test_per_vehicle_login_error_triggers_reauth(hass, monkeypatch):
+    """A ToyotaLoginError raised mid-fleet-sweep (Step 2) must start reauth.
+
+    Regression test for https://github.com/pytoyoda/ha_toyota/issues/269. The
+    token can also die between get_vehicles() succeeding and a per-vehicle
+    vehicle.update() call, e.g. if the access token expires and the refresh
+    token turns out to be invalid too. That case bypassed the
+    _fetch_vehicle_list() ToyotaLoginError handling entirely: ToyotaLoginError
+    was not in _fetch_one_vehicle_data's except clause, so it wasn't caught
+    there either, and the failure needs to still raise ConfigEntryAuthFailed
+    rather than propagate as an opaque unhandled exception.
+    """
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "email": "test@example.com",
+            "password": "password",
+            CONF_METRIC_VALUES: True,
+        },
+        entry_id="entry1",
+        title="Toyota test",
+    )
+    entry.add_to_hass(hass)
+
+    fake_client_cls = _fake_client_factory(
+        [_vehicle_from_payload(_vehicle_guid_payload())]
+    )
+    monkeypatch.setattr("custom_components.toyota.MyT", fake_client_cls)
+    monkeypatch.setattr(
+        "custom_components.toyota._async_register_services", AsyncMock()
+    )
+    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
+    monkeypatch.setattr(Vehicle, "update", _noop_update)
+    monkeypatch.setattr(Vehicle, "get_current_day_summary", _noop_summary)
+    monkeypatch.setattr(Vehicle, "get_current_week_summary", _noop_summary)
+    monkeypatch.setattr(Vehicle, "get_current_month_summary", _noop_summary)
+    monkeypatch.setattr(Vehicle, "get_current_year_summary", _noop_summary)
+
+    assert await hass.config_entries.async_setup(entry.entry_id) is True
+    await hass.async_block_till_done()
+
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+    assert coordinator.last_update_success is True
+
+    # Simulate the token dying between get_vehicles() and the per-vehicle
+    # data fetch (vehicle.update()).
+    async def _update_login_error(self, **_kwargs) -> None:
+        raise ToyotaLoginError("Token refresh failed. 401, invalid_grant.")
+
+    monkeypatch.setattr(Vehicle, "update", _update_login_error)
+
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    assert coordinator.last_update_success is False
+    reauth_flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    assert any(flow["context"].get("source") == "reauth" for flow in reauth_flows)

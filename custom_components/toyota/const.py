@@ -77,6 +77,11 @@ CONF_MAX_CACHE_AGE_MINUTES = "max_cache_age_minutes"
 DEFAULT_MAX_CACHE_AGE_MINUTES = 30
 CONF_POLLING_INTERVAL_MINUTES = "polling_interval_minutes"
 DEFAULT_POLLING_INTERVAL_MINUTES = 6
+# 0 disables automatic polling entirely (coordinator update_interval=None);
+# data still populates once on startup and via the manual refresh services/
+# buttons. 1440 (24h) is a generous ceiling for infrequently-driven vehicles.
+MIN_POLLING_INTERVAL_MINUTES = 0
+MAX_POLLING_INTERVAL_MINUTES = 1440
 # How many wake POSTs to fire when a stop event is detected. Cycle-count based
 # (one POST per cycle), independent of polling interval. 1 = single POST on
 # the just-stopped cycle. 2 (default) = an additional POST on the next cycle,

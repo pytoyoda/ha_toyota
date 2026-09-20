@@ -107,6 +107,17 @@
         "name": "Current year statistics"
       }
     },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Oppdater bilens status"
+      },
+      "refresh_recent_trips": {
+        "name": "Oppdater Siste kjørte ruter"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Oppdater bilens batteri prosent"
+      }
+    },
     "binary_sensor": {
       "over_all_status": {
         "name": "Over all status"

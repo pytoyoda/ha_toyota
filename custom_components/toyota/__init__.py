@@ -962,18 +962,25 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
         On success returns the live (or persisted-fallback) vehicle list to
         hand off to Step 2. On a recovery path that already has the final
-        answer (auth failure, or served cached/persisted fleet data as-is),
-        raises _FleetFetchShortCircuit so the caller returns immediately
-        without running Step 2.
+        answer (served cached/persisted fleet data as-is), raises
+        _FleetFetchShortCircuit so the caller returns immediately without
+        running Step 2. An auth failure raises ConfigEntryAuthFailed
+        directly (not _FleetFetchShortCircuit) so that a token/credential
+        failure discovered during a *periodic* refresh - not just initial
+        setup - triggers Home Assistant's reauth flow instead of silently
+        leaving every entity unavailable with no actionable prompt. See
+        https://github.com/pytoyoda/ha_toyota/issues/269.
         """
         try:
             vehicles = await asyncio.wait_for(client.get_vehicles(), 15)
             vehicle_list_store.replace_from_vehicles(vehicles or [])
             await vehicle_list_store.save()
-        except ToyotaLoginError:
-            # Credentials invalid - not transient, surface as auth error.
+        except ToyotaLoginError as ex:
+            # Credentials/token invalid - not transient, surface as auth
+            # error so HA prompts the user to reauthenticate, whether this
+            # happens during initial setup or a later periodic refresh.
             _LOGGER.exception("Toyota login error")
-            raise _FleetFetchShortCircuit(None) from None
+            raise ConfigEntryAuthFailed(ex) from ex
         except (
             ToyotaApiError,
             httpx.ConnectTimeout,
@@ -1025,6 +1032,17 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         try:
             vehicle_data = await _refresh_one_vehicle(vehicle)
             last_good_per_vin[vin] = vehicle_data
+        except ToyotaLoginError as ex:
+            # Token/credentials died mid-fleet-sweep (not just at the
+            # initial get_vehicles() call). Same as the Step 1 case: this is
+            # not transient, so surface it as an auth failure that triggers
+            # HA's reauth flow instead of leaving this (and every later)
+            # vehicle silently stuck unavailable. See
+            # https://github.com/pytoyoda/ha_toyota/issues/269.
+            _LOGGER.exception(
+                "Toyota login error for vin=...%s", vin[-6:] if vin else "?"
+            )
+            raise ConfigEntryAuthFailed(ex) from ex
         except (
             ToyotaApiError,
             ToyotaInternalError,

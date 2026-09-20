@@ -487,22 +487,23 @@ async def async_setup_entry(
                 ),
                 REAR_PASSENGER_DOOR_WINDOW_STATUS_ENTITY_DESCRIPTION,
             ),
-            # TODO(CM000n): Find correct matching capabilities in _vehicle_info # noqa : TD003, FIX002, E501
+            # Deliberately not gated on a capability flag: Toyota publishes
+            # no trunk *status* flag. The nearest candidates
+            # (extended_capabilities.trunk_lock_unlock_capable /
+            # .power_tailgate_capable, remote_service_capabilities.
+            # trunk_capable) all describe remote *commands*, not status
+            # reporting. Gating these on bonnet_status, the hood's flag, was
+            # wrong in both directions: it created trunk entities on cars
+            # that never report a trunk, and hid them on cars that do. A
+            # trunk that never reports now reads as unknown, the same
+            # posture as vehicle health below. Resolves the capability-
+            # matching question left open here, and ha_toyota#87.
             (
-                getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),  # noqa : SLF001
-                    "bonnet_status",
-                    False,
-                ),
+                True,
                 TRUNK_DOOR_LOCK_ENTITY_DESCRIPTION,
             ),
-            # TODO(CM000n): Find correct matching capabilities in _vehicle_info # noqa : TD003, FIX002, E501
             (
-                getattr(
-                    getattr(vehicle._vehicle_info, "extended_capabilities", False),  # noqa : SLF001
-                    "bonnet_status",
-                    False,
-                ),
+                True,
                 TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION,
             ),
             # Deliberately not gated on extended_capabilities

@@ -41,7 +41,9 @@ from .const import (
     DEFAULT_POST_COUNT_PER_STOP,
     DEFAULT_RETAIN_ON_TRANSIENT_FAILURE,
     DOMAIN,
+    MAX_POLLING_INTERVAL_MINUTES,
     MAX_RECENT_TRIPS_LIMIT,
+    MIN_POLLING_INTERVAL_MINUTES,
 )
 
 if TYPE_CHECKING:
@@ -236,7 +238,10 @@ class ToyotaOptionsFlow(config_entries.OptionsFlow):
                         ),
                     ): selector.NumberSelector(
                         selector.NumberSelectorConfig(
-                            min=5, max=60, step=1, mode=selector.NumberSelectorMode.BOX
+                            min=MIN_POLLING_INTERVAL_MINUTES,
+                            max=MAX_POLLING_INTERVAL_MINUTES,
+                            step=1,
+                            mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
                     vol.Required(

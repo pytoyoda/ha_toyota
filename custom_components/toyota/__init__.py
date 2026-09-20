@@ -1120,7 +1120,14 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         _LOGGER,
         name=DOMAIN,
         update_method=async_get_vehicle_data,
-        update_interval=timedelta(minutes=polling_interval_minutes),
+        # 0 = automatic polling disabled: the coordinator still does its
+        # initial fetch on setup, but relies on the manual refresh
+        # services/buttons for subsequent updates.
+        update_interval=(
+            timedelta(minutes=polling_interval_minutes)
+            if polling_interval_minutes > 0
+            else None
+        ),
     )
 
     # Attach the per-VIN diagnostic dicts to the coordinator so sensors can read

@@ -4696,14 +4696,14 @@ unidecode = ["Unidecode (>=1.1.1)"]
 
 [[package]]
 name = "pytoyoda"
-version = "5.2.1"
+version = "5.2.2"
 description = "Python client for Toyota Connected Services Europe."
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
 files = [
-    {file = "pytoyoda-5.2.1-py3-none-any.whl", hash = "sha256:a26c3abd87bc2214ba818804e00a33d03e2cf007fecd0b6a0600c167c76ca0d4"},
-    {file = "pytoyoda-5.2.1.tar.gz", hash = "sha256:f1a04fc6f7f96bde07c89c2ed84e5d71ce3f66ea8e5c76bf181b75cfc3318f6e"},
+    {file = "pytoyoda-5.2.2-py3-none-any.whl", hash = "sha256:dc17ea10da71fed699d39681942715fa6ff31e49a84a05d4d33e2abce8d490ed"},
+    {file = "pytoyoda-5.2.2.tar.gz", hash = "sha256:b45f34d733520012229e0f372dfe41c228d3666f5afb7240c1f2d0f2f2a4723b"},
 ]
 
 [package.dependencies]
@@ -6085,4 +6085,4 @@ type = ["pytest-mypy (>=1.0.1) ; platform_python_implementation != \"PyPy\""]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.14.2,<3.15"
-content-hash = "201b94c05bb86a20350a9f8b483d5d9ec86e268c749e2e249a42388eda40fb47"
+content-hash = "4ae6096638cc7c4925f7b434712aee392f6440749cfdba7cc226ac0f8848dd3d"

@@ -157,6 +157,22 @@ class VehicleData(TypedDict):
     is_cached: bool
 
 
+class _FleetFetchShortCircuit(Exception):  # noqa: N818
+    """Carries the final async_get_vehicle_data() result out of Step 1.
+
+    Step 1 (fetching the account-level vehicle list) has several recovery
+    paths that must return immediately without running Step 2 (per-vehicle
+    refresh): auth failure (None), serving cached fleet data, or serving a
+    persisted fleet snapshot verbatim. Raising this from the Step 1 helper
+    keeps that branching out of async_get_vehicle_data's own body.
+    """
+
+    def __init__(self, result: list[VehicleData] | None) -> None:
+        """Store the value async_get_vehicle_data should return."""
+        super().__init__()
+        self.result = result
+
+
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate a config entry to the current version.
 
@@ -941,17 +957,15 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             is_cached=False,
         )
 
-    async def async_get_vehicle_data() -> list[VehicleData] | None:  # noqa: C901, PLR0912, PLR0915
-        """Fetch vehicle data from Toyota API, per-car error handling.
+    async def _fetch_vehicle_list() -> list[Vehicle]:
+        """Step 1: fetch the account-level vehicle list, with recovery.
 
-        Branch count is intentional: each except-arm maps to a distinct
-        recovery policy (retain-cache vs propagate UpdateFailed) for either
-        the fleet-level get_vehicles call or the per-vehicle refresh. Folding
-        them into a helper would obscure the recovery semantics.
+        On success returns the live (or persisted-fallback) vehicle list to
+        hand off to Step 2. On a recovery path that already has the final
+        answer (auth failure, or served cached/persisted fleet data as-is),
+        raises _FleetFetchShortCircuit so the caller returns immediately
+        without running Step 2.
         """
-        # Step 1: get the vehicle list. This is account-level; if it fails
-        # we have no per-vehicle recovery path, but we CAN serve stale
-        # fleet data if any exists.
         try:
             vehicles = await asyncio.wait_for(client.get_vehicles(), 15)
             vehicle_list_store.replace_from_vehicles(vehicles or [])
@@ -959,7 +973,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         except ToyotaLoginError:
             # Credentials invalid - not transient, surface as auth error.
             _LOGGER.exception("Toyota login error")
-            return None
+            raise _FleetFetchShortCircuit(None) from None
         except (
             ToyotaApiError,
             httpx.ConnectTimeout,
@@ -968,89 +982,114 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             asyncioexceptions.TimeoutError,
             httpx.ReadTimeout,
         ) as ex:
-            code = _error_code(ex)
-            now = dt_util.now()
-            for vin in last_good_per_vin:
-                last_error_per_vin[vin] = (now, code)
-            if retain_on_transient and last_good_per_vin:
-                _LOGGER.warning(
-                    "Toyota get_vehicles failed (%s); using cached fleet data", code
-                )
-                return [
-                    _build_vehicle_data_from_cache(vin) for vin in last_good_per_vin
-                ]
-            if persisted_vehicles := _rebuild_persisted_vehicles(code):
-                vehicles = persisted_vehicles
-            else:
-                msg = f"Toyota get_vehicles failed: {ex}"
-                raise UpdateFailed(msg) from ex
+            vehicles = _recover_fleet_fetch_failure(code=_error_code(ex), ex=ex)
         except ValidationError:
             _LOGGER.exception("Toyota validation error on get_vehicles")
-            code = "validation error"
-            now = dt_util.now()
-            for vin in last_good_per_vin:
-                last_error_per_vin[vin] = (now, code)
-            if retain_on_transient and last_good_per_vin:
-                return [
-                    _build_vehicle_data_from_cache(vin) for vin in last_good_per_vin
-                ]
-            if persisted_vehicles := _rebuild_persisted_vehicles(code):
-                vehicles = persisted_vehicles
-            else:
-                return None
+            vehicles = _recover_fleet_fetch_failure(code="validation error", ex=None)
+        return vehicles or []
 
-        # Step 2: fetch each vehicle's data independently, so a failure on
-        # one does not drop the others. Per-vehicle error recovery honors
-        # the retain-on-transient toggle.
-        vehicle_informations: list[VehicleData] = []
-        for vehicle in vehicles or []:
-            if not vehicle or vehicle.vin is None:
+    def _recover_fleet_fetch_failure(
+        *, code: str, ex: BaseException | None
+    ) -> list[Vehicle]:
+        """Choose a recovery path for a failed Step 1 get_vehicles() call.
+
+        Raises _FleetFetchShortCircuit when recovery already produced (or is)
+        the final result. Otherwise returns a persisted-fallback vehicle list
+        for Step 2 to refresh normally.
+        """
+        now = dt_util.now()
+        for vin in last_good_per_vin:
+            last_error_per_vin[vin] = (now, code)
+        if retain_on_transient and last_good_per_vin:
+            _LOGGER.warning(
+                "Toyota get_vehicles failed (%s); using cached fleet data", code
+            )
+            raise _FleetFetchShortCircuit(
+                [_build_vehicle_data_from_cache(vin) for vin in last_good_per_vin]
+            )
+        if persisted_vehicles := _rebuild_persisted_vehicles(code):
+            return persisted_vehicles
+        if ex is None:
+            raise _FleetFetchShortCircuit(None)
+        msg = f"Toyota get_vehicles failed: {ex}"
+        raise UpdateFailed(msg) from ex
+
+    async def _fetch_one_vehicle_data(vehicle: Vehicle) -> VehicleData:
+        """Step 2 per-vehicle: refresh one vehicle, isolating its failures.
+
+        A failure here becomes cached or stub VehicleData instead of
+        aborting the whole refresh, so one bad car doesn't take down its
+        siblings. Recovery honors the retain-on-transient toggle.
+        """
+        vin = vehicle.vin
+        try:
+            vehicle_data = await _refresh_one_vehicle(vehicle)
+            last_good_per_vin[vin] = vehicle_data
+        except (
+            ToyotaApiError,
+            ToyotaInternalError,
+            httpx.ConnectTimeout,
+            httpcore.ConnectTimeout,
+            asyncioexceptions.CancelledError,
+            asyncioexceptions.TimeoutError,
+            httpx.ReadTimeout,
+            ValidationError,
+            TypeError,
+        ) as ex:
+            code = _error_code(ex)
+            last_error_per_vin[vin] = (dt_util.now(), code)
+            _LOGGER.warning("Toyota refresh failed for vin=...%s (%s)", vin[-6:], code)
+            if retain_on_transient and vin in last_good_per_vin:
+                # retain=ON + cache available: serve stale cached data.
+                return _build_vehicle_data_from_cache(vin)
+            # retain=OFF OR retain=ON with no cache yet: emit a stub
+            # VehicleData. The Vehicle object came from get_vehicles() so it
+            # has identity (vin, alias, device info) but no endpoint data
+            # because vehicle.update() failed. Data sensors read through a
+            # ToyotaBaseEntity.available override that checks
+            # last_successful_fetch, so stubs render as unavailable without
+            # raising UpdateFailed for the whole refresh. Siblings that
+            # succeeded this cycle keep their fresh data - per-vehicle fault
+            # isolation.
+            return VehicleData(
+                data=vehicle,
+                statistics=None,
+                metric_values=metric_values,
+                last_successful_fetch=None,
+                last_error_time=dt_util.now(),
+                last_error_code=code,
+                is_cached=False,
+            )
+        return vehicle_data
+
+    def _commit_fetch_timestamps(vehicle_informations: list[VehicleData]) -> None:
+        """Record per-VIN fetch timestamps once a refresh cycle has survived.
+
+        This is the only place last_fetch_time_per_vin is written, so it
+        stays consistent with coordinator.data: both are updated iff the
+        whole refresh succeeds. Cached entries (from the retain=ON path)
+        carry None last_successful_fetch and are skipped.
+        """
+        for vd in vehicle_informations:
+            if vd.get("is_cached"):
                 continue
-            vin = vehicle.vin
-            try:
-                vehicle_data = await _refresh_one_vehicle(vehicle)
-                last_good_per_vin[vin] = vehicle_data
-                vehicle_informations.append(vehicle_data)
-            except (
-                ToyotaApiError,
-                ToyotaInternalError,
-                httpx.ConnectTimeout,
-                httpcore.ConnectTimeout,
-                asyncioexceptions.CancelledError,
-                asyncioexceptions.TimeoutError,
-                httpx.ReadTimeout,
-                ValidationError,
-                TypeError,
-            ) as ex:
-                code = _error_code(ex)
-                last_error_per_vin[vin] = (dt_util.now(), code)
-                _LOGGER.warning(
-                    "Toyota refresh failed for vin=...%s (%s)", vin[-6:], code
-                )
-                if retain_on_transient and vin in last_good_per_vin:
-                    # retain=ON + cache available: serve stale cached data.
-                    vehicle_informations.append(_build_vehicle_data_from_cache(vin))
-                else:
-                    # retain=OFF OR retain=ON with no cache yet: emit a stub
-                    # VehicleData. The Vehicle object came from get_vehicles()
-                    # so it has identity (vin, alias, device info) but no
-                    # endpoint data because vehicle.update() failed. Data
-                    # sensors read through a ToyotaBaseEntity.available
-                    # override that checks last_successful_fetch, so stubs
-                    # render as unavailable without raising UpdateFailed for
-                    # the whole refresh. Siblings that succeeded this cycle
-                    # keep their fresh data - per-vehicle fault isolation.
-                    vehicle_informations.append(
-                        VehicleData(
-                            data=vehicle,
-                            statistics=None,
-                            metric_values=metric_values,
-                            last_successful_fetch=None,
-                            last_error_time=dt_util.now(),
-                            last_error_code=code,
-                            is_cached=False,
-                        )
-                    )
+            vin = vd["data"].vin if vd.get("data") else None
+            fetched = vd.get("last_successful_fetch")
+            if vin and fetched is not None:
+                last_fetch_time_per_vin[vin] = fetched
+
+    async def async_get_vehicle_data() -> list[VehicleData] | None:
+        """Fetch vehicle data from Toyota API, per-car error handling."""
+        try:
+            vehicles = await _fetch_vehicle_list()
+        except _FleetFetchShortCircuit as short_circuit:
+            return short_circuit.result
+
+        vehicle_informations = [
+            await _fetch_one_vehicle_data(vehicle)
+            for vehicle in vehicles
+            if vehicle and vehicle.vin is not None
+        ]
 
         # If nothing useful to serve (no fresh fetch anywhere, no cache either),
         # match upstream behaviour: raise UpdateFailed so the coordinator flips
@@ -1064,19 +1103,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             msg = "Toyota refresh failed for all vehicles"
             raise UpdateFailed(msg)
 
-        # Commit per-VIN fetch timestamps now that the refresh has survived
-        # all exception paths. This is the only place last_fetch_time_per_vin
-        # is written to keep it consistent with coordinator.data: both are
-        # updated iff the whole refresh succeeds. Cached entries (from the
-        # retain=ON path) carry None last_successful_fetch and are skipped.
-        for vd in vehicle_informations:
-            if vd.get("is_cached"):
-                continue
-            vin = vd["data"].vin if vd.get("data") else None
-            fetched = vd.get("last_successful_fetch")
-            if vin and fetched is not None:
-                last_fetch_time_per_vin[vin] = fetched
-
+        _commit_fetch_timestamps(vehicle_informations)
         _LOGGER.debug(vehicle_informations)
         return vehicle_informations
 

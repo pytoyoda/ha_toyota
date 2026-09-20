@@ -250,6 +250,9 @@
       },
       "vehicle_health": {
         "name": "Vehicle health"
+      },
+      "driving": {
+        "name": "Driving"
       }
     },
     "climate": {

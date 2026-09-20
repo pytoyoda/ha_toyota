@@ -83,12 +83,13 @@ See [here](https://github.com/widewing/ha-toyota-na) for North America.
 
 ### Binary sensor(s)
 
-| <div style="width:250px">Name</div>      | Description                                           |
-| ---------------------------------------- | ----------------------------------------------------- |
-| `binary_sensor.<you_car_alias>_hood`     | If the hood is open of not.                           |
-| `binary_sensor.<you_car_alias>_*_door`   | Door sensors, one is created for each door and trunk. |
-| `binary_sensor.<you_car_alias>_*_lock`   | Lock sensors, one is created for each door and trunk. |
-| `binary_sensor.<you_car_alias>_*_window` | Window sensors, one is created for window.            |
+| <div style="width:250px">Name</div>      | Description                                                                                                                                                                                                                                                                                           |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `binary_sensor.<you_car_alias>_hood`     | If the hood is open of not.                                                                                                                                                                                                                                                                           |
+| `binary_sensor.<you_car_alias>_*_door`   | Door sensors, one is created for each door and trunk.                                                                                                                                                                                                                                                 |
+| `binary_sensor.<you_car_alias>_*_lock`   | Lock sensors, one is created for each door and trunk.                                                                                                                                                                                                                                                 |
+| `binary_sensor.<you_car_alias>_*_window` | Window sensors, one is created for window.                                                                                                                                                                                                                                                            |
+| `binary_sensor.<you_car_alias>_driving`  | Best-effort driving/parked status, inferred from odometer changes between poll cycles. **Not a live GPS/ignition signal** - it can lag by up to your configured polling interval (default 6 minutes; see `polling_interval_minutes`). Reads `unknown` until the odometer has been read at least once. |
 
 When the underlying vehicle status payload is missing a field (cold cache
 on first start, vehicle that does not report that field), these sensors

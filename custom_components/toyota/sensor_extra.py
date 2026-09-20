@@ -86,22 +86,32 @@ class ToyotaLastTripScoreSensor(ToyotaExtraSensorBase):
 
     @property
     def native_value(self) -> StateType:
-        """Return the driving score of the most recent trip."""
+        """Return the driving score of the most recent trip.
+
+        ``scores`` is a raw ``_ScoresModel.model_dump(by_alias=True)`` dict,
+        so the overall score is keyed ``"global"`` (the JSON alias for
+        pytoyoda's ``global_`` field), not ``"score"``.
+        """
         trip = self._last_trip()
         if not trip:
             return None
         scores = trip.get("scores") or {}
-        score = scores.get("score")
+        score = scores.get("global")
         return round(score, 1) if isinstance(score, (int, float)) else None
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return trip timing/distance and behaviour-score attributes."""
+        """Return trip timing/distance and driving-score attributes.
+
+        The per-category breakdown (acceleration/braking/advice/constant
+        speed) lives in the trip's ``scores`` dict (aliased ``constantSpeed``),
+        not in ``behaviours`` - ``behaviours`` is an unrelated list of
+        timestamped driving events.
+        """
         trip = self._last_trip()
         if not trip:
             return None
         scores = trip.get("scores") or {}
-        behaviours = trip.get("behaviours") or {}
         out: dict[str, Any] = {
             "start_ts": trip.get("start_ts"),
             "end_ts": trip.get("end_ts"),
@@ -110,14 +120,14 @@ class ToyotaLastTripScoreSensor(ToyotaExtraSensorBase):
         for src, name in (
             ("acceleration", "acceleration"),
             ("braking", "braking"),
-            ("constant_speed", "constant_speed"),
+            ("constantSpeed", "constant_speed"),
             ("advice", "advice"),
         ):
-            v = behaviours.get(src)
+            v = scores.get(src)
             if v is not None:
                 out[name] = v
-        if scores.get("score") is not None:
-            out["score"] = scores.get("score")
+        if scores.get("global") is not None:
+            out["score"] = scores.get("global")
         return out
 
 

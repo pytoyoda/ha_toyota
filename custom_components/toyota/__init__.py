@@ -1136,6 +1136,48 @@ def _resolve_devices_to_vins_per_entry(
     return per_entry_vins
 
 
+def _extract_device_ids(call: ServiceCall) -> list[str]:
+    """Normalize a service call's device_id field to a list.
+
+    device_id arrives either as a string (when called with
+    data={"device_id":...}) or a list (target.device normalization).
+    """
+    raw = call.data.get("device_id") or []
+    return [raw] if isinstance(raw, str) else list(raw)
+
+
+async def _wake_vehicle_electric_realtime_status(
+    vehicle_data: list[VehicleData], vin: str
+) -> None:
+    """Find the vehicle matching vin in vehicle_data and wake its EV status.
+
+    Missing vehicles and refresh failures are logged and swallowed so one
+    bad VIN doesn't abort the refresh for the rest of the targeted fleet.
+    """
+    vehicle = next(
+        (
+            vd["data"]
+            for vd in vehicle_data
+            if vd.get("data") is not None and vd["data"].vin == vin
+        ),
+        None,
+    )
+    if vehicle is None:
+        _LOGGER.warning(
+            "toyota.refresh_electric_realtime_status: VIN ...%s "
+            "not in coordinator data; skipping",
+            vin[-6:],
+        )
+        return
+    try:
+        await vehicle.refresh_electric_realtime_status()
+    except Exception:
+        _LOGGER.exception(
+            "toyota.refresh_electric_realtime_status failed for vin=...%s",
+            vin[-6:],
+        )
+
+
 async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
     """Register the toyota.refresh_vehicle_status service exactly once.
 
@@ -1149,10 +1191,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
         return
 
     async def _handle_refresh_vehicle_status(call: ServiceCall) -> None:
-        # device_id arrives either as a string (when called with
-        # data={"device_id":...}) or a list (target.device normalization).
-        raw = call.data.get("device_id") or []
-        device_ids: list[str] = [raw] if isinstance(raw, str) else list(raw)
+        device_ids = _extract_device_ids(call)
         if not device_ids:
             _LOGGER.warning(
                 "toyota.refresh_vehicle_status called with no device target"
@@ -1197,8 +1236,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
         Use sparingly - each call uses cellular airtime and, per pytoyoda's
         own docs, drains a small amount of 12V battery if used too often.
         """
-        raw = call.data.get("device_id") or []
-        device_ids: list[str] = [raw] if isinstance(raw, str) else list(raw)
+        device_ids = _extract_device_ids(call)
         if not device_ids:
             _LOGGER.warning(
                 "toyota.refresh_electric_realtime_status called with no device target"
@@ -1214,28 +1252,7 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
             if coord is None or coord.data is None:
                 continue
             for vin in vins:
-                vehicle = next(
-                    (
-                        vd["data"]
-                        for vd in coord.data
-                        if vd.get("data") is not None and vd["data"].vin == vin
-                    ),
-                    None,
-                )
-                if vehicle is None:
-                    _LOGGER.warning(
-                        "toyota.refresh_electric_realtime_status: VIN ...%s "
-                        "not in coordinator data; skipping",
-                        vin[-6:],
-                    )
-                    continue
-                try:
-                    await vehicle.refresh_electric_realtime_status()
-                except Exception:
-                    _LOGGER.exception(
-                        "toyota.refresh_electric_realtime_status failed for vin=...%s",
-                        vin[-6:],
-                    )
+                await _wake_vehicle_electric_realtime_status(coord.data, vin)
             # Schedule a refresh so the electric/battery sensors pick up the
             # freshly-woken data on the next coordinator cycle.
             hass.async_create_task(coord.async_request_refresh())

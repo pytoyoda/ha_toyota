@@ -21,6 +21,10 @@
   - [Overview](#overview)
   - [Binary sensor(s)](#binary-sensor-s-)
   - [Device tracker(s)](#device-tracker-s-)
+  - [Lock(s)](#lock-s-)
+  - [Climate](#climate)
+  - [Select(s)](#select-s-)
+  - [Switch(es)](#switch-es-)
   - [Sensor(s)](#sensor-s-)
   - [Button(s)](#button-s-)
   - [Service(s)](#service-s-)
@@ -66,6 +70,10 @@ See [here](https://github.com/widewing/ha-toyota-na) for North America.
 - Fuel, battery and odometer information
 - Current day, week, month and year statistics.
 - Door and door lock sensors, including hood and trunk sensor.
+- Remote door lock/unlock.
+- Remote climate control (start/stop, target temperature, front/rear
+  defrost, seat-heater levels, steering-wheel heater).
+- Recent trips (rolling per-vehicle cache with route data).
 - Diagnostic sensors for fetch health and cache freshness.
 - Smart status refresh: wake the vehicle on demand or automatically when it
   has just stopped, mimicking the Toyota app's two-stage protocol so that
@@ -92,6 +100,57 @@ read as `unknown` rather than falsely reporting `open` / `unlocked`.
 | ----------------------------------- | ----------------------------------- |
 | `device_tracker.<you_car_alias>`    | Shows you last parking information. |
 
+### Lock(s)
+
+| <div style="width:250px">Name</div> | Description                                                                                            |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------- |
+| `lock.<you_car_alias>_door_lock`    | Remote lock/unlock for all doors. Only created for vehicles that report door lock/unlock capability.  |
+
+The entity shows `assumed_state` immediately after a command (optimistic),
+then reconciles against the car's next reported lock telemetry so a
+rejected command (e.g. car unlocked with a key inside) doesn't silently
+show as locked.
+
+### Climate
+
+| <div style="width:250px">Name</div> | Description                                                                                    |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------- |
+| `climate.<you_car_alias>_climate`   | Remote climate control. Only created for vehicles that report climate/remote-engine-start capability. |
+
+Supports `off`/`heat_cool` HVAC modes, target temperature (18-29 °C), and a
+preset mode for the front/rear defroster (`none` / `front_defrost` /
+`rear_defrost` / `both_defrost`). Per-seat heater level and steering-wheel
+heater state are surfaced as `extra_state_attributes` here too, but are
+independently controllable via the `select.*_seat_heater_*` and
+`switch.*_steering_wheel_heater` entities below.
+
+Toyota's remote API has no settings-only write - starting climate, changing
+a seat-heater level, or toggling the steering-wheel heater all send the
+same `POST /v2/remote/climate-control` "start" command with the full
+desired body (matching the MyToyota app's own behavior).
+
+### Select(s)
+
+| <div style="width:250px">Name</div>                 | Description                                                    |
+| ----------------------------------------------------- | ------------------------------------------------------------------ |
+| `select.<you_car_alias>_seat_heater_driver`          | Driver seat heater level: `off` / `low` / `medium` / `high`.  |
+| `select.<you_car_alias>_seat_heater_passenger`       | Front passenger seat heater level.                             |
+| `select.<you_car_alias>_seat_heater_rear_driver`     | Rear driver-side seat heater level.                            |
+| `select.<you_car_alias>_seat_heater_rear_passenger`  | Rear passenger-side seat heater level.                         |
+
+Only the seats your vehicle actually reports get an entity - a car without
+rear seat heaters won't show those two. Picking a level (re)starts remote
+climate control, since Toyota's API has no way to change it independently.
+
+### Switch(es)
+
+| <div style="width:250px">Name</div>            | Description                                                                            |
+| ------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `switch.<you_car_alias>_steering_wheel_heater`   | On/off control for the steering-wheel heater. Only created if your vehicle reports it. |
+
+Same caveat as the seat-heater selects: toggling this (re)starts remote
+climate control.
+
 ### Sensor(s)
 
 | <div style="width:250px">Name</div>                  | Description                                                                                                                                   |
@@ -110,6 +169,14 @@ read as `unknown` rather than falsely reporting `open` / `unlocked`.
 | `sensor.<you_car_alias>_current_week_stats`          | Statistics for current week.                                                                                                                  |
 | `sensor.<you_car_alias>_current_month_stats`         | Statistics for current month.                                                                                                                 |
 | `sensor.<you_car_alias>_current_year_stats`          | Statistics for current year.                                                                                                                  |
+| `sensor.<you_car_alias>_last_service`                | Date of the vehicle's last service; attributes include full service history detail (operations, notes, dealer).                              |
+| `sensor.<you_car_alias>_notifications`               | Number of Toyota app notifications; attributes include the most recent ones (masked VIN).                                                    |
+| `sensor.<you_car_alias>_recent_trips`                | Rolling cache of the most recent trips (see [Recent trips](#configuration) option); attributes include per-trip data with optional route.     |
+| `sensor.<you_car_alias>_last_trip_score`             | Overall driving score of the most recently cached trip.                                                                                       |
+| `sensor.<you_car_alias>_cabin_temperature`           | Current cabin temperature, from climate status.                                                                                               |
+| `sensor.<you_car_alias>_warning_lights`              | Number of active dashboard warning lights, with detail attributes.                                                                             |
+| `sensor.<you_car_alias>_last_service_detail`         | Date of the most recent service record; attributes include the full service history list.                                                    |
+| `sensor.<you_car_alias>_average_speed_week`          | Average speed from the current week's trip summary.                                                                                           |
 | `sensor.<you_car_alias>_last_successful_fetch`       | Diagnostic: timestamp of the last successful refresh.                                                                                         |
 | `sensor.<you_car_alias>_last_error`                  | Diagnostic: timestamp of the last refresh error.                                                                                              |
 | `sensor.<you_car_alias>_last_error_code`             | Diagnostic: HTTP status or exception class of the last error.                                                                                 |
@@ -118,27 +185,39 @@ read as `unknown` rather than falsely reporting `open` / `unlocked`.
 
 \* _Possible charging states_: `Charge complete` | `Charging` | `Not connected` | `Plugged in`
 
+Some sensors depend on your car model/year and Toyota account capabilities
+and may not appear for every vehicle (e.g. `cabin_temperature` needs climate
+status support).
+
 ### Button(s)
 
-| <div style="width:250px">Name</div>             | Description                                                                        |
-| ----------------------------------------------- | ---------------------------------------------------------------------------------- |
-| `button.<you_car_alias>_refresh_vehicle_status` | One-tap wake. Wraps `toyota.refresh_vehicle_status` for the corresponding vehicle. |
+| <div style="width:250px">Name</div>                       | Description                                                                                       |
+| ------------------------------------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `button.<you_car_alias>_refresh_vehicle_status`             | One-tap wake. Wraps `toyota.refresh_vehicle_status` for the corresponding vehicle.                |
+| `button.<you_car_alias>_refresh_recent_trips`               | Wraps `toyota.refresh_recent_trips` (fetches `max_recent_trips`, or 5 if disabled/unset).          |
+| `button.<you_car_alias>_refresh_electric_realtime_status`   | Wraps `toyota.refresh_electric_realtime_status`. Only created for EV/PHEV vehicles.                |
 
 ### Service(s)
 
-| Service                         | Description                                                                                                                  |
-| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `toyota.refresh_vehicle_status` | Wakes the vehicle's cellular modem and fetches a fresh door / lock / window / hood payload. Targets one or more `device_id`. |
+| Service                                    | Description                                                                                                                  |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| `toyota.refresh_vehicle_status`            | Wakes the vehicle's cellular modem and fetches a fresh door / lock / window / hood payload. Targets one or more `device_id`. |
+| `toyota.refresh_recent_trips`              | Fetches the most recent trips (with route data) and replaces the `recent_trips` sensor's cache.                             |
+| `toyota.refresh_electric_realtime_status`  | Wakes the vehicle to force a fresh read of the EV realtime status (battery level, charging state, range).                    |
+| `toyota.get_trip_route`                    | Read-only: returns the cached GPS route polyline for a single cached trip, by trip id.                                       |
 
 Service fields:
 
-| Field             | Default | Description                                                                      |
-| ----------------- | ------- | -------------------------------------------------------------------------------- |
-| `timeout_seconds` | `60`    | How long to wait for the car to transmit fresh data before returning (10 - 180). |
+| Service                                  | Field             | Default | Description                                                                                                        |
+| ------------------------------------------- | ----------------- | ------- | --------------------------------------------------------------------------------------------------------------------- |
+| `toyota.refresh_vehicle_status`          | `timeout_seconds` | `60`    | How long to wait for the car to transmit fresh data before returning (10 - 180).                                   |
+| `toyota.refresh_recent_trips`            | `limit`           | -       | How many recent trips to fetch (1 - 50, required). Replaces the entire cache.                                      |
+| `toyota.get_trip_route`                  | `trip_id`         | -       | UUID of the cached trip whose route to return (required). Match the `id` field on an item in the sensor's `trips`. |
 
-Use sparingly: each call uses a small amount of cellular airtime and 12 V
-battery. For routine polling, the integration's smart strategy already
-picks the right moments (see below).
+Use sparingly: `refresh_vehicle_status` and `refresh_electric_realtime_status`
+each use a small amount of cellular airtime and 12 V battery. For routine
+polling, the integration's smart strategy already picks the right moments
+(see below).
 
 ### Smart status refresh
 
@@ -279,9 +358,10 @@ After setup, options can be tuned per integration entry from
 **Settings → Devices & Services → Toyota Connected Services → Configure**.
 Defaults are tuned for a typical daily-driven car.
 
-| Option                                             | Default | Range   | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
-| -------------------------------------------------- | ------- | ------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Polling interval (minutes)**                     | 6       | 5 - 60  | How often the integration polls Toyota for fresh data. Lower values may hit rate limits.                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| Option                                             | Default | Range      | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| -------------------------------------------------- | ------- | ---------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Polling interval (minutes)**                     | 6       | 0 - 1440   | How often the integration polls Toyota for fresh data. Lower values may hit rate limits. 0 disables automatic polling entirely (data still updates on manual refresh via the button/service).                                                                                                                                                                                                                                                                                                            |
+| **Recent trips to keep in cache (0 = disabled)**   | 0       | 0 - 20     | Populates a per-vehicle `recent_trips` sensor with the last N trips (route waypoints + per-trip stats), suitable for journey-viewer custom cards. 0 (default) disables auto-fetch entirely (no extra API calls); 1-20 enables auto-fetch on stop events, and the cache survives an HA restart. The `toyota.refresh_recent_trips` service and the "Refresh recent trips" button work regardless of this setting.                                                                                        |
 | **Retain last good data on transient failures**    | off     | toggle  | When a refresh fails (HTTP 429, timeout, connection error), keep the last successful per-vehicle data in place instead of flipping to `unavailable`. The diagnostic sensors above still surface the underlying failure.                                                                                                                                                                                                                                                                                   |
 | **Refresh vehicle status remotely**                | on      | toggle  | Master switch for the smart status refresh feature. Scope is only the `/v1/global/remote/status` endpoint (door / window / lock / hood); other data is fetched every cycle regardless. Disable for vehicles whose Toyota account does not support `/refresh-status`; the integration also auto-disables this for you when it detects unsupported responses. **When this option is OFF, the four options below (idle wake, failed-wake threshold, status cache age, wake POSTs per stop) have no effect.** |
 | **Wake idle vehicle every N hours (0 = disabled)** | 0       | 0 - 72  | Wake the car periodically even if it has not moved. Useful for cars that sit unused for days where you still want fresh lock state. 0 disables the feature; 1-72 fires a wake POST every N hours. Off by default to spare 12 V battery. The wake only refreshes the `/v1/global/remote/status` endpoint (door / window / lock / hood); other data is fetched every cycle regardless.                                                                                                                      |

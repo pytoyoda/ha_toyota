@@ -1,0 +1,296 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Valitse ajoneuvon merkki ja syötä alla sähköpostiosoitteesi ja salasanasi MyT/Lexus Link -tiliä varten.",
+        "data": {
+          "brand": "Ajoneuvon merkki",
+          "email": "Sähköposti",
+          "password": "Salasana",
+          "use_metric_values": "Käytä metrisiä yksiköitä (esim. km mailien sijaan)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "Sähköpostiosoitteessa on oltava @-merkki.",
+      "invalid_auth": "Sähköposti tai salasana on virheellinen.",
+      "unknown": "Odottamaton virhe."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Toyota Connected Services -asetukset",
+        "data": {
+          "polling_interval_minutes": "Kyselyväli (minuutteina)",
+          "retain_on_transient_failure": "Säilytä viimeisin toimiva data tilapäisissä virheissä (suositellaan)",
+          "enable_status_refresh": "Päivitä ajoneuvon tila etänä (suositellaan)",
+          "idle_wake_hours": "Herätä käyttämätön ajoneuvo N tunnin välein (0 = pois käytöstä)",
+          "failed_wake_threshold": "Merkitse tavoittamattomaksi N epäonnistuneen herätyksen jälkeen",
+          "max_cache_age_minutes": "Päivitä tilan välimuisti, jos vanhempi kuin",
+          "post_count_per_stop": "Herätys-POST-pyyntöjä per pysähtyminen",
+          "max_recent_trips": "Säilytettävien viimeisimpien matkojen määrä välimuistissa (0 = pois käytöstä)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Kuinka usein integraatio kysyy Toyotalta uutta tietoa (0-1440 minuuttia; oletus 6; 0 = poistaa automaattisen kyselyn käytöstä, käytä vain manuaalisia päivityspalveluita/painikkeita). Pienemmät arvot voivat aiheuttaa nopeusrajoituksia.",
+          "retain_on_transient_failure": "Kun käytössä, tilapäinen Toyota API -virhe (HTTP 429, aikakatkaisu, yhteysvirhe) säilyttää viimeisimmän onnistuneen ajoneuvokohtaisen datan sen sijaan, että kaikki Toyota-entiteetit merkitään ei-käytettäviksi. Uudet diagnostiikkasensorit 'Viimeisin onnistunut hakukerta', 'Viimeisin virhe' ja 'Viimeisin virhekoodi' näyttävät integraation todellisen tilan.",
+          "enable_status_refresh": "Toyotan API-yhdyskäytävä palauttaa usein jumiutuneen tai vanhentuneen lukko- ja ovitilan, jos auton modeemia ei herätetä erikseen. Kun käytössä, integraatio lähettää herätyspyynnön ennen tilan lukemista, samaan tapaan kuin Toyota-mobiilisovellus. Jokainen herätys kuluttaa hieman mobiilidataa ja 12V-akkua; älykkäät laukaisimet (juuri pysähtyneen tunnistus, valinnainen joutokäyntiherätys) pitävät kustannuksen alhaisena. Poista käytöstä ajoneuvoille, joiden Toyota-tili ei tue tilan päivitystä; integraatio poistaa tämän automaattisesti käytöstä, jos se havaitsee ei-tuetut vastaukset. Huom: tämä koskee vain /v1/global/remote/status-päätepistettä (ovi-, ikkuna-, lukko- ja konepeltitila); muu data (matkamittari, polttoaine, sijainti jne.) haetaan joka tapauksessa jokaisella kierroksella. Kun tämä asetus on POIS PÄÄLTÄ, neljällä alla olevalla asetuksella (joutokäyntiherätys, epäonnistuneen herätyksen kynnysarvo, tilan välimuistin ikä, herätys-POST-pyynnöt per pysähtyminen) ei ole vaikutusta. Manuaaliset päivitykset (toyota.refresh_vehicle_status-palvelu tai päivityspainike) ohittavat tämän asetuksen ja mahdollisen automaattisen poiston käytöstä, ja onnistunut manuaalinen herätys ottaa automaattisen strategian uudelleen käyttöön.",
+          "idle_wake_hours": "Herätä auto säännöllisesti, vaikka se ei olisi liikkunut. Hyödyllinen autoille, jotka ovat käyttämättä useita päiviä ja joille haluat silti ajantasaisen lukkotilan. 0 (oletus) poistaa tämän kokonaan käytöstä; 1-72 = herätys N tunnin välein. Jokainen herätys kuluttaa mobiilidataa ja pienen määrän 12V-akkua. Huom: herätys päivittää vain /v1/global/remote/status-päätepisteen (ovi-, ikkuna-, lukko- ja konepeltitila). Muu data (matkamittari, polttoaine, sijainti jne.) haetaan itsenäisesti jokaisella kierroksella eikä tarvitse herätystä.",
+          "failed_wake_threshold": "Jos ajoneuvo lakkaa vastaamasta herätyspyyntöihin näin monta kertaa peräkkäin, se merkitään tavoittamattomaksi VIN-koodin perusteella, kunnes se osoittaa merkkejä elämästä (ajotapahtuma, ulkoisen sovelluksen päivitys, manuaalinen palvelukutsu). Oletus 3.",
+          "max_cache_age_minutes": "Välimuistissa olevan tilatiedon suurin hyväksyttävä ikä ennen uuden GET-pyynnön tekemistä (5-180 minuuttia; oletus 30). Huom: tämä koskee vain /v1/global/remote/status-päätepistettä, joka kantaa ovi-, ikkuna-, lukko- ja konepeltitilan. Muu data (matkamittari, polttoaine, sijainti jne.) haetaan itsenäisesti jokaisella kierroksella.",
+          "post_count_per_stop": "Kuinka monta herätys-POST-pyyntöä lähetetään, kun ajoneuvon havaitaan juuri pysähtyneen, yksi per koordinaattorikierros. 1 = yksi POST. 2 (oletus) = ylimääräinen POST seuraavalla kierroksella, joka tyypillisesti havaitsee tilan, jota käyttäjä muuttaa pian pysähtymisen jälkeen (ovien lukitseminen, tavaratilan avaaminen jne.) - nämä tapahtumat laukaisevat uusia modeemiraportteja, jotka toinen POST-pyynnön kyselysilmukka havaitsee. Suuremmat arvot auttavat harvoin ja kuluttavat 12V-akkua.",
+          "max_recent_trips": "Täyttää ajoneuvokohtaisen 'Viimeisimmät matkat' -sensorin N viimeisimmällä matkalla (reittipisteet + matkakohtaiset tilastot), sopiva mukautetuille journey-viewer-korteille. 0 (oletus) poistaa automaattisen hakemisen kokonaan käytöstä (ei ylimääräisiä API-kutsuja). 1-20 ottaa automaattisen hakemisen käyttöön pysähtymistapahtumissa; välimuisti säilyy HA:n uudelleenkäynnistyksen yli. toyota.refresh_recent_trips-palvelu ja ajoneuvokohtainen 'Päivitä viimeisimmät matkat' -painike toimivat tästä asetuksesta riippumatta, jolloin voit pitää automaattisen hakemisen pois päältä ja ajaa hakuja päivittäisten automaatioiden avulla."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Pysäköintipaikka"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Ajoneuvon tunnistenumero"
+      },
+      "recent_trips": {
+        "name": "Viimeisimmät matkat"
+      },
+      "odometer": {
+        "name": "Matkamittari"
+      },
+      "fuel_level": {
+        "name": "Polttoainetaso"
+      },
+      "fuel_range": {
+        "name": "Polttoaineen toimintasäde"
+      },
+      "battery_level": {
+        "name": "Akun varaustaso"
+      },
+      "battery_range_ac": {
+        "name": "Akun toimintasäde ilmastoinnilla"
+      },
+      "battery_range": {
+        "name": "Akun toimintasäde"
+      },
+      "total_range": {
+        "name": "Kokonaistoimintasäde"
+      },
+      "charging_status": {
+        "name": "Latauksen tila",
+        "state": {
+          "charge_complete": "Lataus valmis",
+          "charging": "Latautuu",
+          "none": "Ei kytketty",
+          "plugged": "Kytketty"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuuttia täyteen"
+          },
+          "has_charging_schedule": {
+            "name": "Latausaikataulu käytössä"
+          },
+          "scheduled_charging_start": {
+            "name": "Ajastetun latauksen alku"
+          },
+          "scheduled_charging_end": {
+            "name": "Ajastetun latauksen loppu"
+          },
+          "scheduled_charging_duration": {
+            "name": "Ajastetun latauksen kesto"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Jäljellä oleva latausaika"
+      },
+      "current_day_statistics": {
+        "name": "Päivän tilastot"
+      },
+      "current_week_statistics": {
+        "name": "Viikon tilastot"
+      },
+      "current_month_statistics": {
+        "name": "Kuukauden tilastot"
+      },
+      "current_year_statistics": {
+        "name": "Vuoden tilastot"
+      },
+      "last_successful_fetch": {
+        "name": "Viimeisin onnistunut hakukerta"
+      },
+      "last_refresh_error_time": {
+        "name": "Viimeisin päivitysvirhe"
+      },
+      "last_refresh_error_code": {
+        "name": "Viimeisin päivitysvirhekoodi"
+      },
+      "status_last_reported": {
+        "name": "Auton viimeisin tilan ilmoitus"
+      },
+      "status_refresh_state": {
+        "name": "Tilan päivitystila",
+        "state": {
+          "active": "Käytössä",
+          "soft_disabled_unreachable": "Tavoittamattomissa",
+          "hard_disabled_auto": "Poistettu käytöstä (ei tuettu)",
+          "hard_disabled_user": "Poistettu käytöstä (käyttäjän toimesta)"
+        }
+      },
+      "last_service": {
+        "name": "Viimeisin huolto"
+      },
+      "last_trip_score": {
+        "name": "Viimeisimmän matkan pisteet"
+      },
+      "cabin_temperature": {
+        "name": "Matkustamon lämpötila"
+      },
+      "notifications": {
+        "name": "Ilmoitukset"
+      },
+      "warning_lights": {
+        "name": "Varoitusvalot"
+      },
+      "last_service_detail": {
+        "name": "Viimeisimmän huollon tiedot"
+      },
+      "average_speed_week": {
+        "name": "Viikon keskinopeus"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Päivitä ajoneuvon tila"
+      },
+      "refresh_recent_trips": {
+        "name": "Päivitä viimeisimmät matkat"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Päivitä sähköinen reaaliaikatila"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Kokonaistila"
+      },
+      "hood": {
+        "name": "Konepelti"
+      },
+      "key_in_car": {
+        "name": "Avain autossa"
+      },
+      "front_defogger": {
+        "name": "Etuhuurteenpoisto"
+      },
+      "rear_defogger": {
+        "name": "Takahuurteenpoisto"
+      },
+      "driverseat_window": {
+        "name": "Kuljettajan ikkuna"
+      },
+      "passengerseat_window": {
+        "name": "Matkustajan ikkuna"
+      },
+      "leftrearseat_window": {
+        "name": "Vasen takaikkuna"
+      },
+      "rightrearseat_window": {
+        "name": "Oikea takaikkuna"
+      },
+      "driverseat_door": {
+        "name": "Kuljettajan ovi"
+      },
+      "driverseat_lock": {
+        "name": "Kuljettajan oven lukko"
+      },
+      "passengerseat_door": {
+        "name": "Matkustajan ovi"
+      },
+      "passengerseat_lock": {
+        "name": "Matkustajan oven lukko"
+      },
+      "leftrearseat_door": {
+        "name": "Vasen takaovi"
+      },
+      "leftrearseat_lock": {
+        "name": "Vasemman takaoven lukko"
+      },
+      "rightrearseat_door": {
+        "name": "Oikea takaovi"
+      },
+      "rightrearseat_lock": {
+        "name": "Oikean takaoven lukko"
+      },
+      "trunk_door": {
+        "name": "Tavaratila"
+      },
+      "trunk_lock": {
+        "name": "Tavaratilan lukko"
+      },
+      "hazardlights": {
+        "name": "Hätävilkut"
+      },
+      "headlights": {
+        "name": "Ajovalot"
+      },
+      "taillights": {
+        "name": "Takavalot"
+      },
+      "vehicle_health": {
+        "name": "Ajoneuvon kunto"
+      },
+      "driving": {
+        "name": "Ajaminen"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Etulasin huurteenpoisto",
+              "rear_defrost": "Takalasin huurteenpoisto",
+              "both_defrost": "Molemmat huurteenpoistot"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Ovilukko"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Kuljettajan istuinlämmitin"
+      },
+      "seat_heater_passenger": {
+        "name": "Matkustajan istuinlämmitin"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Takana kuljettajan puolen istuinlämmitin"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Takana matkustajan puolen istuinlämmitin"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Ohjauspyörän lämmitin"
+      }
+    }
+  }
+}

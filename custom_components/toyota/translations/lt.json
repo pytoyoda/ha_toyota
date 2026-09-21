@@ -1,0 +1,296 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Pasirinkite savo transporto priemonės markę ir žemiau įveskite savo el. paštą ir slaptažodį MyT/Lexus Link paskyrai.",
+        "data": {
+          "brand": "Transporto priemonės markė",
+          "email": "El. paštas",
+          "password": "Slaptažodis",
+          "use_metric_values": "Naudoti metrinius vienetus (pvz., km vietoj mylių)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "El. paštas turi turėti @.",
+      "invalid_auth": "Neteisingas el. paštas arba slaptažodis.",
+      "unknown": "Netikėta klaida."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Toyota Connected Services parinktys",
+        "data": {
+          "polling_interval_minutes": "Duomenų atnaujinimo intervalas (minutėmis)",
+          "retain_on_transient_failure": "Išlaikyti paskutinius galiojančius duomenis laikinų gedimų atveju (rekomenduojama)",
+          "enable_status_refresh": "Nuotoliniu būdu atnaujinti transporto priemonės būseną (rekomenduojama)",
+          "idle_wake_hours": "Pažadinti nenaudojamą transporto priemonę kas N valandų (0 = išjungta)",
+          "failed_wake_threshold": "Pažymėti kaip nepasiekiamą po N nesėkmingų pažadinimų",
+          "max_cache_age_minutes": "Atnaujinti būsenos talpyklą, jei senesnė nei",
+          "post_count_per_stop": "Pažadinimo POST užklausų skaičius sustojus",
+          "max_recent_trips": "Neseniai vykusių kelionių, laikomų talpykloje, skaičius (0 = išjungta)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Kaip dažnai integracija tikrina „Toyota“ dėl naujų duomenų (0-1440 minučių; numatytoji reikšmė 6; 0 = išjungia automatinį atnaujinimą, naudojamos tik rankinės paslaugos/mygtukai). Mažesnės reikšmės gali sukelti užklausų ribojimą.",
+          "retain_on_transient_failure": "Jei įjungta, laikinas „Toyota“ API gedimas (HTTP 429, laiko limitas, ryšio klaida) išlaiko paskutinius sėkmingai gautus konkrečios transporto priemonės duomenis, o ne pažymi visus „Toyota“ elementus kaip nepasiekiamus. Nauji diagnostikos jutikliai „Paskutinis sėkmingas atnaujinimas“, „Paskutinė klaida“ ir „Paskutinės klaidos kodas“ rodo tikrąją integracijos būseną.",
+          "enable_status_refresh": "„Toyota“ API dažnai pateikia pasenusią spynų ir durų būseną, kol transporto priemonės modemas nėra tiesiogiai pažadintas. Jei įjungta, integracija prieš skaitydama būseną siunčia pažadinimo užklausą, imituodama „Toyota“ mobiliąją programą. Kiekvienas pažadinimas naudoja nedidelį kiekį mobiliojo ryšio duomenų ir 12V akumuliatoriaus energijos; išmanieji trigeriai (aptikimas „ką tik sustojo“, pasirenkamas pažadinimas nenaudojant) išlaiko sąnaudas mažas. Išjunkite transporto priemonėms, kurių „Toyota“ paskyra nepalaiko būsenos atnaujinimo; integracija tai automatiškai išjungia, jei aptinka nepalaikomus atsakymus. Pastaba: šis nustatymas taikomas tik /v1/global/remote/status galiniam punktui (durų, langų, spynų ir gaubto būsena); kiti duomenys (rida, degalai, vieta ir kt.) gaunami kiekviename cikle nepaisant šio nustatymo. Kai šis parametras IŠJUNGTAS, keturios žemiau esančios parinktys (pažadinimas nenaudojant, nesėkmingų pažadinimų slenkstis, būsenos talpyklos amžius, pažadinimo POST užklausos sustojus) neturi jokio poveikio. Rankiniai atnaujinimai (paslauga toyota.refresh_vehicle_status arba atnaujinimo mygtukas) apeina šį jungiklį ir bet kokį automatinį išjungimą, o sėkmingas rankinis pažadinimas iš naujo įjungia automatinę strategiją.",
+          "idle_wake_hours": "Periodiškai pažadina automobilį, net jei jis nesijudino. Naudinga automobiliams, kurie stovi nenaudojami kelias dienas, bet vis tiek norite matyti aktualią spynų būseną. 0 (numatytoji reikšmė) visiškai išjungia šią funkciją; 1-72 = pažadinimas kas N valandų. Kiekvienas pažadinimas kainuoja mobiliojo ryšio duomenų ir nedidelį kiekį 12V akumuliatoriaus energijos. Pastaba: pažadinimas atnaujina tik /v1/global/remote/status galinį punktą (durų, langų, spynų ir gaubto būseną). Kiti duomenys (rida, degalai, vieta ir kt.) gaunami kiekviename cikle nepriklausomai ir pažadinimo nereikia.",
+          "failed_wake_threshold": "Jei transporto priemonė tiek kartų iš eilės nereaguoja į pažadinimo užklausas, ji pažymima kaip nepasiekiama pagal VIN kodą, kol parodo bet kokį aktyvumo ženklą (važiavimo įvykis, atnaujinimas iš išorinės programos, rankinis paslaugos kvietimas). Numatytoji reikšmė 3.",
+          "max_cache_age_minutes": "Didžiausias priimtinas talpykloje esančių būsenos duomenų amžius prieš išsiunčiant naują GET užklausą (5-180 minučių; numatytoji reikšmė 30). Pastaba: tai valdo tik /v1/global/remote/status galinį punktą, kuriame perduodama durų, langų, spynų ir gaubto būsena. Kiti duomenys (rida, degalai, vieta ir kt.) gaunami kiekviename cikle nepriklausomai.",
+          "post_count_per_stop": "Kiek pažadinimo POST užklausų siunčiama, kai transporto priemonė aptinkama kaip ką tik sustojusi, po vieną kiekvienam koordinatoriaus ciklui. 1 = viena POST užklausa. 2 (numatytoji reikšmė) = papildoma POST užklausa kitame cikle, kuri paprastai užfiksuoja būseną, kurią naudotojas pakeičia netrukus po sustojimo (durų užrakinimas, bagažinės atidarymas ir kt.) - šie įvykiai iššaukia naujus modemo pranešimus, kuriuos pagauna antrosios POST užklausos tikrinimo ciklas. Didesnės reikšmės retai padeda ir be reikalo naudoja 12V akumuliatorių.",
+          "max_recent_trips": "Užpildo konkrečios transporto priemonės jutiklį „Neseniai vykusios kelionės“ paskutinėmis N kelionėmis (maršruto taškai + kiekvienos kelionės statistika), tinkamą pritaikytoms kelionių peržiūros kortelėms. 0 (numatytoji reikšmė) visiškai išjungia automatinį gavimą (be papildomų API užklausų). 1-20 įjungia automatinį gavimą sustojimo įvykių metu; talpykla išlieka net perkrovus HA. Paslauga toyota.refresh_recent_trips ir konkrečios transporto priemonės mygtukas „Atnaujinti neseniai vykusias keliones“ veikia nepaisant šio nustatymo, todėl automatinį gavimą galite palikti išjungtą ir paleisti atnaujinimus per kasdienes automatizacijas."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Stovėjimo vieta"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Transporto priemonės identifikavimo numeris (VIN)"
+      },
+      "recent_trips": {
+        "name": "Neseniai vykusios kelionės"
+      },
+      "odometer": {
+        "name": "Rida"
+      },
+      "fuel_level": {
+        "name": "Degalų lygis"
+      },
+      "fuel_range": {
+        "name": "Rida degalais"
+      },
+      "battery_level": {
+        "name": "Akumuliatoriaus lygis"
+      },
+      "battery_range_ac": {
+        "name": "Rida akumuliatoriumi su oro kondicionavimu"
+      },
+      "battery_range": {
+        "name": "Rida akumuliatoriumi"
+      },
+      "total_range": {
+        "name": "Bendra rida"
+      },
+      "charging_status": {
+        "name": "Įkrovimo būsena",
+        "state": {
+          "charge_complete": "Įkrovimas baigtas",
+          "charging": "Kraunama",
+          "none": "Neprijungta",
+          "plugged": "Prijungta"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutės iki pilno įkrovimo"
+          },
+          "has_charging_schedule": {
+            "name": "Turi įkrovimo grafiką"
+          },
+          "scheduled_charging_start": {
+            "name": "Numatytas įkrovimo pradžios laikas"
+          },
+          "scheduled_charging_end": {
+            "name": "Numatytas įkrovimo pabaigos laikas"
+          },
+          "scheduled_charging_duration": {
+            "name": "Numatyta įkrovimo trukmė"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Likęs įkrovimo laikas"
+      },
+      "current_day_statistics": {
+        "name": "Šios dienos statistika"
+      },
+      "current_week_statistics": {
+        "name": "Šios savaitės statistika"
+      },
+      "current_month_statistics": {
+        "name": "Šio mėnesio statistika"
+      },
+      "current_year_statistics": {
+        "name": "Šių metų statistika"
+      },
+      "last_successful_fetch": {
+        "name": "Paskutinis sėkmingas atnaujinimas"
+      },
+      "last_refresh_error_time": {
+        "name": "Paskutinė atnaujinimo klaida"
+      },
+      "last_refresh_error_code": {
+        "name": "Paskutinės atnaujinimo klaidos kodas"
+      },
+      "status_last_reported": {
+        "name": "Būsena, paskutinį kartą pranešta automobilio"
+      },
+      "status_refresh_state": {
+        "name": "Būsenos atnaujinimo režimas",
+        "state": {
+          "active": "Aktyvus",
+          "soft_disabled_unreachable": "Nepasiekiama",
+          "hard_disabled_auto": "Išjungta (nepalaikoma)",
+          "hard_disabled_user": "Išjungta (naudotojo)"
+        }
+      },
+      "last_service": {
+        "name": "Paskutinė techninė priežiūra"
+      },
+      "last_trip_score": {
+        "name": "Paskutinės kelionės įvertinimas"
+      },
+      "cabin_temperature": {
+        "name": "Salono temperatūra"
+      },
+      "notifications": {
+        "name": "Pranešimai"
+      },
+      "warning_lights": {
+        "name": "Įspėjamosios lemputės"
+      },
+      "last_service_detail": {
+        "name": "Paskutinės techninės priežiūros detalės"
+      },
+      "average_speed_week": {
+        "name": "Vidutinis greitis per savaitę"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Atnaujinti transporto priemonės būseną"
+      },
+      "refresh_recent_trips": {
+        "name": "Atnaujinti neseniai vykusias keliones"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Atnaujinti elektrinės sistemos būseną realiuoju laiku"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Bendra būsena"
+      },
+      "hood": {
+        "name": "Variklio dangtis"
+      },
+      "key_in_car": {
+        "name": "Raktelis automobilyje"
+      },
+      "front_defogger": {
+        "name": "Priekinis apšilimas nuo rūko"
+      },
+      "rear_defogger": {
+        "name": "Galinis apšilimas nuo rūko"
+      },
+      "driverseat_window": {
+        "name": "Vairuotojo pusės langas"
+      },
+      "passengerseat_window": {
+        "name": "Keleivio pusės langas"
+      },
+      "leftrearseat_window": {
+        "name": "Kairysis galinis langas"
+      },
+      "rightrearseat_window": {
+        "name": "Dešinysis galinis langas"
+      },
+      "driverseat_door": {
+        "name": "Vairuotojo durys"
+      },
+      "driverseat_lock": {
+        "name": "Vairuotojo durų spyna"
+      },
+      "passengerseat_door": {
+        "name": "Keleivio durys"
+      },
+      "passengerseat_lock": {
+        "name": "Keleivio durų spyna"
+      },
+      "leftrearseat_door": {
+        "name": "Kairiosios galinės durys"
+      },
+      "leftrearseat_lock": {
+        "name": "Kairiųjų galinių durų spyna"
+      },
+      "rightrearseat_door": {
+        "name": "Dešiniosios galinės durys"
+      },
+      "rightrearseat_lock": {
+        "name": "Dešiniųjų galinių durų spyna"
+      },
+      "trunk_door": {
+        "name": "Bagažinė"
+      },
+      "trunk_lock": {
+        "name": "Bagažinės spyna"
+      },
+      "hazardlights": {
+        "name": "Avarinės šviesos"
+      },
+      "headlights": {
+        "name": "Žibintai"
+      },
+      "taillights": {
+        "name": "Galiniai žibintai"
+      },
+      "vehicle_health": {
+        "name": "Transporto priemonės būklė"
+      },
+      "driving": {
+        "name": "Važiavimas"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Priekinio stiklo šildymas",
+              "rear_defrost": "Galinio stiklo šildymas",
+              "both_defrost": "Abiejų stiklų šildymas"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Durų spyna"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Vairuotojo sėdynės šildymas"
+      },
+      "seat_heater_passenger": {
+        "name": "Keleivio sėdynės šildymas"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Galinės sėdynės už vairuotojo šildymas"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Galinės sėdynės už keleivio šildymas"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Vairo šildymas"
+      }
+    }
+  }
+}

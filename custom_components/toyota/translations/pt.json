@@ -1,0 +1,296 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Por favor selecione a marca do seu veículo e insira o seu e-mail e palavra-passe do MyT/Lexus Link abaixo.",
+        "data": {
+          "brand": "Marca do veículo",
+          "email": "E-mail",
+          "password": "Palavra-Passe",
+          "use_metric_values": "Usar unidades métricas (ex. Km em vez de Milhas)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "O e-mail tem de conter @.",
+      "invalid_auth": "E-mail/Palavra-passe incorreto.",
+      "unknown": "Erro inesperado."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opções do Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Intervalo de consulta (minutos)",
+          "retain_on_transient_failure": "Manter os últimos dados válidos em falhas transitórias (recomendado)",
+          "enable_status_refresh": "Atualizar remotamente o estado do veículo (recomendado)",
+          "idle_wake_hours": "Despertar veículo inativo a cada N horas (0 = desativado)",
+          "failed_wake_threshold": "Marcar como inacessível após N tentativas de despertar falhadas",
+          "max_cache_age_minutes": "Atualizar a cache de estado se for mais antiga do que",
+          "post_count_per_stop": "Número de pedidos POST de despertar por paragem",
+          "max_recent_trips": "Viagens recentes a manter na cache (0 = desativado)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Com que frequência a integração consulta a Toyota para obter dados novos (0-1440 minutos; predefinição 6; 0 = desativa a consulta automática, usando apenas os serviços/botões de atualização manual). Valores mais baixos podem atingir limites de taxa.",
+          "retain_on_transient_failure": "Quando ativado, uma falha temporária da API da Toyota (HTTP 429, tempo limite, erro de ligação) mantém os últimos dados válidos de cada veículo em vez de marcar todas as entidades Toyota como indisponíveis. Os novos sensores de diagnóstico 'Última consulta bem-sucedida', 'Último erro' e 'Último código de erro' mostram o estado real da integração.",
+          "enable_status_refresh": "A gateway da API da Toyota frequentemente devolve o estado de fechadura e portas desatualizado, a menos que o modem do veículo seja explicitamente despertado. Quando ativado, a integração envia um pedido de despertar antes de ler o estado, imitando a aplicação móvel da Toyota. Cada despertar utiliza uma pequena quantidade de dados móveis e bateria de 12V; os gatilhos inteligentes (deteção de paragem recente, despertar em inatividade opcional) mantêm o custo baixo. Desative para veículos cuja conta Toyota não suporte refresh-status; a integração desativa isto automaticamente se detetar respostas não suportadas. Nota: o âmbito é apenas o endpoint /v1/global/remote/status (estado de portas, janelas, fechaduras e capô); outros dados (quilometragem, combustível, localização, etc.) são obtidos em cada ciclo independentemente desta opção. Quando esta opção está DESATIVADA, as quatro opções abaixo (despertar em inatividade, limite de despertares falhados, idade da cache de estado, pedidos POST de despertar por paragem) não têm efeito. As atualizações manuais (o serviço toyota.refresh_vehicle_status ou o botão de atualização) ignoram este interruptor e qualquer desativação automática, e um despertar manual bem-sucedido reativa a estratégia automática.",
+          "idle_wake_hours": "Desperta o veículo periodicamente mesmo que este não se tenha movido. Útil para veículos que ficam parados durante dias mas onde ainda quer o estado de fechadura atualizado. 0 (predefinição) desativa isto totalmente; 1-72 = despertar a cada N horas. Cada despertar consome dados móveis e uma pequena quantidade de bateria de 12V. Nota: o despertar apenas atualiza o endpoint /v1/global/remote/status (estado de portas, janelas, fechaduras e capô). Outros dados (quilometragem, combustível, localização, etc.) são obtidos em cada ciclo de forma independente e não precisam de um despertar.",
+          "failed_wake_threshold": "Se um veículo deixar de responder a pedidos de despertar este número de vezes consecutivas, é marcado como inacessível por VIN até mostrar qualquer sinal de vida (evento de condução, atualização de aplicação externa, chamada manual ao serviço). Predefinição 3.",
+          "max_cache_age_minutes": "Idade máxima aceitável dos dados de estado em cache antes de emitir um novo GET (5-180 minutos; predefinição 30). Nota: isto controla apenas o endpoint /v1/global/remote/status, que transporta o estado de portas, janelas, fechaduras e capô. Outros dados (quilometragem, combustível, localização, etc.) são obtidos em cada ciclo de forma independente.",
+          "post_count_per_stop": "Quantos pedidos POST de despertar são enviados quando o veículo é detetado como tendo acabado de parar, um por ciclo do coordenador. 1 = um único POST. 2 (predefinição) = um POST adicional no ciclo seguinte, que normalmente capta alterações de estado que o utilizador faz pouco depois de parar (trancar as portas, abrir a bagageira, etc.) - estes eventos despoletam relatórios frescos do modem que o ciclo de consulta do segundo POST capta. Valores mais altos raramente ajudam e desgastam a bateria de 12V.",
+          "max_recent_trips": "Preenche um sensor 'Viagens recentes' por veículo com as últimas N viagens (pontos de rota + estatísticas por viagem), adequado para cartões personalizados journey-viewer. 0 (predefinição) desativa completamente a consulta automática (sem chamadas extra à API). 1-20 ativa a consulta automática em eventos de paragem; a cache sobrevive a um reinício do HA. O serviço toyota.refresh_recent_trips e o botão 'Atualizar viagens recentes' por veículo funcionam independentemente desta configuração, pelo que pode manter a consulta automática desativada e acionar consultas através de automações diárias."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Localização do Estacionamento"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Número de Indentificação do Veículo (VIN)"
+      },
+      "recent_trips": {
+        "name": "Viagens recentes"
+      },
+      "odometer": {
+        "name": "Conta Quilómetros"
+      },
+      "fuel_level": {
+        "name": "Nível de combustível"
+      },
+      "fuel_range": {
+        "name": "Autonomia do combustível"
+      },
+      "battery_level": {
+        "name": "Nível da bateria"
+      },
+      "battery_range_ac": {
+        "name": "Autonomia da bateria com AC"
+      },
+      "battery_range": {
+        "name": "Autonomia da bateria"
+      },
+      "total_range": {
+        "name": "Autonomia total"
+      },
+      "charging_status": {
+        "name": "Estado de carregamento",
+        "state": {
+          "charge_complete": "Carregamento concluído",
+          "charging": "A carregar",
+          "none": "Não ligado",
+          "plugged": "Ligado"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minutos até cheio"
+          },
+          "has_charging_schedule": {
+            "name": "Tem hora de carregamento"
+          },
+          "scheduled_charging_start": {
+            "name": "Início do carregamento agendado"
+          },
+          "scheduled_charging_end": {
+            "name": "Fim do carregamento agendado"
+          },
+          "scheduled_charging_duration": {
+            "name": "Duração do carregamento agendado"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Tempo de carregamento restante"
+      },
+      "current_day_statistics": {
+        "name": "Estatística do dia atual"
+      },
+      "current_week_statistics": {
+        "name": "Estatística da semana atual"
+      },
+      "current_month_statistics": {
+        "name": "Estatística do mês atual"
+      },
+      "current_year_statistics": {
+        "name": "Estatística do ano atual"
+      },
+      "last_successful_fetch": {
+        "name": "Última consulta bem-sucedida"
+      },
+      "last_refresh_error_time": {
+        "name": "Último erro de atualização"
+      },
+      "last_refresh_error_code": {
+        "name": "Último código de erro de atualização"
+      },
+      "status_last_reported": {
+        "name": "Estado reportado pela última vez pelo veículo"
+      },
+      "status_refresh_state": {
+        "name": "Estado da atualização de estado",
+        "state": {
+          "active": "Ativo",
+          "soft_disabled_unreachable": "Inacessível",
+          "hard_disabled_auto": "Desativado (não suportado)",
+          "hard_disabled_user": "Desativado (pelo utilizador)"
+        }
+      },
+      "last_service": {
+        "name": "Última revisão"
+      },
+      "last_trip_score": {
+        "name": "Pontuação da última viagem"
+      },
+      "cabin_temperature": {
+        "name": "Temperatura da cabine"
+      },
+      "notifications": {
+        "name": "Notificações"
+      },
+      "warning_lights": {
+        "name": "Luzes de aviso do painel"
+      },
+      "last_service_detail": {
+        "name": "Detalhe da última revisão"
+      },
+      "average_speed_week": {
+        "name": "Velocidade média semanal"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Atualizar estado do veículo"
+      },
+      "refresh_recent_trips": {
+        "name": "Atualizar viagens recentes"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Atualizar estado elétrico em tempo real"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Estado geral"
+      },
+      "hood": {
+        "name": "Capô"
+      },
+      "key_in_car": {
+        "name": "Chave no carro"
+      },
+      "front_defogger": {
+        "name": "Desembaciador frontal"
+      },
+      "rear_defogger": {
+        "name": "Desembaciador traseiro"
+      },
+      "driverseat_window": {
+        "name": "Janela do condutor"
+      },
+      "passengerseat_window": {
+        "name": "Janela do passageiro"
+      },
+      "leftrearseat_window": {
+        "name": "Janela esquerda traseira"
+      },
+      "rightrearseat_window": {
+        "name": "Janela direita traseira"
+      },
+      "driverseat_door": {
+        "name": "Porta do condutor"
+      },
+      "driverseat_lock": {
+        "name": "Fecho da porta do condutor"
+      },
+      "passengerseat_door": {
+        "name": "Porta do passageiro"
+      },
+      "passengerseat_lock": {
+        "name": "Fecho da porta do passageiro"
+      },
+      "leftrearseat_door": {
+        "name": "Porta esquerda traseira"
+      },
+      "leftrearseat_lock": {
+        "name": "Fecho da porta esquerda traseira"
+      },
+      "rightrearseat_door": {
+        "name": "Porta direita traseira"
+      },
+      "rightrearseat_lock": {
+        "name": "Fecho da porta direita traseira"
+      },
+      "trunk_door": {
+        "name": "Bagageira"
+      },
+      "trunk_lock": {
+        "name": "Fecho da bagageira"
+      },
+      "hazardlights": {
+        "name": "Luzes de aviso"
+      },
+      "headlights": {
+        "name": "Faróis"
+      },
+      "taillights": {
+        "name": "Luzes traseiras"
+      },
+      "vehicle_health": {
+        "name": "Estado do veículo"
+      },
+      "driving": {
+        "name": "A conduzir"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Desembaciador dianteiro",
+              "rear_defrost": "Desembaciador traseiro",
+              "both_defrost": "Ambos os desembaciadores"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Fecho de portas"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Aquecimento do banco do condutor"
+      },
+      "seat_heater_passenger": {
+        "name": "Aquecimento do banco do passageiro"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Aquecimento do banco traseiro do lado do condutor"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Aquecimento do banco traseiro do lado do passageiro"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Aquecimento do volante"
+      }
+    }
+  }
+}

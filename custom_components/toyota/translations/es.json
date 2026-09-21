@@ -17,6 +17,33 @@
       "unknown": "Error inesperado."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opciones de Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Intervalo de sondeo (minutos)",
+          "retain_on_transient_failure": "Conservar los últimos datos válidos ante fallos transitorios (recomendado)",
+          "enable_status_refresh": "Actualizar el estado del vehículo de forma remota (recomendado)",
+          "idle_wake_hours": "Despertar el vehículo inactivo cada N horas (0 = desactivado)",
+          "failed_wake_threshold": "Marcar como inaccesible tras N despertares fallidos",
+          "max_cache_age_minutes": "Actualizar la caché de estado si es más antigua que",
+          "post_count_per_stop": "POST de despertar por evento de parada",
+          "max_recent_trips": "Viajes recientes a mantener en caché (0 = desactivado)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Con qué frecuencia la integración consulta a Toyota para obtener datos actualizados (0-1440 minutos; por defecto 6; 0 = desactiva el sondeo automático, usa solo los servicios/botones de actualización manual). Valores más bajos pueden alcanzar los límites de frecuencia.",
+          "retain_on_transient_failure": "Cuando está activado, un fallo temporal de la API de Toyota (HTTP 429, tiempo de espera, error de conexión) mantiene los últimos datos correctos por vehículo en lugar de marcar todas las entidades de Toyota como no disponibles. Los nuevos sensores de diagnóstico 'Última recuperación correcta', 'Último error' y 'Código del último error' muestran el estado real de la integración.",
+          "enable_status_refresh": "La pasarela de la API de Toyota a menudo devuelve un estado de cerradura y puertas obsoleto a menos que se despierte explícitamente el módem del coche. Cuando está activado, la integración envía una solicitud de despertar antes de leer el estado, imitando la aplicación móvil de Toyota. Cada despertar utiliza una pequeña cantidad de datos móviles y batería de 12V; los disparadores inteligentes (detección de parada reciente, despertar opcional en inactividad) mantienen ese coste bajo. Desactívalo para vehículos cuya cuenta de Toyota no admita refresh-status; la integración lo desactiva automáticamente si detecta respuestas no admitidas. Nota: este ámbito abarca solo el endpoint /v1/global/remote/status (estado de puertas, ventanas, cerraduras y capó); el resto de datos (kilometraje, combustible, ubicación, etc.) se obtienen en cada ciclo independientemente. Cuando esta opción está DESACTIVADA, las cuatro opciones siguientes (despertar en inactividad, umbral de despertar fallido, antigüedad de la caché de estado, POST de despertar por parada) no tienen efecto. Las actualizaciones manuales (el servicio toyota.refresh_vehicle_status o el botón de actualización) omiten este interruptor y cualquier desactivación automática, y un despertar manual correcto reactiva la estrategia automática.",
+          "idle_wake_hours": "Despierta el coche periódicamente aunque no se haya movido. Útil para coches que permanecen sin usar durante días y para los que aun así quieres un estado de cerradura actualizado. 0 (por defecto) desactiva esto por completo; 1-72 = despertar cada N horas. Cada despertar consume datos móviles y una pequeña cantidad de batería de 12V. Nota: el despertar solo actualiza el endpoint /v1/global/remote/status (estado de puertas, ventanas, cerraduras y capó). El resto de datos (kilometraje, combustible, ubicación, etc.) se obtienen en cada ciclo de forma independiente y no necesitan un despertar.",
+          "failed_wake_threshold": "Si un vehículo deja de responder a las solicitudes de despertar este número de veces consecutivas, se marca como inaccesible por VIN hasta que muestre alguna señal de actividad (evento de conducción, actualización desde una app externa, llamada de servicio manual). Por defecto 3.",
+          "max_cache_age_minutes": "Antigüedad máxima aceptable de los datos de estado en caché antes de emitir una nueva solicitud GET (5-180 minutos; por defecto 30). Nota: esto controla solo el endpoint /v1/global/remote/status, que transporta el estado de puertas, ventanas, cerraduras y capó. El resto de datos (kilometraje, combustible, ubicación, etc.) se obtienen en cada ciclo de forma independiente.",
+          "post_count_per_stop": "Cuántos POST de despertar enviar cuando se detecta que el vehículo acaba de detenerse, uno por ciclo del coordinador. 1 = un único POST. 2 (por defecto) = un POST adicional en el siguiente ciclo, que normalmente capta cambios de estado realizados poco después de detenerse (cerrar las puertas, abrir el maletero, etc.) - esos eventos activan nuevos informes del módem que el bucle de sondeo del segundo POST detecta. Valores más altos rara vez ayudan y consumen más batería de 12V.",
+          "max_recent_trips": "Rellena un sensor 'Viajes recientes' por vehículo con los últimos N viajes (puntos de la ruta + estadísticas por viaje), adecuado para tarjetas personalizadas de journey-viewer. 0 (por defecto) desactiva por completo la obtención automática (sin llamadas adicionales a la API). 1-20 activa la obtención automática en eventos de parada; la caché sobrevive a un reinicio de HA. El servicio toyota.refresh_recent_trips y el botón por vehículo 'Actualizar viajes recientes' funcionan independientemente de este ajuste, por lo que puedes mantener desactivada la obtención automática y disparar las obtenciones mediante automatizaciones diarias."
+        }
+      }
+    }
+  },
   "selector": {
     "brand": {
       "options": {
@@ -33,7 +60,10 @@
     },
     "sensor": {
       "vin": {
-        "name": "Vehicle-Identify-Number"
+        "name": "Número de identificación del vehículo"
+      },
+      "recent_trips": {
+        "name": "Viajes recientes"
       },
       "odometer": {
         "name": "Odómetro"
@@ -47,14 +77,14 @@
       "battery_level": {
         "name": "Nivel de batería"
       },
-      "battery_range": {
-        "name": "Autonomía de la batería"
-      },
       "battery_range_ac": {
         "name": "Autonomía de la batería con AC"
       },
+      "battery_range": {
+        "name": "Autonomía de la batería"
+      },
       "total_range": {
-        "name": "Total range"
+        "name": "Autonomía total"
       },
       "charging_status": {
         "name": "Estado de carga",
@@ -97,6 +127,30 @@
       "current_year_statistics": {
         "name": "Estadísticas de este año"
       },
+      "last_successful_fetch": {
+        "name": "Última recuperación correcta"
+      },
+      "last_refresh_error_time": {
+        "name": "Último error de actualización"
+      },
+      "last_refresh_error_code": {
+        "name": "Código del último error de actualización"
+      },
+      "status_last_reported": {
+        "name": "Estado notificado por última vez por el coche"
+      },
+      "status_refresh_state": {
+        "name": "Estado de la actualización de estado",
+        "state": {
+          "active": "Activo",
+          "soft_disabled_unreachable": "Inaccesible",
+          "hard_disabled_auto": "Desactivado (no compatible)",
+          "hard_disabled_user": "Desactivado (por el usuario)"
+        }
+      },
+      "last_service": {
+        "name": "Último servicio"
+      },
       "last_trip_score": {
         "name": "Puntuación último viaje"
       },
@@ -114,6 +168,17 @@
       },
       "average_speed_week": {
         "name": "Velocidad media semanal"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Actualizar estado del vehículo"
+      },
+      "refresh_recent_trips": {
+        "name": "Actualizar viajes recientes"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Actualizar estado eléctrico en tiempo real"
       }
     },
     "binary_sensor": {
@@ -182,6 +247,12 @@
       },
       "taillights": {
         "name": "Faros traseros"
+      },
+      "vehicle_health": {
+        "name": "Estado de salud del vehículo"
+      },
+      "driving": {
+        "name": "Conduciendo"
       }
     },
     "climate": {
@@ -200,6 +271,25 @@
     "lock": {
       "door_lock": {
         "name": "Cerradura de puertas"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Calefacción asiento conductor"
+      },
+      "seat_heater_passenger": {
+        "name": "Calefacción asiento pasajero"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Calefacción asiento trasero conductor"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Calefacción asiento trasero pasajero"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Calefacción del volante"
       }
     }
   }

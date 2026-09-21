@@ -1,0 +1,296 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Lūdzu, izvēlieties savas automašīnas marku un ievadiet zemāk savu e-pastu un paroli MyT/Lexus Link kontam.",
+        "data": {
+          "brand": "Transportlīdzekļa marka",
+          "email": "E-pasts",
+          "password": "Parole",
+          "use_metric_values": "Izmantot metriskās vienības (piemēram, km, nevis jūdzes)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "E-pastam jāsatur @.",
+      "invalid_auth": "E-pasts vai parole nav pareiza.",
+      "unknown": "Neparedzēta kļūda."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Toyota Connected Services opcijas",
+        "data": {
+          "polling_interval_minutes": "Aptaujas intervāls (minūtēs)",
+          "retain_on_transient_failure": "Saglabāt pēdējos derīgos datus pārejošu kļūdu gadījumā (ieteicams)",
+          "enable_status_refresh": "Attālināti atjaunināt transportlīdzekļa statusu (ieteicams)",
+          "idle_wake_hours": "Aktivizēt neizmantotu transportlīdzekli katras N stundas (0 = izslēgts)",
+          "failed_wake_threshold": "Atzīmēt kā nepieejamu pēc N neveiksmīgām aktivizācijām",
+          "max_cache_age_minutes": "Atjaunināt statusa kešatmiņu, ja vecāka par",
+          "post_count_per_stop": "Aktivizācijas POST pieprasījumi uz apstāšanās notikumu",
+          "max_recent_trips": "Nesenu braucienu skaits, ko glabāt kešatmiņā (0 = izslēgts)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Cik bieži integrācija pieprasa Toyota jaunus datus (0-1440 minūtes; noklusējums 6; 0 = izslēdz automātisko aptauju, izmantot tikai manuālās atjaunināšanas pakalpojumus/pogas). Zemākas vērtības var izraisīt pieprasījumu ātruma ierobežojumus.",
+          "retain_on_transient_failure": "Kad iespējots, pārejoša Toyota API kļūda (HTTP 429, noildze, savienojuma kļūda) saglabā pēdējos veiksmīgi ielādētos datus par transportlīdzekli, nevis atzīmē visas Toyota entitātes kā nepieejamas. Jaunie diagnostikas sensori 'Pēdējā veiksmīgā ielāde', 'Pēdējā kļūda' un 'Pēdējais kļūdas kods' parāda integrācijas patieso stāvokli.",
+          "enable_status_refresh": "Toyota API vārteja bieži atgriež iestrēgušu vai novecojušu slēdzenes un durvju statusu, ja automašīnas modems netiek tieši aktivizēts. Kad iespējots, integrācija nosūta aktivizācijas pieprasījumu pirms statusa nolasīšanas, imitējot Toyota mobilo lietotni. Katra aktivizācija izmanto nedaudz mobilo datu un 12V akumulatora resursu; gudrie aktivizētāji (tikko apstājies notikuma noteikšana, izvēles brīvgaitas aktivizācija) uztur zemas izmaksas. Izslēgt transportlīdzekļiem, kuru Toyota konts neatbalsta statusa atjaunināšanu; integrācija to automātiski izslēdz, ja konstatē neatbalstītas atbildes. Piezīme: šis attiecas tikai uz /v1/global/remote/status galapunktu (durvju, loga, slēdzenes un motora pārsega statusu); citi dati (nobraukuma skaitītājs, degviela, atrašanās vieta u.c.) tiek ielādēti katrā ciklā neatkarīgi no šī. Kad šī opcija ir IZSLĒGTA, četrām zemāk esošajām opcijām (brīvgaitas aktivizācija, neveiksmīgas aktivizācijas slieksnis, statusa kešatmiņas vecums, aktivizācijas POST uz apstāšanos) nav nekādas ietekmes. Manuālas atjaunināšanas (pakalpojums toyota.refresh_vehicle_status vai atjaunināšanas poga) apiet šo iestatījumu un jebkādu automātisko izslēgšanu, un veiksmīga manuāla aktivizācija no jauna iespējo automātisko stratēģiju.",
+          "idle_wake_hours": "Periodiski aktivizēt automašīnu, pat ja tā nav pārvietota. Noderīgi automašīnām, kas vairākas dienas stāv neizmantotas, bet kurām tomēr vēlaties aktuālu slēdzenes statusu. 0 (noklusējums) šo pilnībā izslēdz; 1-72 = aktivizēt katras N stundas. Katra aktivizācija maksā mobilos datus un nedaudz 12V akumulatora resursu. Piezīme: aktivizācija atjauno tikai /v1/global/remote/status galapunktu (durvju, loga, slēdzenes un motora pārsega statusu). Citi dati (nobraukuma skaitītājs, degviela, atrašanās vieta u.c.) tiek ielādēti neatkarīgi katrā ciklā un aktivizācija tiem nav nepieciešama.",
+          "failed_wake_threshold": "Ja transportlīdzeklis pārtrauc atbildēt uz aktivizācijas pieprasījumiem šo skaitu reižu pēc kārtas, tas tiek atzīmēts kā nepieejams pēc VIN, līdz tas parāda kādu dzīvības zīmi (braukšanas notikums, ārējas lietotnes atjaunināšana, manuāls pakalpojuma izsaukums). Noklusējums 3.",
+          "max_cache_age_minutes": "Maksimālais pieņemamais kešatmiņā esošo statusa datu vecums pirms jauna GET pieprasījuma veikšanas (5-180 minūtes; noklusējums 30). Piezīme: tas kontrolē tikai /v1/global/remote/status galapunktu, kas ietver durvju, loga, slēdzenes un motora pārsega statusu. Citi dati (nobraukuma skaitītājs, degviela, atrašanās vieta u.c.) tiek ielādēti neatkarīgi katrā ciklā.",
+          "post_count_per_stop": "Cik daudz aktivizācijas POST pieprasījumu tiek nosūtīti, kad transportlīdzeklis tiek konstatēts kā tikko apstājies, viens uz koordinatora ciklu. 1 = viens POST. 2 (noklusējums) = papildu POST nākamajā ciklā, kas parasti fiksē statusu, ko lietotājs maina neilgi pēc apstāšanās (durvju slēgšana, bagāžnika atvēršana u.c.) - šie notikumi izraisa jaunus modema ziņojumus, ko otrā POST aptaujas cikls fiksē. Augstākas vērtības reti palīdz un tērē 12V akumulatoru.",
+          "max_recent_trips": "Aizpilda transportlīdzekļa sensoru 'Nesenie braucieni' ar N pēdējiem braucieniem (maršruta punkti + brauciena statistika), piemērots pielāgotām journey-viewer kartēm. 0 (noklusējums) pilnībā izslēdz automātisko ielādi (bez papildu API izsaukumiem). 1-20 iespējo automātisko ielādi apstāšanās notikumos; kešatmiņa saglabājas pēc HA restartēšanas. Pakalpojums toyota.refresh_recent_trips un transportlīdzekļa poga 'Atjaunināt nesenos braucienus' darbojas neatkarīgi no šī iestatījuma, tāpēc automātisko ielādi var atstāt izslēgtu un braucienus ielādēt, izmantojot ikdienas automatizācijas."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Novietošanas vieta"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Transportlīdzekļa identifikācijas numurs"
+      },
+      "recent_trips": {
+        "name": "Nesenie braucieni"
+      },
+      "odometer": {
+        "name": "Odometrs"
+      },
+      "fuel_level": {
+        "name": "Degvielas līmenis"
+      },
+      "fuel_range": {
+        "name": "Nobraukums ar degvielu"
+      },
+      "battery_level": {
+        "name": "Akumulatora līmenis"
+      },
+      "battery_range_ac": {
+        "name": "Akumulatora nobraukums ar klimata kontroli"
+      },
+      "battery_range": {
+        "name": "Akumulatora nobraukums"
+      },
+      "total_range": {
+        "name": "Kopējais nobraukums"
+      },
+      "charging_status": {
+        "name": "Uzlādes statuss",
+        "state": {
+          "charge_complete": "Uzlāde pabeigta",
+          "charging": "Notiek uzlāde",
+          "none": "Nav pievienots",
+          "plugged": "Pievienots"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minūtes līdz pilnai uzlādei"
+          },
+          "has_charging_schedule": {
+            "name": "Ir uzlādes grafiks"
+          },
+          "scheduled_charging_start": {
+            "name": "Ieplānotās uzlādes sākums"
+          },
+          "scheduled_charging_end": {
+            "name": "Ieplānotās uzlādes beigas"
+          },
+          "scheduled_charging_duration": {
+            "name": "Ieplānotās uzlādes ilgums"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Atlikušais uzlādes laiks"
+      },
+      "current_day_statistics": {
+        "name": "Šodienas statistika"
+      },
+      "current_week_statistics": {
+        "name": "Šīs nedēļas statistika"
+      },
+      "current_month_statistics": {
+        "name": "Šī mēneša statistika"
+      },
+      "current_year_statistics": {
+        "name": "Šī gada statistika"
+      },
+      "last_successful_fetch": {
+        "name": "Pēdējā veiksmīgā ielāde"
+      },
+      "last_refresh_error_time": {
+        "name": "Pēdējā atsvaidzināšanas kļūda"
+      },
+      "last_refresh_error_code": {
+        "name": "Pēdējais atsvaidzināšanas kļūdas kods"
+      },
+      "status_last_reported": {
+        "name": "Automašīnas pēdējais statusa ziņojums"
+      },
+      "status_refresh_state": {
+        "name": "Statusa atjaunināšanas režīms",
+        "state": {
+          "active": "Aktīvs",
+          "soft_disabled_unreachable": "Nepieejams",
+          "hard_disabled_auto": "Izslēgts (netiek atbalstīts)",
+          "hard_disabled_user": "Izslēgts (lietotājs)"
+        }
+      },
+      "last_service": {
+        "name": "Pēdējā apkope"
+      },
+      "last_trip_score": {
+        "name": "Pēdējā brauciena novērtējums"
+      },
+      "cabin_temperature": {
+        "name": "Salona temperatūra"
+      },
+      "notifications": {
+        "name": "Paziņojumi"
+      },
+      "warning_lights": {
+        "name": "Brīdinājuma lampiņas"
+      },
+      "last_service_detail": {
+        "name": "Pēdējās apkopes detaļas"
+      },
+      "average_speed_week": {
+        "name": "Vidējais ātrums nedēļā"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Atjaunināt transportlīdzekļa statusu"
+      },
+      "refresh_recent_trips": {
+        "name": "Atjaunināt nesenos braucienus"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Atjaunināt elektrisko reāllaika statusu"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Vispārējais statuss"
+      },
+      "hood": {
+        "name": "Motora pārsegs"
+      },
+      "key_in_car": {
+        "name": "Atslēga automašīnā"
+      },
+      "front_defogger": {
+        "name": "Priekšējā stikla atsvīdinātājs"
+      },
+      "rear_defogger": {
+        "name": "Aizmugurējā stikla atsvīdinātājs"
+      },
+      "driverseat_window": {
+        "name": "Vadītāja sēdekļa logs"
+      },
+      "passengerseat_window": {
+        "name": "Pasažiera sēdekļa logs"
+      },
+      "leftrearseat_window": {
+        "name": "Kreisais aizmugurējais logs"
+      },
+      "rightrearseat_window": {
+        "name": "Labais aizmugurējais logs"
+      },
+      "driverseat_door": {
+        "name": "Vadītāja durvis"
+      },
+      "driverseat_lock": {
+        "name": "Vadītāja durvju slēdzene"
+      },
+      "passengerseat_door": {
+        "name": "Pasažiera durvis"
+      },
+      "passengerseat_lock": {
+        "name": "Pasažiera durvju slēdzene"
+      },
+      "leftrearseat_door": {
+        "name": "Kreisās aizmugurējās durvis"
+      },
+      "leftrearseat_lock": {
+        "name": "Kreiso aizmugurējo durvju slēdzene"
+      },
+      "rightrearseat_door": {
+        "name": "Labās aizmugurējās durvis"
+      },
+      "rightrearseat_lock": {
+        "name": "Labo aizmugurējo durvju slēdzene"
+      },
+      "trunk_door": {
+        "name": "Bagāžnieks"
+      },
+      "trunk_lock": {
+        "name": "Bagāžnieka slēdzene"
+      },
+      "hazardlights": {
+        "name": "Avārijas signalizācija"
+      },
+      "headlights": {
+        "name": "Priekšējie lukturi"
+      },
+      "taillights": {
+        "name": "Aizmugurējie lukturi"
+      },
+      "vehicle_health": {
+        "name": "Transportlīdzekļa veselība"
+      },
+      "driving": {
+        "name": "Braukšana"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Priekšējā stikla atkausēšana",
+              "rear_defrost": "Aizmugurējā stikla atkausēšana",
+              "both_defrost": "Abas atkausēšanas"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Durvju slēdzene"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Vadītāja sēdekļa sildītājs"
+      },
+      "seat_heater_passenger": {
+        "name": "Pasažiera sēdekļa sildītājs"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Aizmugurējais vadītāja puses sēdekļa sildītājs"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Aizmugurējais pasažiera puses sēdekļa sildītājs"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Stūres sildītājs"
+      }
+    }
+  }
+}

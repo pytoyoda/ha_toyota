@@ -7,7 +7,7 @@
           "brand": "Marca del vehicle",
           "email": "Correu electrònic",
           "password": "Contrasenya",
-          "use_metric_values": "Use metric units (e.g. km instead of miles)"
+          "use_metric_values": "Utilitzeu unitats mètriques (p. ex. km en lloc de milles)"
         }
       }
     },
@@ -15,6 +15,33 @@
       "invalid_username": "El correu electrònic ha de contenir un @.",
       "invalid_auth": "Correu electònic/Contrasenya incorrecta.",
       "unknown": "Error inesperat."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcions de Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Interval de consulta (minuts)",
+          "retain_on_transient_failure": "Mantenir les últimes dades bones en fallades transitòries (recomanat)",
+          "enable_status_refresh": "Actualitzar l'estat del vehicle de forma remota (recomanat)",
+          "idle_wake_hours": "Despertar el vehicle inactiu cada N hores (0 = desactivat)",
+          "failed_wake_threshold": "Marcar com a inabastable després de N despertars fallats",
+          "max_cache_age_minutes": "Actualitzar la memòria cau d'estat si és més antiga que",
+          "post_count_per_stop": "POSTs de despertar per esdeveniment d'aturada",
+          "max_recent_trips": "Viatges recents a mantenir a la memòria cau (0 = desactivat)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Amb quina freqüència la integració consulta Toyota per obtenir dades noves (0-1440 minuts; per defecte 6; 0 = desactiva la consulta automàtica, utilitzant només els serveis/botons de refresc manual). Valors més baixos poden arribar als límits de velocitat.",
+          "retain_on_transient_failure": "Quan està activat, una fallada temporal de l'API de Toyota (HTTP 429, temps d'espera, error de connexió) manté les últimes dades correctes de cada vehicle en lloc de marcar totes les entitats de Toyota com a no disponibles. Els nous sensors de diagnòstic 'Última consulta correcta', 'Últim error' i 'Últim codi d'error' mostren l'estat real de la integració.",
+          "enable_status_refresh": "La passarel·la de l'API de Toyota sovint retorna un estat de porta i pany desactualitzat a menys que el mòdem del cotxe es desperti explícitament. Quan està activat, la integració envia una sol·licitud de despertar abans de llegir l'estat, imitant l'aplicació mòbil de Toyota. Cada despertar utilitza una petita quantitat de dades mòbils i bateria de 12 V; els disparadors intel·ligents (detecció d'aturada recent, despertar inactiu opcional) mantenen el cost baix. Desactiveu-ho per a vehicles el compte de Toyota dels quals no admet refresh-status; la integració ho desactiva automàticament si detecta respostes no admeses. Nota: l'abast és només l'endpoint /v1/global/remote/status (estat de porta, finestra, pany i capó); altres dades (quilometratge, combustible, ubicació, etc.) es consulten cada cicle independentment. Quan aquesta opció està DESACTIVADA, les quatre opcions següents (despertar inactiu, llindar de despertars fallats, antiguitat de la memòria cau d'estat, POSTs de despertar per aturada) no tenen efecte. Les actualitzacions manuals (el servei toyota.refresh_vehicle_status o el botó de refresc) eviten aquest interruptor i qualsevol desactivació automàtica, i un despertar manual correcte reactiva l'estratègia automàtica.",
+          "idle_wake_hours": "Desperta el cotxe periòdicament encara que no s'hagi mogut. Útil per a cotxes que estan sense utilitzar durant dies i on encara voleu un estat de pany actualitzat. 0 (per defecte) desactiva això completament; 1-72 = desperta cada N hores. Cada despertar costa dades mòbils i una petita quantitat de bateria de 12 V. Nota: el despertar només actualitza l'endpoint /v1/global/remote/status (estat de porta, finestra, pany i capó). Altres dades (quilometratge, combustible, ubicació, etc.) es consulten a cada cicle de forma independent i no necessiten un despertar.",
+          "failed_wake_threshold": "Si un vehicle deixa de respondre a les sol·licituds de despertar aquest nombre de vegades consecutives, es marca com a inabastable per VIN fins que mostri qualsevol senyal de vida (esdeveniment de conducció, actualització d'una app externa, trucada manual al servei). Per defecte 3.",
+          "max_cache_age_minutes": "Antiguitat màxima acceptable de les dades d'estat en memòria cau abans d'emetre un GET nou (5-180 minuts; per defecte 30). Nota: això només controla l'endpoint /v1/global/remote/status, que porta l'estat de porta, finestra, pany i capó. Altres dades (quilometratge, combustible, ubicació, etc.) es consulten a cada cicle de forma independent.",
+          "post_count_per_stop": "Quants POSTs de despertar s'envien quan es detecta que el vehicle just s'ha aturat, un per cicle del coordinador. 1 = un únic POST. 2 (per defecte) = un POST addicional al cicle següent, que normalment captura canvis d'estat que l'usuari fa poc després d'aturar-se (tancar les portes, obrir el maleter, etc.) - aquests esdeveniments desencadenen informes frescos del mòdem que el bucle de consulta del segon POST detecta. Valors més alts rarament ajuden i gasten bateria de 12 V.",
+          "max_recent_trips": "Omple un sensor 'Viatges recents' per vehicle amb els últims N viatges (punts de ruta + estadístiques per viatge), adequat per a targetes personalitzades de journey-viewer. 0 (per defecte) desactiva completament la consulta automàtica (sense trucades extra a l'API). 1-20 activa la consulta automàtica en esdeveniments d'aturada; la memòria cau sobreviu a un reinici de HA. El servei toyota.refresh_recent_trips i el botó 'Actualitzar viatges recents' per vehicle funcionen independentment d'aquesta configuració, així que podeu mantenir la consulta automàtica desactivada i fer consultes mitjançant automatitzacions diàries."
+        }
+      }
     }
   },
   "selector": {
@@ -28,33 +55,36 @@
   "entity": {
     "device_tracker": {
       "parking_location": {
-        "name": "Parking location"
+        "name": "Ubicació d'estacionament"
       }
     },
     "sensor": {
       "vin": {
-        "name": "Vehicle-Identify-Number"
+        "name": "Número d'identificació del vehicle"
+      },
+      "recent_trips": {
+        "name": "Viatges recents"
       },
       "odometer": {
-        "name": "Odometer"
+        "name": "Odòmetre"
       },
       "fuel_level": {
-        "name": "Fuel level"
+        "name": "Nivell de combustible"
       },
       "fuel_range": {
-        "name": "Fuel range"
+        "name": "Autonomia de combustible"
       },
       "battery_level": {
-        "name": "Battery level"
-      },
-      "battery_range": {
-        "name": "Battery range"
+        "name": "Nivell de bateria"
       },
       "battery_range_ac": {
-        "name": "Battery range with AC"
+        "name": "Autonomia de la bateria amb AC"
+      },
+      "battery_range": {
+        "name": "Autonomia de la bateria"
       },
       "total_range": {
-        "name": "Total range"
+        "name": "Autonomia total"
       },
       "charging_status": {
         "name": "Estat de càrrega",
@@ -86,84 +116,143 @@
         "name": "Temps de càrrega restant"
       },
       "current_day_statistics": {
-        "name": "Current day statistics"
+        "name": "Estadístiques del dia actual"
       },
       "current_week_statistics": {
-        "name": "Current week statistics"
+        "name": "Estadístiques de la setmana actual"
       },
       "current_month_statistics": {
-        "name": "Current month statistics"
+        "name": "Estadístiques del mes actual"
       },
       "current_year_statistics": {
-        "name": "Current year statistics"
+        "name": "Estadístiques de l'any actual"
+      },
+      "last_successful_fetch": {
+        "name": "Última consulta correcta"
+      },
+      "last_refresh_error_time": {
+        "name": "Últim error d'actualització"
+      },
+      "last_refresh_error_code": {
+        "name": "Últim codi d'error d'actualització"
+      },
+      "status_last_reported": {
+        "name": "Últim estat reportat pel cotxe"
+      },
+      "status_refresh_state": {
+        "name": "Estat d'actualització de l'estat",
+        "state": {
+          "active": "Actiu",
+          "soft_disabled_unreachable": "Inabastable",
+          "hard_disabled_auto": "Desactivat (no compatible)",
+          "hard_disabled_user": "Desactivat (per l'usuari)"
+        }
+      },
+      "last_service": {
+        "name": "Últim servei"
+      },
+      "last_trip_score": {
+        "name": "Puntuació de l'últim viatge"
+      },
+      "cabin_temperature": {
+        "name": "Temperatura de la cabina"
+      },
+      "notifications": {
+        "name": "Notificacions"
+      },
+      "warning_lights": {
+        "name": "Llums d'avís"
+      },
+      "last_service_detail": {
+        "name": "Detall de l'últim servei"
+      },
+      "average_speed_week": {
+        "name": "Velocitat mitjana setmanal"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Actualitzar estat del vehicle"
+      },
+      "refresh_recent_trips": {
+        "name": "Actualitzar viatges recents"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Actualitzar estat elèctric en temps real"
       }
     },
     "binary_sensor": {
       "over_all_status": {
-        "name": "Over all status"
+        "name": "Estat general"
       },
       "hood": {
-        "name": "Hood"
+        "name": "Capó"
       },
       "key_in_car": {
-        "name": "Key in car"
+        "name": "Clau al cotxe"
       },
       "front_defogger": {
-        "name": "Front defogger"
+        "name": "Desembafador davanter"
       },
       "rear_defogger": {
-        "name": "Rear defogger"
+        "name": "Desembafador posterior"
       },
       "driverseat_window": {
-        "name": "Driverseat window"
+        "name": "Finestra del conductor"
       },
       "passengerseat_window": {
-        "name": "Passengerseat window"
+        "name": "Finestra del passatger"
       },
       "leftrearseat_window": {
-        "name": "Leftrearseat window"
+        "name": "Finestra posterior esquerra"
       },
       "rightrearseat_window": {
-        "name": "Rightrearseat window"
+        "name": "Finestra posterior dreta"
       },
       "driverseat_door": {
-        "name": "Driverseat door"
+        "name": "Porta del conductor"
       },
       "driverseat_lock": {
-        "name": "Driverseat lock"
+        "name": "Pany de la porta del conductor"
       },
       "passengerseat_door": {
-        "name": "Passengerseat door"
+        "name": "Porta del passatger"
       },
       "passengerseat_lock": {
-        "name": "Passengerseat lock"
+        "name": "Pany de la porta del passatger"
       },
       "leftrearseat_door": {
-        "name": "Leftrearseat door"
+        "name": "Porta posterior esquerra"
       },
       "leftrearseat_lock": {
-        "name": "Leftrearseat lock"
+        "name": "Pany de la porta posterior esquerra"
       },
       "rightrearseat_door": {
-        "name": "Rightrearseat door"
+        "name": "Porta posterior dreta"
       },
       "rightrearseat_lock": {
-        "name": "Rightrearseat lock"
+        "name": "Pany de la porta posterior dreta"
       },
       "trunk_door": {
-        "name": "Trunk"
+        "name": "Maleter"
       },
       "trunk_lock": {
-        "name": "Trunk lock"
+        "name": "Pany del maleter"
       },
       "hazardlights": {
-        "name": "Hazardlights"
+        "name": "Llums d'emergència"
       },
       "headlights": {
-        "name": "Headlights"
+        "name": "Fars davanters"
       },
       "taillights": {
-        "name": "Taillights"
+        "name": "Llums posteriors"
+      },
+      "vehicle_health": {
+        "name": "Estat del vehicle"
+      },
+      "driving": {
+        "name": "Conduint"
       }
     },
     "climate": {
@@ -177,6 +266,30 @@
             }
           }
         }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Pany de la porta"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Escalfador del seient del conductor"
+      },
+      "seat_heater_passenger": {
+        "name": "Escalfador del seient del passatger"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Escalfador del seient posterior del conductor"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Escalfador del seient posterior del passatger"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Escalfador del volant"
       }
     }
   }

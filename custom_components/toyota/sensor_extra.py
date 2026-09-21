@@ -188,7 +188,7 @@ class ToyotaServiceDetailSensor(ToyotaExtraSensorBase):
         hist = getattr(self.vehicle, "service_history", None) or []
         if not hist:
             return None
-        sd = getattr(hist[-1], "service_date", None)
+        sd = getattr(hist[0], "service_date", None)
         return str(sd) if sd else None
 
     @property

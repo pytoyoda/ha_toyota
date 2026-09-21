@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Siste vellykkede henting"
       },
-      "last_error_time": {
-        "name": "Siste feil"
+      "last_refresh_error_time": {
+        "name": "Siste oppdateringsfeil"
       },
-      "last_error_code": {
-        "name": "Siste feilkode"
+      "last_refresh_error_code": {
+        "name": "Siste oppdateringsfeilkode"
       },
       "status_last_reported": {
         "name": "Status sist rapportert av bilen"

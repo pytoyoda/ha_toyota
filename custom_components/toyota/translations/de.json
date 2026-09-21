@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Letzter erfolgreicher Abruf"
       },
-      "last_error_time": {
-        "name": "Letzter Fehler"
+      "last_refresh_error_time": {
+        "name": "Letzter Aktualisierungsfehler"
       },
-      "last_error_code": {
-        "name": "Letzter Fehlercode"
+      "last_refresh_error_code": {
+        "name": "Letzter Aktualisierungsfehlercode"
       },
       "status_last_reported": {
         "name": "Status zuletzt vom Fahrzeug gemeldet"

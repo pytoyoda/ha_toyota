@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Última consulta correcta"
       },
-      "last_error_time": {
-        "name": "Últim error"
+      "last_refresh_error_time": {
+        "name": "Últim error d'actualització"
       },
-      "last_error_code": {
-        "name": "Últim codi d'error"
+      "last_refresh_error_code": {
+        "name": "Últim codi d'error d'actualització"
       },
       "status_last_reported": {
         "name": "Últim estat reportat pel cotxe"

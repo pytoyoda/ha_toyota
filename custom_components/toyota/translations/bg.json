@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Последно успешно извличане"
       },
-      "last_error_time": {
-        "name": "Последна грешка"
+      "last_refresh_error_time": {
+        "name": "Последна грешка при обновяване"
       },
-      "last_error_code": {
-        "name": "Код на последна грешка"
+      "last_refresh_error_code": {
+        "name": "Код на последна грешка при обновяване"
       },
       "status_last_reported": {
         "name": "Последно докладван статус от автомобила"

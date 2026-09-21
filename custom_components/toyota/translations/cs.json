@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Poslední úspěšné načtení"
       },
-      "last_error_time": {
-        "name": "Poslední chyba"
+      "last_refresh_error_time": {
+        "name": "Poslední chyba obnovení"
       },
-      "last_error_code": {
-        "name": "Poslední kód chyby"
+      "last_refresh_error_code": {
+        "name": "Poslední kód chyby obnovení"
       },
       "status_last_reported": {
         "name": "Stav poslední nahlášený vozidlem"

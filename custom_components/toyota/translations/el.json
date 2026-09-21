@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Τελευταία επιτυχής ανάκτηση"
       },
-      "last_error_time": {
-        "name": "Τελευταίο σφάλμα"
+      "last_refresh_error_time": {
+        "name": "Τελευταίο σφάλμα ανανέωσης"
       },
-      "last_error_code": {
-        "name": "Κωδικός τελευταίου σφάλματος"
+      "last_refresh_error_code": {
+        "name": "Κωδικός τελευταίου σφάλματος ανανέωσης"
       },
       "status_last_reported": {
         "name": "Τελευταία αναφορά κατάστασης από το αυτοκίνητο"

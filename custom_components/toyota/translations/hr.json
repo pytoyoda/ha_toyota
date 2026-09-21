@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Posljednje uspješno dohvaćanje"
       },
-      "last_error_time": {
-        "name": "Posljednja pogreška"
+      "last_refresh_error_time": {
+        "name": "Posljednja pogreška obnavljanja"
       },
-      "last_error_code": {
-        "name": "Kod posljednje pogreške"
+      "last_refresh_error_code": {
+        "name": "Kod posljednje pogreške obnavljanja"
       },
       "status_last_reported": {
         "name": "Zadnji status prijavljen od automobila"

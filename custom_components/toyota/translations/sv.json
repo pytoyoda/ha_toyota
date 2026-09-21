@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Senaste lyckade hämtning"
       },
-      "last_error_time": {
-        "name": "Senaste fel"
+      "last_refresh_error_time": {
+        "name": "Senaste uppdateringsfel"
       },
-      "last_error_code": {
-        "name": "Senaste felkod"
+      "last_refresh_error_code": {
+        "name": "Senaste uppdateringsfelkod"
       },
       "status_last_reported": {
         "name": "Status senast rapporterad av bilen"

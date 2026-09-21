@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Pēdējā veiksmīgā ielāde"
       },
-      "last_error_time": {
-        "name": "Pēdējā kļūda"
+      "last_refresh_error_time": {
+        "name": "Pēdējā atsvaidzināšanas kļūda"
       },
-      "last_error_code": {
-        "name": "Pēdējais kļūdas kods"
+      "last_refresh_error_code": {
+        "name": "Pēdējais atsvaidzināšanas kļūdas kods"
       },
       "status_last_reported": {
         "name": "Automašīnas pēdējais statusa ziņojums"

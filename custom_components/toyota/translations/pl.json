@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Ostatnie udane pobranie"
       },
-      "last_error_time": {
-        "name": "Ostatni błąd"
+      "last_refresh_error_time": {
+        "name": "Ostatni błąd odświeżania"
       },
-      "last_error_code": {
-        "name": "Ostatni kod błędu"
+      "last_refresh_error_code": {
+        "name": "Ostatni kod błędu odświeżania"
       },
       "status_last_reported": {
         "name": "Status ostatnio zgłoszony przez samochód"

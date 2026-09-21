@@ -1,12 +1,21 @@
 {
   "domain": "toyota",
   "name": "Toyota EU community integration",
-  "after_dependencies": ["cloud", "http"],
-  "codeowners": ["@deejay1", "@CM000n"],
+  "after_dependencies": [
+    "cloud",
+    "http"
+  ],
+  "codeowners": [
+    "@deejay1",
+    "@CM000n"
+  ],
   "config_flow": true,
   "documentation": "https://github.com/pytoyoda/ha_toyota",
   "iot_class": "cloud_polling",
   "issue_tracker": "https://github.com/pytoyoda/ha_toyota/issues",
-  "requirements": ["pytoyoda==5.2.7", "arrow"],
-  "version": "2.6.0"
+  "requirements": [
+    "pytoyoda==5.2.7",
+    "arrow"
+  ],
+  "version": "3.0.0"
 }

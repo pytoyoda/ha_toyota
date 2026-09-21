@@ -13,6 +13,7 @@ if TYPE_CHECKING:
 
     from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
     from pytoyoda.models.summary import Summary
+    from pytoyoda.models.vehicle import Vehicle
 
 
 def td_to_hoursminutes(td: timedelta | None) -> str | None:
@@ -168,6 +169,35 @@ def decode_remote_display(value: Any) -> str:  # noqa: ANN401
     if value is None:
         return "<missing>"
     return "<non-status, see raw>"
+
+
+def vehicle_has_climate_capability(vehicle: Vehicle) -> bool:
+    """Check whether a vehicle supports remote climate control.
+
+    Mirrors pytoyoda's own ``Vehicle._climate_capable()`` gate for the
+    climate_status/climate_settings endpoints: some vehicles (notably BEVs
+    and certain PHEVs) advertise climate support only through
+    ``extended_capabilities`` rather than through
+    ``features.climate_start_engine`` (see issue #192). Vehicles that fail
+    both checks never get a populated ``climate_status`` from pytoyoda, so
+    entities gated on this always read as unknown/unavailable rather than
+    just being created and never updating.
+    """
+    try:
+        info = vehicle._vehicle_info  # noqa : SLF001
+        if getattr(getattr(info, "features", False), "climate_start_engine", False):
+            return True
+        caps = getattr(info, "extended_capabilities", False)
+        return any(
+            getattr(caps, cap, False)
+            for cap in (
+                "climate_capable",
+                "econnect_climate_capable",
+                "remote_engine_start_stop",
+            )
+        )
+    except Exception:  # pylint: disable=W0718 # noqa : BLE001
+        return False
 
 
 def predict_climate_class(features: Any, ext: Any) -> tuple[str, str]:  # noqa: ANN401

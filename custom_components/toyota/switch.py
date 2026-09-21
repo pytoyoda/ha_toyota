@@ -17,9 +17,10 @@ from homeassistant.components.switch import SwitchEntity, SwitchEntityDescriptio
 from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
 
-from .climate import _vehicle_has_climate_capability, async_apply_climate_settings
+from .climate import async_apply_climate_settings
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
+from .utils import vehicle_has_climate_capability
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -52,7 +53,7 @@ async def async_setup_entry(
     entities: list[ToyotaSteeringHeaterSwitch] = []
     for index, vehicle_data in enumerate(coordinator.data):
         vehicle = vehicle_data["data"]
-        if not _vehicle_has_climate_capability(vehicle):
+        if not vehicle_has_climate_capability(vehicle):
             continue
         heating = getattr(
             getattr(vehicle, "climate_settings", None), "heating_options", None

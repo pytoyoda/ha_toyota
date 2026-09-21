@@ -20,8 +20,26 @@
   "options": {
     "step": {
       "init": {
+        "title": "Toyota Connected Services indstillinger",
         "data": {
-          "use_liters": "Vis i liter (L/100 mil) i stedet for MPG. Gælder kun for biler der reportere deres data i mil."
+          "polling_interval_minutes": "Polling interval (minutter)",
+          "retain_on_transient_failure": "Bevar de sidste gode data ved forbigående fejl (anbefalet)",
+          "enable_status_refresh": "Opdater køretøjsstatus eksternt (anbefalet)",
+          "idle_wake_hours": "Væk inaktivt køretøj hver N timer (0 = deaktiveret)",
+          "failed_wake_threshold": "Markér som utilgængelig efter N mislykkede opvågninger",
+          "max_cache_age_minutes": "Opdater statuscache, hvis den er ældre end",
+          "post_count_per_stop": "Wake-POSTs pr. stophændelse",
+          "max_recent_trips": "Seneste ture, der skal gemmes i cache (0 = deaktiveret)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Hvor ofte integrationen forespørger Toyota om nye data (0-1440 minutter; standard 6; 0 = deaktiver automatisk polling, brug kun de manuelle opdateringstjenester/-knapper). Lavere værdier kan hurtigere ramme hastighedsgrænser.",
+          "retain_on_transient_failure": "Når aktiveret, bevarer en forbigående Toyota API-fejl (HTTP 429, timeout, forbindelsesfejl) de sidste gode data pr. køretøj i stedet for at markere alle Toyota-enheder som utilgængelige. De nye diagnostiske sensorer 'Sidste succesfulde hentning', 'Sidste fejl' og 'Sidste fejlkode' viser integrationens sande tilstand.",
+          "enable_status_refresh": "Toyotas API-gateway returnerer ofte forældet lås- og dørstatus, hvis ikke bilens modem vækkes eksplicit. Når aktiveret, sender integrationen en opvågningsanmodning før statuslæsning, ligesom Toyota-mobilappen. Hver opvågning bruger en lille mængde mobildata og 12V-batteri; de smarte triggere (netop-stoppet-detektion, valgfri inaktiv opvågning) holder omkostningen lav. Deaktiver for køretøjer, hvis Toyota-konto ikke understøtter statusopdatering; integrationen deaktiverer automatisk denne funktion, hvis den registrerer ikke-understøttede svar. Bemærk: dette omfang er kun /v1/global/remote/status-endpointet (dør-, vindue-, lås- og motorhjelmstatus); andre data (kilometertæller, brændstof, position osv.) hentes hver cyklus uanset. Når denne indstilling er FRA, har de fire indstillinger nedenfor (inaktiv opvågning, tærskel for mislykkede opvågninger, statuscache-alder, wake-POSTs pr. stop) ingen effekt. Manuelle opdateringer (tjenesten toyota.refresh_vehicle_status eller opdateringsknappen) omgår denne indstilling og enhver automatisk deaktivering, og en succesfuld manuel opvågning genaktiverer den automatiske strategi.",
+          "idle_wake_hours": "Væk bilen periodisk, selv hvis den ikke har kørt. Nyttigt for biler, der står ubrugte i flere dage, hvor du stadig vil have en aktuel låsestatus. 0 (standard) deaktiverer dette helt; 1-72 = væk hver N timer. Hver opvågning koster mobildata og en lille mængde 12V-batteri. Bemærk: opvågningen opdaterer kun /v1/global/remote/status-endpointet (dør-, vindue-, lås- og motorhjelmstatus). Andre data (kilometertæller, brændstof, position osv.) hentes hver cyklus uafhængigt og behøver ikke en opvågning.",
+          "failed_wake_threshold": "Hvis et køretøj stopper med at reagere på opvågningsanmodninger dette antal gange i træk, markeres det som utilgængeligt pr. VIN, indtil det viser tegn på liv (kørehændelse, opdatering via ekstern app, manuelt tjenestekald). Standard 3.",
+          "max_cache_age_minutes": "Maksimal acceptabel alder for de cachede statusdata, før der udføres en ny GET (5-180 minutter; standard 30). Bemærk: dette styrer kun /v1/global/remote/status-endpointet, som indeholder dør-, vindue-, lås- og motorhjelmstatus. Andre data (kilometertæller, brændstof, position osv.) hentes hver cyklus uafhængigt.",
+          "post_count_per_stop": "Hvor mange wake-POSTs der skal sendes, når køretøjet registreres som netop stoppet, én pr. koordinatorcyklus. 1 = enkelt POST. 2 (standard) = en yderligere POST i den næste cyklus, som typisk fanger status, brugeren ændrer kort efter stop (lås dørene, åbn bagagerummet osv.) - disse hændelser udløser nye modemrapporter, som den anden POSTs polling-loop fanger. Højere værdier hjælper sjældent og bruger 12V-batteri.",
+          "max_recent_trips": "Udfylder en 'Seneste ture'-sensor pr. køretøj med de sidste N ture (rutepunkter + statistik pr. tur), velegnet til journey-viewer custom cards. 0 (standard) deaktiverer automatisk hentning helt (ingen ekstra API-opkald). 1-20 aktiverer automatisk hentning ved stophændelser; cachen overlever HA-genstart. Tjenesten toyota.refresh_recent_trips og knappen 'Opdater seneste ture' pr. køretøj fungerer uanset denne indstilling, så du kan lade automatisk hentning være slået fra og styre hentninger via daglige automatiseringer."
         }
       }
     }
@@ -42,28 +60,31 @@
     },
     "sensor": {
       "vin": {
-        "name": "Vehicle-Identify-Number"
+        "name": "Køretøjets identifikationsnummer"
+      },
+      "recent_trips": {
+        "name": "Seneste ture"
       },
       "odometer": {
-        "name": "Odometer"
+        "name": "Kilometertæller"
       },
       "fuel_level": {
         "name": "Brændstof niveau"
       },
       "fuel_range": {
-        "name": "Fuel range"
+        "name": "Rækkevidde på brændstof"
       },
       "battery_level": {
-        "name": "Battery level"
-      },
-      "battery_range": {
-        "name": "Battery range"
+        "name": "Batteriniveau"
       },
       "battery_range_ac": {
-        "name": "Battery range with AC"
+        "name": "Batterirækkevidde med AC"
+      },
+      "battery_range": {
+        "name": "Batterirækkevidde"
       },
       "total_range": {
-        "name": "Total range"
+        "name": "Samlet rækkevidde"
       },
       "charging_status": {
         "name": "Opladningsstatus",
@@ -105,6 +126,59 @@
       },
       "current_year_statistics": {
         "name": "Statistik for dette år"
+      },
+      "last_successful_fetch": {
+        "name": "Sidste succesfulde hentning"
+      },
+      "last_error_time": {
+        "name": "Sidste fejl"
+      },
+      "last_error_code": {
+        "name": "Sidste fejlkode"
+      },
+      "status_last_reported": {
+        "name": "Status sidst rapporteret af bilen"
+      },
+      "status_refresh_state": {
+        "name": "Status opdateringstilstand",
+        "state": {
+          "active": "Aktiv",
+          "soft_disabled_unreachable": "Utilgængelig",
+          "hard_disabled_auto": "Deaktiveret (ikke understøttet)",
+          "hard_disabled_user": "Deaktiveret (af bruger)"
+        }
+      },
+      "last_service": {
+        "name": "Sidste service"
+      },
+      "last_trip_score": {
+        "name": "Sidste tur-score"
+      },
+      "cabin_temperature": {
+        "name": "Kabinetemperatur"
+      },
+      "notifications": {
+        "name": "Notifikationer"
+      },
+      "warning_lights": {
+        "name": "Advarselslamper"
+      },
+      "last_service_detail": {
+        "name": "Sidste service detaljer"
+      },
+      "average_speed_week": {
+        "name": "Gennemsnitshastighed ugen"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Opdater køretøjsstatus"
+      },
+      "refresh_recent_trips": {
+        "name": "Opdater seneste ture"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Opdater elektrisk status i realtid"
       }
     },
     "binary_sensor": {
@@ -173,6 +247,12 @@
       },
       "taillights": {
         "name": "Baglygter"
+      },
+      "vehicle_health": {
+        "name": "Køretøjets sundhed"
+      },
+      "driving": {
+        "name": "Kører"
       }
     },
     "climate": {
@@ -186,6 +266,30 @@
             }
           }
         }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Dørlås"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Førersædevarme"
+      },
+      "seat_heater_passenger": {
+        "name": "Passagersædevarme"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Bagsæde førerside varme"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Bagsæde passagerside varme"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Rat opvarmning"
       }
     }
   }

@@ -7,7 +7,7 @@
           "brand": "Bilmerke",
           "email": "E-postadresse",
           "password": "Passord",
-          "use_metric_values": "Use metric units (e.g. km instead of miles)"
+          "use_metric_values": "Bruk metriske enheter (f.eks. km i stedet for miles)"
         }
       }
     },
@@ -20,8 +20,26 @@
   "options": {
     "step": {
       "init": {
+        "title": "Toyota Connected Services-alternativer",
         "data": {
-          "use_liters": "Bruk liter (L/100 miles) istedenfor MPG. Gjelder bare hvis din bil rapporterer data i miles (britisk/imperial enhetssystem)."
+          "polling_interval_minutes": "Polling-intervall (minutter)",
+          "retain_on_transient_failure": "Behold siste gode data ved forbigående feil (anbefalt)",
+          "enable_status_refresh": "Oppdater kjøretøystatus eksternt (anbefalt)",
+          "idle_wake_hours": "Vekk inaktivt kjøretøy hver N. time (0 = deaktivert)",
+          "failed_wake_threshold": "Merk som utilgjengelig etter N mislykkede oppvekkinger",
+          "max_cache_age_minutes": "Oppdater statuscache hvis eldre enn",
+          "post_count_per_stop": "Wake-POSTs per stopphendelse",
+          "max_recent_trips": "Siste turer å lagre i cache (0 = deaktivert)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Hvor ofte integrasjonen henter nye data fra Toyota (0-1440 minutter; standard 6; 0 = deaktiver automatisk polling, bruk bare de manuelle oppdateringstjenestene/-knappene). Lavere verdier kan raskere nå hastighetsgrenser.",
+          "retain_on_transient_failure": "Når aktivert, beholder en forbigående Toyota API-feil (HTTP 429, tidsavbrudd, tilkoblingsfeil) de siste gode dataene per kjøretøy i stedet for å markere alle Toyota-enheter som utilgjengelige. De nye diagnostiske sensorene 'Siste vellykkede henting', 'Siste feil' og 'Siste feilkode' viser den faktiske tilstanden til integrasjonen.",
+          "enable_status_refresh": "Toyotas API-gateway returnerer ofte utdatert lås- og dørstatus med mindre bilens modem vekkes eksplisitt. Når aktivert, sender integrasjonen en oppvekkingsforespørsel før statusen leses, på samme måte som Toyota-mobilappen. Hver oppvekking bruker en liten mengde mobildata og 12V-batteri; de smarte utløserne (nettopp-stoppet-oppdagelse, valgfri inaktiv oppvekking) holder kostnaden lav. Deaktiver for kjøretøy der Toyota-kontoen ikke støtter statusoppdatering; integrasjonen deaktiverer dette automatisk for deg hvis den oppdager ikke-støttede svar. Merk: dette omfatter bare /v1/global/remote/status-endepunktet (dør-, vindu-, lås- og panserstatus); andre data (kilometerstand, drivstoff, posisjon osv.) hentes hver syklus uansett. Når dette alternativet er AV, har de fire alternativene nedenfor (inaktiv oppvekking, terskel for mislykkede oppvekkinger, alder på statuscache, wake-POSTs per stopp) ingen effekt. Manuelle oppdateringer (tjenesten toyota.refresh_vehicle_status eller oppdateringsknappen) overstyrer denne innstillingen og eventuell automatisk deaktivering, og en vellykket manuell oppvekking aktiverer den automatiske strategien igjen.",
+          "idle_wake_hours": "Vekk bilen periodisk selv om den ikke har kjørt. Nyttig for biler som står ubrukt i flere dager, der du fortsatt vil ha oppdatert låsestatus. 0 (standard) deaktiverer dette helt; 1-72 = vekk hver N. time. Hver oppvekking kostet mobildata og en liten mengde 12V-batteri. Merk: oppvekkingen oppdaterer bare /v1/global/remote/status-endepunktet (dør-, vindu-, lås- og panserstatus). Andre data (kilometerstand, drivstoff, posisjon osv.) hentes hver syklus uavhengig og krever ikke oppvekking.",
+          "failed_wake_threshold": "Hvis et kjøretøy stopper å svare på oppvekkingsforespørsler dette antallet ganger i rad, markeres det som utilgjengelig per VIN til det viser et livstegn (kjørehendelse, oppdatering fra ekstern app, manuelt tjenestekall). Standard 3.",
+          "max_cache_age_minutes": "Maksimal akseptabel alder på de bufrede statusdataene før en ny GET utføres (5-180 minutter; standard 30). Merk: dette styrer bare /v1/global/remote/status-endepunktet, som inneholder dør-, vindu-, lås- og panserstatus. Andre data (kilometerstand, drivstoff, posisjon osv.) hentes hver syklus uavhengig.",
+          "post_count_per_stop": "Hvor mange wake-POSTs som sendes når kjøretøyet oppdages som nettopp stoppet, én per koordinatorsyklus. 1 = én enkelt POST. 2 (standard) = en ekstra POST i neste syklus, som vanligvis fanger opp status brukeren endrer kort tid etter å ha stoppet (lås dørene, åpne bagasjerommet osv.) - disse hendelsene utløser nye modemrapporter som pollingsløyfen til den andre POST-en fanger opp. Høyere verdier hjelper sjelden og bruker 12V-batteri.",
+          "max_recent_trips": "Fyller en 'Siste turer'-sensor per kjøretøy med de siste N turene (rutepunkter + statistikk per tur), passende for journey-viewer custom cards. 0 (standard) deaktiverer automatisk henting helt (ingen ekstra API-kall). 1-20 aktiverer automatisk henting ved stopphendelser; cachen overlever HA-omstart. Tjenesten toyota.refresh_recent_trips og knappen 'Oppdater siste turer' per kjøretøy fungerer uansett denne innstillingen, slik at du kan la automatisk henting stå av og styre hentinger via daglige automatiseringer."
         }
       }
     }
@@ -37,33 +55,36 @@
   "entity": {
     "device_tracker": {
       "parking_location": {
-        "name": "Parking location"
+        "name": "Parkeringssted"
       }
     },
     "sensor": {
       "vin": {
-        "name": "Vehicle-Identify-Number"
+        "name": "Kjøretøyets identifikasjonsnummer"
+      },
+      "recent_trips": {
+        "name": "Siste turer"
       },
       "odometer": {
-        "name": "Odometer"
+        "name": "Kilometerteller"
       },
       "fuel_level": {
-        "name": "Fuel level"
+        "name": "Drivstoffnivå"
       },
       "fuel_range": {
-        "name": "Fuel range"
+        "name": "Rekkevidde drivstoff"
       },
       "battery_level": {
-        "name": "Battery level"
-      },
-      "battery_range": {
-        "name": "Battery range"
+        "name": "Batterinivå"
       },
       "battery_range_ac": {
-        "name": "Battery range with AC"
+        "name": "Batterirekkevidde med klimaanlegg"
+      },
+      "battery_range": {
+        "name": "Batterirekkevidde"
       },
       "total_range": {
-        "name": "Total range"
+        "name": "Total rekkevidde"
       },
       "charging_status": {
         "name": "Ladestatus",
@@ -95,16 +116,58 @@
         "name": "Gjenværende ladetid"
       },
       "current_day_statistics": {
-        "name": "Current day statistics"
+        "name": "Statistikk for i dag"
       },
       "current_week_statistics": {
-        "name": "Current week statistics"
+        "name": "Statistikk for denne uken"
       },
       "current_month_statistics": {
-        "name": "Current month statistics"
+        "name": "Statistikk for denne måneden"
       },
       "current_year_statistics": {
-        "name": "Current year statistics"
+        "name": "Statistikk for dette året"
+      },
+      "last_successful_fetch": {
+        "name": "Siste vellykkede henting"
+      },
+      "last_error_time": {
+        "name": "Siste feil"
+      },
+      "last_error_code": {
+        "name": "Siste feilkode"
+      },
+      "status_last_reported": {
+        "name": "Status sist rapportert av bilen"
+      },
+      "status_refresh_state": {
+        "name": "Status oppdateringstilstand",
+        "state": {
+          "active": "Aktiv",
+          "soft_disabled_unreachable": "Utilgjengelig",
+          "hard_disabled_auto": "Deaktivert (ikke støttet)",
+          "hard_disabled_user": "Deaktivert (av bruker)"
+        }
+      },
+      "last_service": {
+        "name": "Siste service"
+      },
+      "last_trip_score": {
+        "name": "Siste tur-poengsum"
+      },
+      "cabin_temperature": {
+        "name": "Kupétemperatur"
+      },
+      "notifications": {
+        "name": "Varsler"
+      },
+      "warning_lights": {
+        "name": "Varsellamper"
+      },
+      "last_service_detail": {
+        "name": "Detaljer om siste service"
+      },
+      "average_speed_week": {
+        "name": "Gjennomsnittshastighet uke"
       }
     },
     "button": {
@@ -120,70 +183,76 @@
     },
     "binary_sensor": {
       "over_all_status": {
-        "name": "Over all status"
+        "name": "Generell status"
       },
       "hood": {
-        "name": "Hood"
+        "name": "Motorhjelm"
       },
       "key_in_car": {
-        "name": "Key in car"
+        "name": "Nøkkel i bilen"
       },
       "front_defogger": {
-        "name": "Front defogger"
+        "name": "Frontrutevarmer"
       },
       "rear_defogger": {
-        "name": "Rear defogger"
+        "name": "Bakrutevarmer"
       },
       "driverseat_window": {
-        "name": "Driverseat window"
+        "name": "Vindu fører"
       },
       "passengerseat_window": {
-        "name": "Passengerseat window"
+        "name": "Vindu passasjer"
       },
       "leftrearseat_window": {
-        "name": "Leftrearseat window"
+        "name": "Vindu bak venstre"
       },
       "rightrearseat_window": {
-        "name": "Rightrearseat window"
+        "name": "Vindu bak høyre"
       },
       "driverseat_door": {
-        "name": "Driverseat door"
+        "name": "Førerdør"
       },
       "driverseat_lock": {
-        "name": "Driverseat lock"
+        "name": "Lås førerdør"
       },
       "passengerseat_door": {
-        "name": "Passengerseat door"
+        "name": "Passasjerdør"
       },
       "passengerseat_lock": {
-        "name": "Passengerseat lock"
+        "name": "Lås passasjerdør"
       },
       "leftrearseat_door": {
-        "name": "Leftrearseat door"
+        "name": "Bakdør venstre"
       },
       "leftrearseat_lock": {
-        "name": "Leftrearseat lock"
+        "name": "Lås bakdør venstre"
       },
       "rightrearseat_door": {
-        "name": "Rightrearseat door"
+        "name": "Bakdør høyre"
       },
       "rightrearseat_lock": {
-        "name": "Rightrearseat lock"
+        "name": "Lås bakdør høyre"
       },
       "trunk_door": {
-        "name": "Trunk"
+        "name": "Bagasjerom"
       },
       "trunk_lock": {
-        "name": "Trunk lock"
+        "name": "Lås bagasjerom"
       },
       "hazardlights": {
-        "name": "Hazardlights"
+        "name": "Varselblinklys"
       },
       "headlights": {
-        "name": "Headlights"
+        "name": "Frontlys"
       },
       "taillights": {
-        "name": "Taillights"
+        "name": "Baklys"
+      },
+      "vehicle_health": {
+        "name": "Kjøretøyets helse"
+      },
+      "driving": {
+        "name": "Kjører"
       }
     },
     "climate": {
@@ -197,6 +266,30 @@
             }
           }
         }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Dørlås"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Førersetevarmer"
+      },
+      "seat_heater_passenger": {
+        "name": "Passasjersetevarmer"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Bakre førersetevarmer"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Bakre passasjersetevarmer"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Rattvarmer"
       }
     }
   }

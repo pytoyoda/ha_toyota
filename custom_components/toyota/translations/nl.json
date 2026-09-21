@@ -17,6 +17,33 @@
       "unknown": "Onverwachte fout."
     }
   },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Toyota Connected Services opties",
+        "data": {
+          "polling_interval_minutes": "Polling interval (minuten)",
+          "retain_on_transient_failure": "Laatste goede gegevens behouden bij tijdelijke fouten (aanbevolen)",
+          "enable_status_refresh": "Voertuigstatus op afstand vernieuwen (aanbevolen)",
+          "idle_wake_hours": "Inactief voertuig elke N uur wekken (0 = uitgeschakeld)",
+          "failed_wake_threshold": "Markeer als onbereikbaar na N mislukte wekpogingen",
+          "max_cache_age_minutes": "Vernieuw statuscache indien ouder dan",
+          "post_count_per_stop": "Wek-POSTs per stopgebeurtenis",
+          "max_recent_trips": "Recente ritten om in cache te bewaren (0 = uitgeschakeld)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Hoe vaak de integratie Toyota bevraagt voor nieuwe gegevens (0-1440 minuten; standaard 6; 0 = automatisch pollen uitschakelen, gebruik alleen de handmatige vernieuwingsservices/-knoppen). Lagere waarden kunnen sneller tegen snelheidslimieten aanlopen.",
+          "retain_on_transient_failure": "Wanneer ingeschakeld, blijft bij een tijdelijke Toyota API-fout (HTTP 429, timeout, verbindingsfout) de laatst bekende gegevens per voertuig behouden in plaats van elke Toyota-entiteit als niet beschikbaar te markeren. De nieuwe diagnostische sensoren 'Laatste succesvolle ophaling', 'Laatste fout' en 'Laatste foutcode' tonen de werkelijke status van de integratie.",
+          "enable_status_refresh": "Toyota's API-gateway geeft vaak verouderde slot- en deurstatus terug, tenzij de modem van de auto expliciet wordt gewekt. Wanneer ingeschakeld, stuurt de integratie een wekverzoek voordat de status wordt gelezen, net als de Toyota mobiele app. Elke wekpoging gebruikt een kleine hoeveelheid mobiele data en 12V-batterij; de slimme triggers (net-gestopt-detectie, optioneel inactief wekken) houden de kosten laag. Schakel dit uit voor voertuigen waarvan het Toyota-account geen statusvernieuwing ondersteunt; de integratie schakelt dit automatisch voor u uit als niet-ondersteunde reacties worden gedetecteerd. Let op: dit bereik is alleen het /v1/global/remote/status-endpoint (deur-, raam-, slot- en motorkapstatus); andere gegevens (kilometerstand, brandstof, locatie, enz.) worden elke cyclus opgehaald, ongeacht deze instelling. Wanneer deze optie is UITGESCHAKELD, hebben de vier onderstaande opties (inactief wekken, drempel voor mislukte wekpogingen, leeftijd statuscache, wek-POSTs per stop) geen effect. Handmatige vernieuwingen (de service toyota.refresh_vehicle_status of de vernieuwingsknop) negeren deze schakelaar en elke automatische uitschakeling, en een succesvolle handmatige wekpoging schakelt de automatische strategie weer in.",
+          "idle_wake_hours": "Wek de auto periodiek, ook als deze niet heeft gereden. Nuttig voor auto's die dagenlang ongebruikt staan waarbij u toch een actuele slotstatus wilt. 0 (standaard) schakelt dit volledig uit; 1-72 = wek elke N uur. Elke wekpoging kost mobiele data en een kleine hoeveelheid 12V-batterij. Let op: de wekpoging vernieuwt alleen het /v1/global/remote/status-endpoint (deur-, raam-, slot- en motorkapstatus). Andere gegevens (kilometerstand, brandstof, locatie, enz.) worden elke cyclus onafhankelijk opgehaald en hebben geen wekpoging nodig.",
+          "failed_wake_threshold": "Als een voertuig dit aantal keer op rij niet reageert op wekverzoeken, wordt het per VIN als onbereikbaar gemarkeerd totdat het enig teken van leven vertoont (rijgebeurtenis, vernieuwing via externe app, handmatige service-aanroep). Standaard 3.",
+          "max_cache_age_minutes": "Maximale acceptabele leeftijd van de gecachte statusgegevens voordat een nieuwe GET wordt uitgevoerd (5-180 minuten; standaard 30). Let op: dit regelt alleen het /v1/global/remote/status-endpoint, dat deur-, raam-, slot- en motorkapstatus bevat. Andere gegevens (kilometerstand, brandstof, locatie, enz.) worden elke cyclus onafhankelijk opgehaald.",
+          "post_count_per_stop": "Hoeveel wek-POSTs worden verstuurd wanneer het voertuig als net-gestopt wordt gedetecteerd, één per coördinatorcyclus. 1 = enkele POST. 2 (standaard) = een extra POST in de volgende cyclus, wat doorgaans status vastlegt die de gebruiker kort na het stoppen wijzigt (deuren vergrendelen, kofferbak openen, enz.) - die gebeurtenissen activeren nieuwe modemrapporten die de pollus van de tweede POST oppikt. Hogere waarden helpen zelden en verbruiken 12V-batterij.",
+          "max_recent_trips": "Vult een 'Recente ritten'-sensor per voertuig met de laatste N ritten (routepunten + statistieken per rit), geschikt voor journey-viewer custom cards. 0 (standaard) schakelt automatisch ophalen volledig uit (geen extra API-aanroepen). 1-20 schakelt automatisch ophalen in bij stopgebeurtenissen; de cache blijft behouden bij een HA-herstart. De service toyota.refresh_recent_trips en de knop 'Recente ritten vernieuwen' per voertuig werken ongeacht deze instelling, zodat u automatisch ophalen uit kunt laten staan en ophalingen via dagelijkse automatiseringen kunt aansturen."
+        }
+      }
+    }
+  },
   "selector": {
     "brand": {
       "options": {
@@ -28,33 +55,36 @@
   "entity": {
     "device_tracker": {
       "parking_location": {
-        "name": "Parking location"
+        "name": "Parkeerlocatie"
       }
     },
     "sensor": {
       "vin": {
-        "name": "Vehicle-Identify-Number"
+        "name": "Voertuigidentificatienummer"
+      },
+      "recent_trips": {
+        "name": "Recente ritten"
       },
       "odometer": {
-        "name": "Odometer"
+        "name": "Kilometerstand"
       },
       "fuel_level": {
-        "name": "Fuel level"
+        "name": "Brandstofniveau"
       },
       "fuel_range": {
-        "name": "Fuel range"
+        "name": "Actieradius brandstof"
       },
       "battery_level": {
-        "name": "Battery level"
-      },
-      "battery_range": {
-        "name": "Battery range"
+        "name": "Batterijniveau"
       },
       "battery_range_ac": {
-        "name": "Battery range with AC"
+        "name": "Actieradius batterij met airco"
+      },
+      "battery_range": {
+        "name": "Actieradius batterij"
       },
       "total_range": {
-        "name": "Total range"
+        "name": "Totale actieradius"
       },
       "charging_status": {
         "name": "Laadstatus",
@@ -86,84 +116,143 @@
         "name": "Resterende laadtijd"
       },
       "current_day_statistics": {
-        "name": "Current day statistics"
+        "name": "Statistieken van vandaag"
       },
       "current_week_statistics": {
-        "name": "Current week statistics"
+        "name": "Statistieken van deze week"
       },
       "current_month_statistics": {
-        "name": "Current month statistics"
+        "name": "Statistieken van deze maand"
       },
       "current_year_statistics": {
-        "name": "Current year statistics"
+        "name": "Statistieken van dit jaar"
+      },
+      "last_successful_fetch": {
+        "name": "Laatste succesvolle ophaling"
+      },
+      "last_error_time": {
+        "name": "Laatste fout"
+      },
+      "last_error_code": {
+        "name": "Laatste foutcode"
+      },
+      "status_last_reported": {
+        "name": "Status laatst gerapporteerd door auto"
+      },
+      "status_refresh_state": {
+        "name": "Status vernieuwingsstatus",
+        "state": {
+          "active": "Actief",
+          "soft_disabled_unreachable": "Onbereikbaar",
+          "hard_disabled_auto": "Uitgeschakeld (niet ondersteund)",
+          "hard_disabled_user": "Uitgeschakeld (door gebruiker)"
+        }
+      },
+      "last_service": {
+        "name": "Laatste onderhoud"
+      },
+      "last_trip_score": {
+        "name": "Laatste rit score"
+      },
+      "cabin_temperature": {
+        "name": "Cabinetemperatuur"
+      },
+      "notifications": {
+        "name": "Meldingen"
+      },
+      "warning_lights": {
+        "name": "Waarschuwingslampjes"
+      },
+      "last_service_detail": {
+        "name": "Laatste onderhoud details"
+      },
+      "average_speed_week": {
+        "name": "Gemiddelde snelheid week"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Voertuigstatus vernieuwen"
+      },
+      "refresh_recent_trips": {
+        "name": "Recente ritten vernieuwen"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Elektrische status in realtime vernieuwen"
       }
     },
     "binary_sensor": {
       "over_all_status": {
-        "name": "Over all status"
+        "name": "Algemene status"
       },
       "hood": {
-        "name": "Hood"
+        "name": "Motorkap"
       },
       "key_in_car": {
-        "name": "Key in car"
+        "name": "Sleutel in de auto"
       },
       "front_defogger": {
-        "name": "Front defogger"
+        "name": "Voorruitverwarming"
       },
       "rear_defogger": {
-        "name": "Rear defogger"
+        "name": "Achterruitverwarming"
       },
       "driverseat_window": {
-        "name": "Driverseat window"
+        "name": "Raam bestuurdersstoel"
       },
       "passengerseat_window": {
-        "name": "Passengerseat window"
+        "name": "Raam passagiersstoel"
       },
       "leftrearseat_window": {
-        "name": "Leftrearseat window"
+        "name": "Raam linksachter"
       },
       "rightrearseat_window": {
-        "name": "Rightrearseat window"
+        "name": "Raam rechtsachter"
       },
       "driverseat_door": {
-        "name": "Driverseat door"
+        "name": "Portier bestuurder"
       },
       "driverseat_lock": {
-        "name": "Driverseat lock"
+        "name": "Slot portier bestuurder"
       },
       "passengerseat_door": {
-        "name": "Passengerseat door"
+        "name": "Portier passagier"
       },
       "passengerseat_lock": {
-        "name": "Passengerseat lock"
+        "name": "Slot portier passagier"
       },
       "leftrearseat_door": {
-        "name": "Leftrearseat door"
+        "name": "Portier linksachter"
       },
       "leftrearseat_lock": {
-        "name": "Leftrearseat lock"
+        "name": "Slot portier linksachter"
       },
       "rightrearseat_door": {
-        "name": "Rightrearseat door"
+        "name": "Portier rechtsachter"
       },
       "rightrearseat_lock": {
-        "name": "Rightrearseat lock"
+        "name": "Slot portier rechtsachter"
       },
       "trunk_door": {
-        "name": "Trunk"
+        "name": "Kofferbak"
       },
       "trunk_lock": {
-        "name": "Trunk lock"
+        "name": "Slot kofferbak"
       },
       "hazardlights": {
-        "name": "Hazardlights"
+        "name": "Alarmlichten"
       },
       "headlights": {
-        "name": "Headlights"
+        "name": "Koplampen"
       },
       "taillights": {
-        "name": "Taillights"
+        "name": "Achterlichten"
+      },
+      "vehicle_health": {
+        "name": "Voertuiggezondheid"
+      },
+      "driving": {
+        "name": "Rijden"
       }
     },
     "climate": {
@@ -177,6 +266,30 @@
             }
           }
         }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Portierslot"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Stoelverwarming bestuurder"
+      },
+      "seat_heater_passenger": {
+        "name": "Stoelverwarming passagier"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Stoelverwarming achter bestuurder"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Stoelverwarming achter passagier"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Stuurwielverwarming"
       }
     }
   }

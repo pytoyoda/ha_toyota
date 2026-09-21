@@ -1,0 +1,296 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Izberite znamko svojega vozila ter spodaj vnesite e-poštni naslov in geslo za MyT/Lexus Link.",
+        "data": {
+          "brand": "Znamka vozila",
+          "email": "E-poštni naslov",
+          "password": "Geslo",
+          "use_metric_values": "Uporabi metrične enote (npr. km namesto milj)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "E-poštni naslov mora vsebovati @.",
+      "invalid_auth": "Napačen e-poštni naslov/geslo.",
+      "unknown": "Nepričakovana napaka."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Nastavitve Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Interval posodabljanja (minute)",
+          "retain_on_transient_failure": "Ohrani zadnje veljavne podatke ob začasnih napakah (priporočeno)",
+          "enable_status_refresh": "Oddaljeno posodabljanje stanja vozila (priporočeno)",
+          "idle_wake_hours": "Zbudi nedejavno vozilo vsakih N ur (0 = onemogočeno)",
+          "failed_wake_threshold": "Označi kot nedosegljivo po N neuspešnih poskusih zbujanja",
+          "max_cache_age_minutes": "Posodobi predpomnjeno stanje, če je starejše od",
+          "post_count_per_stop": "Število POST zahtev za zbujanje ob ustavitvi",
+          "max_recent_trips": "Število nedavnih potovanj v predpomnilniku (0 = onemogočeno)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Kako pogosto integracija poizveduje pri Toyoti za nove podatke (0-1440 minut; privzeto 6; 0 = onemogoči samodejno posodabljanje, uporabljajo se le ročne storitve/gumbi za posodobitev). Nižje vrednosti lahko povzročijo omejitve zahtevkov.",
+          "retain_on_transient_failure": "Če je omogočeno, začasna napaka Toyota API (HTTP 429, časovna omejitev, napaka povezave) ohrani zadnje uspešno pridobljene podatke vozila, namesto da bi vse entitete Toyota označila kot nedosegljive. Novi diagnostični senzorji »Zadnja uspešna posodobitev«, »Zadnja napaka« in »Koda zadnje napake« prikazujejo dejansko stanje integracije.",
+          "enable_status_refresh": "Toyotin API pogosto vrne zastarelo stanje zaklepov in vrat, razen če modem vozila izrecno zbudimo. Če je omogočeno, integracija pred branjem stanja pošlje zahtevo za zbujanje, podobno kot mobilna aplikacija Toyota. Vsako zbujanje porabi malo mobilnih podatkov in energije 12V baterije; pametni sprožilci (zaznavanje »ravnokar ustavljeno«, izbirno zbujanje v mirovanju) ohranjajo strošek nizek. Onemogočite za vozila, katerih Toyota račun ne podpira obnovitve stanja; integracija to samodejno onemogoči, če zazna nepodprte odzive. Opomba: ta obseg zajema le končno točko /v1/global/remote/status (stanje vrat, oken, zaklepov in pokrova motorja); drugi podatki (števec kilometrov, gorivo, lokacija itd.) se pridobivajo v vsakem ciklu ne glede na to. Ko je ta možnost IZKLOPLJENA, štiri možnosti spodaj (zbujanje v mirovanju, prag neuspešnih zbujanj, starost predpomnjenega stanja, število POST zahtev na ustavitev) nimajo učinka. Ročne posodobitve (storitev toyota.refresh_vehicle_status ali gumb za posodobitev) obidejo to stikalo in vsako samodejno onemogočitev, uspešno ročno zbujanje pa ponovno omogoči samodejno strategijo.",
+          "idle_wake_hours": "Periodično zbudi vozilo, tudi če se ni premikalo. Uporabno za vozila, ki stojijo neuporabljena več dni, a še vedno želite sveže stanje zaklepov. 0 (privzeto) to popolnoma onemogoči; 1-72 = zbujanje vsakih N ur. Vsako zbujanje stane malo mobilnih podatkov in nekaj energije 12V baterije. Opomba: zbujanje posodobi le končno točko /v1/global/remote/status (stanje vrat, oken, zaklepov in pokrova motorja). Drugi podatki (števec kilometrov, gorivo, lokacija itd.) se pridobivajo v vsakem ciklu neodvisno in ne potrebujejo zbujanja.",
+          "failed_wake_threshold": "Če vozilo tolikokrat zapored ne odgovori na zahteve za zbujanje, je za ta VIN označeno kot nedosegljivo, dokler ne pokaže kakršnega koli znaka aktivnosti (dogodek vožnje, posodobitev iz zunanje aplikacije, ročni klic storitve). Privzeto 3.",
+          "max_cache_age_minutes": "Največja sprejemljiva starost predpomnjenih podatkov o stanju, preden se izvede nova zahteva GET (5-180 minut; privzeto 30). Opomba: to nadzoruje le končno točko /v1/global/remote/status, ki prenaša stanje vrat, oken, zaklepov in pokrova motorja. Drugi podatki (števec kilometrov, gorivo, lokacija itd.) se pridobivajo v vsakem ciklu neodvisno.",
+          "post_count_per_stop": "Kolikokrat se ob zaznani ravnokar ustavitvi vozila sproži zahteva POST za zbujanje, ena na cikel koordinatorja. 1 = ena sama zahteva POST. 2 (privzeto) = dodatna zahteva POST v naslednjem ciklu, ki običajno zajame spremembe, ki jih uporabnik naredi kmalu po ustavitvi (zaklepanje vrat, odpiranje prtljažnika itd.) - ti dogodki sprožijo sveža poročila modema, ki jih zajame zanka druge zahteve POST. Višje vrednosti redko pomagajo in po nepotrebnem obremenjujejo 12V baterijo.",
+          "max_recent_trips": "Napolni senzor »Nedavna potovanja« za posamezno vozilo z zadnjimi N potovanji (točke poti + statistika posameznega potovanja), primerno za lastne kartice za pregled potovanj. 0 (privzeto) popolnoma onemogoči samodejno pridobivanje (brez dodatnih API zahtev). 1-20 omogoči samodejno pridobivanje ob dogodkih ustavitve; predpomnilnik ostane tudi po ponovnem zagonu HA. Storitev toyota.refresh_recent_trips in gumb »Posodobi nedavna potovanja« za posamezno vozilo delujeta ne glede na to nastavitev, tako da lahko samodejno pridobivanje pustite izklopljeno in poganjate posodobitve prek dnevnih avtomatizacij."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Lokacija parkiranja"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Identifikacijska številka vozila (VIN)"
+      },
+      "recent_trips": {
+        "name": "Nedavna potovanja"
+      },
+      "odometer": {
+        "name": "Števec kilometrov"
+      },
+      "fuel_level": {
+        "name": "Nivo goriva"
+      },
+      "fuel_range": {
+        "name": "Doseg na gorivo"
+      },
+      "battery_level": {
+        "name": "Nivo baterije"
+      },
+      "battery_range_ac": {
+        "name": "Doseg na baterijo s klimo"
+      },
+      "battery_range": {
+        "name": "Doseg na baterijo"
+      },
+      "total_range": {
+        "name": "Skupni doseg"
+      },
+      "charging_status": {
+        "name": "Stanje polnjenja",
+        "state": {
+          "charge_complete": "Polnjenje zaključeno",
+          "charging": "Polnjenje",
+          "none": "Ni priklopljeno",
+          "plugged": "Priklopljeno"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minute do polne baterije"
+          },
+          "has_charging_schedule": {
+            "name": "Ima urnik polnjenja"
+          },
+          "scheduled_charging_start": {
+            "name": "Začetek načrtovanega polnjenja"
+          },
+          "scheduled_charging_end": {
+            "name": "Konec načrtovanega polnjenja"
+          },
+          "scheduled_charging_duration": {
+            "name": "Trajanje načrtovanega polnjenja"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Preostali čas polnjenja"
+      },
+      "current_day_statistics": {
+        "name": "Statistika za danes"
+      },
+      "current_week_statistics": {
+        "name": "Statistika za ta teden"
+      },
+      "current_month_statistics": {
+        "name": "Statistika za ta mesec"
+      },
+      "current_year_statistics": {
+        "name": "Statistika za to leto"
+      },
+      "last_successful_fetch": {
+        "name": "Zadnja uspešna posodobitev"
+      },
+      "last_error_time": {
+        "name": "Zadnja napaka"
+      },
+      "last_error_code": {
+        "name": "Koda zadnje napake"
+      },
+      "status_last_reported": {
+        "name": "Stanje nazadnje sporočeno s strani vozila"
+      },
+      "status_refresh_state": {
+        "name": "Stanje posodabljanja stanja",
+        "state": {
+          "active": "Aktivno",
+          "soft_disabled_unreachable": "Nedosegljivo",
+          "hard_disabled_auto": "Onemogočeno (ni podprto)",
+          "hard_disabled_user": "Onemogočeno (s strani uporabnika)"
+        }
+      },
+      "last_service": {
+        "name": "Zadnji servis"
+      },
+      "last_trip_score": {
+        "name": "Ocena zadnjega potovanja"
+      },
+      "cabin_temperature": {
+        "name": "Temperatura kabine"
+      },
+      "notifications": {
+        "name": "Obvestila"
+      },
+      "warning_lights": {
+        "name": "Opozorilne lučke"
+      },
+      "last_service_detail": {
+        "name": "Podrobnosti zadnjega servisa"
+      },
+      "average_speed_week": {
+        "name": "Povprečna hitrost v tednu"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Posodobi stanje vozila"
+      },
+      "refresh_recent_trips": {
+        "name": "Posodobi nedavna potovanja"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Posodobi stanje elektrike v realnem času"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Skupno stanje"
+      },
+      "hood": {
+        "name": "Pokrov motorja"
+      },
+      "key_in_car": {
+        "name": "Ključ v avtomobilu"
+      },
+      "front_defogger": {
+        "name": "Sprednji odmrzovalnik"
+      },
+      "rear_defogger": {
+        "name": "Zadnji odmrzovalnik"
+      },
+      "driverseat_window": {
+        "name": "Okno na strani voznika"
+      },
+      "passengerseat_window": {
+        "name": "Okno na strani sopotnika"
+      },
+      "leftrearseat_window": {
+        "name": "Levo zadnje okno"
+      },
+      "rightrearseat_window": {
+        "name": "Desno zadnje okno"
+      },
+      "driverseat_door": {
+        "name": "Vrata voznika"
+      },
+      "driverseat_lock": {
+        "name": "Zaklep vrat voznika"
+      },
+      "passengerseat_door": {
+        "name": "Vrata sopotnika"
+      },
+      "passengerseat_lock": {
+        "name": "Zaklep vrat sopotnika"
+      },
+      "leftrearseat_door": {
+        "name": "Levo zadnja vrata"
+      },
+      "leftrearseat_lock": {
+        "name": "Zaklep levih zadnjih vrat"
+      },
+      "rightrearseat_door": {
+        "name": "Desno zadnja vrata"
+      },
+      "rightrearseat_lock": {
+        "name": "Zaklep desnih zadnjih vrat"
+      },
+      "trunk_door": {
+        "name": "Prtljažnik"
+      },
+      "trunk_lock": {
+        "name": "Zaklep prtljažnika"
+      },
+      "hazardlights": {
+        "name": "Alarmne luči"
+      },
+      "headlights": {
+        "name": "Žarometi"
+      },
+      "taillights": {
+        "name": "Zadnje luči"
+      },
+      "vehicle_health": {
+        "name": "Stanje vozila"
+      },
+      "driving": {
+        "name": "Vožnja"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Odmrzovanje sprednjega stekla",
+              "rear_defrost": "Odmrzovanje zadnjega stekla",
+              "both_defrost": "Odmrzovanje obeh stekel"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Zaklep vrat"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Ogrevanje sedeža voznika"
+      },
+      "seat_heater_passenger": {
+        "name": "Ogrevanje sedeža sopotnika"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Ogrevanje zadnjega sedeža za voznikom"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Ogrevanje zadnjega sedeža za sopotnikom"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Ogrevanje volana"
+      }
+    }
+  }
+}

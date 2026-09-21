@@ -20,8 +20,26 @@
   "options": {
     "step": {
       "init": {
+        "title": "Toyota Connected Services beállítások",
         "data": {
-          "use_liters": "Használjon literben (L/100 mérföld) kifejezést MPG helyett. Csak akkor alkalmazható, ha az autója mérföldben (angolszász mértékegységrendszer) jeleníti meg az adatokat."
+          "polling_interval_minutes": "Lekérdezési időköz (perc)",
+          "retain_on_transient_failure": "Utolsó jó adatok megtartása átmeneti hiba esetén (ajánlott)",
+          "enable_status_refresh": "Jármű állapotának távoli frissítése (ajánlott)",
+          "idle_wake_hours": "Inaktív jármű felébresztése N óránként (0 = kikapcsolva)",
+          "failed_wake_threshold": "N sikertelen felébresztés után elérhetetlennek jelölés",
+          "max_cache_age_minutes": "Állapot gyorsítótár frissítése, ha régebbi mint",
+          "post_count_per_stop": "Felébresztő POST-ok száma megállásonként",
+          "max_recent_trips": "Legutóbbi utak száma a gyorsítótárban (0 = kikapcsolva)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Milyen gyakran kérdezze le az integráció a Toyotától a friss adatokat (0-1440 perc; alapérték 6; 0 = automatikus lekérdezés letiltása, csak a manuális frissítő szolgáltatások/gombok használata). Az alacsonyabb értékek elérhetik a sebességkorlátot.",
+          "retain_on_transient_failure": "Ha engedélyezve van, egy átmeneti Toyota API-hiba (HTTP 429, időtúllépés, kapcsolódási hiba) esetén megmarad az utolsó sikeresen lekért adat az adott jármű esetén, ahelyett hogy minden Toyota entitás elérhetetlenné válna. Az új 'Utolsó sikeres lekérdezés', 'Utolsó hiba' és 'Utolsó hibakód' diagnosztikai szenzorok mutatják az integráció valós állapotát.",
+          "enable_status_refresh": "A Toyota API gateway gyakran elavult zár- és ajtóállapotot ad vissza, hacsak a jármű modemje kifejezetten fel nem ébred. Ha engedélyezve van, az integráció felébresztő kérést küld az állapot lekérdezése előtt, a Toyota mobilalkalmazást imitálva. Minden felébresztés kis mennyiségű mobiladat-forgalmat és 12 V-os akkumulátor-kapacitást használ fel; az intelligens triggerek (megállás-észlelés, opcionális inaktív felébresztés) alacsonyan tartják a költséget. Kapcsolja ki azon járműveknél, amelyek Toyota-fiókja nem támogatja a refresh-status funkciót; az integráció automatikusan kikapcsolja ezt, ha nem támogatott válaszokat észlel. Megjegyzés: ez csak a /v1/global/remote/status végpontra vonatkozik (ajtó, ablak, zár és motorháztető állapota); más adatok (kilométeróra, üzemanyag, helyzet stb.) minden ciklusban lekérdezésre kerülnek, függetlenül ettől a beállítástól. Ha ez a beállítás KI van kapcsolva, az alábbi négy beállításnak (inaktív felébresztés, sikertelen felébresztési küszöb, állapot gyorsítótár kora, felébresztő POST-ok megállásonként) nincs hatása. A manuális frissítések (a toyota.refresh_vehicle_status szolgáltatás vagy a frissítés gomb) megkerülik ezt a kapcsolót és bármilyen automatikus kikapcsolást, és egy sikeres manuális felébresztés újra engedélyezi az automatikus stratégiát.",
+          "idle_wake_hours": "Periodikusan felébreszti a járművet, még akkor is, ha az nem mozdult el. Hasznos azoknál a járműveknél, amelyek napokig használatlanul állnak, de továbbra is friss zárállapotot szeretne. 0 (alapérték) teljesen letiltja ezt; 1-72 = felébresztés N óránként. Minden felébresztés mobiladat-forgalmat és kis mennyiségű 12 V-os akkumulátor-kapacitást használ fel. Megjegyzés: a felébresztés csak a /v1/global/remote/status végpontot frissíti (ajtó, ablak, zár és motorháztető állapota). Más adatok (kilométeróra, üzemanyag, helyzet stb.) minden ciklusban függetlenül lekérdezésre kerülnek, és nincs szükségük felébresztésre.",
+          "failed_wake_threshold": "Ha egy jármű ennyi alkalommal egymás után nem reagál a felébresztési kérésekre, akkor VIN-enként elérhetetlennek lesz jelölve, amíg életjelet nem ad (vezetési esemény, külső alkalmazásfrissítés, manuális szolgáltatáshívás). Alapérték: 3.",
+          "max_cache_age_minutes": "A gyorsítótárazott állapotadat maximális elfogadható kora egy friss GET kérés kiadása előtt (5-180 perc; alapérték 30). Megjegyzés: ez csak a /v1/global/remote/status végpontot vezérli, amely az ajtó, ablak, zár és motorháztető állapotát hordozza. Más adatok (kilométeróra, üzemanyag, helyzet stb.) minden ciklusban függetlenül lekérdezésre kerülnek.",
+          "post_count_per_stop": "Hány felébresztő POST-ot küldjön, amikor a jármű éppen megállt állapotot észlel, egyet minden koordinátor ciklusban. 1 = egyetlen POST. 2 (alapérték) = egy további POST a következő ciklusban, amely tipikusan elkapja azokat az állapotváltozásokat, amelyeket a felhasználó röviddel a megállás után végez (ajtók zárása, csomagtartó kinyitása stb.) - ezek az események friss modemjelentéseket indítanak el, amelyeket a második POST lekérdező ciklusa észlel. A magasabb értékek ritkán segítenek és felesleges 12 V-os akkumulátorterhelést jelentenek.",
+          "max_recent_trips": "Feltölt egy jármű-specifikus 'Legutóbbi utak' szenzort az utolsó N úttal (útvonalpontok + útstatisztikák), amely alkalmas journey-viewer egyéni kártyákhoz. 0 (alapérték) teljesen letiltja az automatikus lekérdezést (nincs extra API-hívás). 1-20 engedélyezi az automatikus lekérdezést megállási eseményeknél; a gyorsítótár túléli a HA újraindítását. A toyota.refresh_recent_trips szolgáltatás és a jármű-specifikus 'Legutóbbi utak frissítése' gomb ettől a beállítástól függetlenül működik, így az automatikus lekérdezést kikapcsolva tarthatja, és napi automatizálásokkal is indíthat lekérdezéseket."
         }
       }
     }
@@ -43,6 +61,9 @@
     "sensor": {
       "vin": {
         "name": "Járműazonosító szám"
+      },
+      "recent_trips": {
+        "name": "Legutóbbi utak"
       },
       "odometer": {
         "name": "Óraállás"
@@ -105,6 +126,59 @@
       },
       "current_year_statistics": {
         "name": "Éves statisztika"
+      },
+      "last_successful_fetch": {
+        "name": "Utolsó sikeres lekérdezés"
+      },
+      "last_error_time": {
+        "name": "Utolsó hiba"
+      },
+      "last_error_code": {
+        "name": "Utolsó hibakód"
+      },
+      "status_last_reported": {
+        "name": "Állapot utolsó jelentése az autó által"
+      },
+      "status_refresh_state": {
+        "name": "Állapotfrissítés állapota",
+        "state": {
+          "active": "Aktív",
+          "soft_disabled_unreachable": "Elérhetetlen",
+          "hard_disabled_auto": "Letiltva (nem támogatott)",
+          "hard_disabled_user": "Letiltva (felhasználó által)"
+        }
+      },
+      "last_service": {
+        "name": "Utolsó szervizelés"
+      },
+      "last_trip_score": {
+        "name": "Legutóbbi út pontszáma"
+      },
+      "cabin_temperature": {
+        "name": "Utastér hőmérséklete"
+      },
+      "notifications": {
+        "name": "Értesítések"
+      },
+      "warning_lights": {
+        "name": "Figyelmeztető lámpák"
+      },
+      "last_service_detail": {
+        "name": "Utolsó szervizelés részletei"
+      },
+      "average_speed_week": {
+        "name": "Átlagsebesség (hét)"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Jármű állapotának frissítése"
+      },
+      "refresh_recent_trips": {
+        "name": "Legutóbbi utak frissítése"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Elektromos valós idejű állapot frissítése"
       }
     },
     "binary_sensor": {
@@ -173,6 +247,12 @@
       },
       "taillights": {
         "name": "Hátsó lámpák"
+      },
+      "vehicle_health": {
+        "name": "Jármű állapota"
+      },
+      "driving": {
+        "name": "Vezetés"
       }
     },
     "climate": {
@@ -186,6 +266,30 @@
             }
           }
         }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Ajtózár"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Vezetőülés fűtése"
+      },
+      "seat_heater_passenger": {
+        "name": "Utasülés fűtése"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Hátsó vezetőoldali ülésfűtés"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Hátsó utasoldali ülésfűtés"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Kormánykerék fűtés"
       }
     }
   }

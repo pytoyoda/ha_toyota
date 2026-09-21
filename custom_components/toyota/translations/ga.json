@@ -1,0 +1,296 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Roghnaigh déanamh d'fheithicle agus cuir isteach thíos do sheoladh ríomhphoist agus do phasfhocal do MyT/Lexus Link.",
+        "data": {
+          "brand": "Déanamh na feithicle",
+          "email": "Ríomhphost",
+          "password": "Pasfhocal",
+          "use_metric_values": "Úsáid aonaid mhéadracha (m.sh. km in ionad mílte)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "Caithfidh @ a bheith sa ríomhphost.",
+      "invalid_auth": "Tá an ríomhphost/pasfhocal mícheart.",
+      "unknown": "Earráid gan choinne."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Roghanna Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Eatramh suirbhéireachta (nóiméid)",
+          "retain_on_transient_failure": "Coinnigh na sonraí maithe deiridh le linn teip shealadach (molta)",
+          "enable_status_refresh": "Nuashonraigh stádas na feithicle go cianda (molta)",
+          "idle_wake_hours": "Dúisigh feithicil dhíomhaoin gach N uair an chloig (0 = díchumasaithe)",
+          "failed_wake_threshold": "Marcáil mar dorochtana tar éis N iarracht dúisithe teipthe",
+          "max_cache_age_minutes": "Nuashonraigh an taisce stádais má tá sé níos sine ná",
+          "post_count_per_stop": "Iarrataí POST dúisithe in aghaidh gach imeacht stad",
+          "max_recent_trips": "Turais dheireanacha a choinneáil sa taisce (0 = díchumasaithe)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Cé chomh minic a dhéanann an chomhtháthú suirbhéireacht ar Toyota le haghaidh sonraí nua (0-1440 nóiméad; 6 mar réamhshocrú; 0 = díchumasaigh an suirbhéireacht uathoibríoch, agus úsáid na seirbhísí/cnaipí athnuachana láimhe amháin). D'fhéadfadh luachanna níos ísle teorainneacha rátaí a bhaint amach.",
+          "retain_on_transient_failure": "Nuair a chumasaítear é, coinníonn teip shealadach API Toyota (HTTP 429, teorainn ama, earráid cheangail) na sonraí feithicle rathúla deiridh in áit gach eintiteas Toyota a mharcáil mar dorochtana. Léiríonn na braiteoirí diagnóiseacha nua 'An nuashonrú rathúil deiridh', 'An earráid dheiridh' agus 'Cód na hearráide deiridh' an fíorstádas an chomhtháthaithe.",
+          "enable_status_refresh": "Is minic a thugann geata API Toyota stádas glais agus dorais atá seanchaite ach amháin má dhúisítear modem na feithicle go sainráite. Nuair a chumasaítear é, seolann an comhtháthú iarratas dúisithe roimh an stádas a léamh, ag aithris ar aip mhóibíleach Toyota. Úsáideann gach dúiseacht méid beag aer-am móibíleach agus cumhacht na ceallraí 12V; coinníonn na truicearaí cliste (braistint 'díreach stoptha', dúiseacht dhíomhaoin roghnach) an costas íseal. Díchumasaigh é le haghaidh feithiclí nach dtacaíonn a gcuntas Toyota le athnuachan stádais; díchumasaíonn an comhtháthú é seo go huathoibríoch duit má bhraitheann sé freagraí gan tacaíocht. Nóta: níl an raon seo ach ag an bpointe deiridh /v1/global/remote/status (stádas doras, fuinneog, glas agus cochall); faightear sonraí eile (odaiméadar, breosla, suíomh, srl.) gach timthriall beag beann air. Nuair a bhíonn an rogha seo MÚCHTA, níl aon éifeacht ag na ceithre rogha thíos (dúiseacht dhíomhaoin, tairseach dúisithe theipthe, aois taisce stádais, iarrataí POST dúisithe in aghaidh gach stad). Seachnaíonn nuashonruithe láimhe (an tseirbhís toyota.refresh_vehicle_status nó an cnaipe athnuachana) an lasc seo agus aon díchumasú uathoibríoch, agus athchumasaíonn dúiseacht láimhe rathúil an straitéis uathoibríoch.",
+          "idle_wake_hours": "Dúisigh an fheithicil go tréimhsiúil fiú mura bhfuil sí bogtha. Úsáideach do fheithiclí a fhanann gan úsáid ar feadh laethanta ach a dteastaíonn stádas glais úr agat fós. Díchumasaíonn 0 (réamhshocrú) é seo go hiomlán; is ionann 1-72 agus dúiseacht gach N uair an chloig. Cosnaíonn gach dúiseacht aer-am móibíleach agus méid beag cumhachta ceallraí 12V. Nóta: ní nuashonraíonn an dúiseacht ach an pointe deiridh /v1/global/remote/status (stádas doras, fuinneog, glas agus cochall). Faightear sonraí eile (odaiméadar, breosla, suíomh, srl.) gach timthriall go neamhspleách agus ní theastaíonn dúiseacht uathu.",
+          "failed_wake_threshold": "Má stopann feithicil ag freagairt d'iarrataí dúisithe an méid seo uaireanta as a chéile, marcáiltear í mar dorochtana in aghaidh an VIN go dtí go dtaispeánann sí aon chomhartha beochta (imeacht tiomána, athnuachan ó aip sheachtrach, glao seirbhíse láimhe). 3 mar réamhshocrú.",
+          "max_cache_age_minutes": "An aois inghlactha uasta atá ag na sonraí stádais atáthar a thaisceadh sula n-eisítear GET úr (5-180 nóiméad; 30 mar réamhshocrú). Nóta: ní rialaíonn seo ach an pointe deiridh /v1/global/remote/status, a iompraíonn stádas doras, fuinneog, glas agus cochall. Faightear sonraí eile (odaiméadar, breosla, suíomh, srl.) gach timthriall go neamhspleách.",
+          "post_count_per_stop": "Cé mhéad iarratas POST dúisithe a sheoltar nuair a bhraitear an fheithicil díreach tar éis stopadh, ceann in aghaidh gach timthriall comhordaitheora. 1 = iarratas POST amháin. Is ionann 2 (réamhshocrú) agus iarratas POST breise ar an chéad timthriall eile, a ghabhann de ghnáth le stádas a athraíonn an úsáideoir go luath tar éis stopadh (na doirse a ghlasáil, an cófra a oscailt, srl.) - spreagann na himeachtaí sin tuairiscí modem úra a ghabhann lúb suirbhéireachta an dara iarratas POST. Is annamh a chuidíonn luachanna níos airde agus dónn siad ceallraí 12V gan gá.",
+          "max_recent_trips": "Líonann sé braiteoir 'Turais dheireanacha' in aghaidh gach feithicle leis na N turas dheireanacha (pointí bealaigh + staitisticí gach turais), fóirsteanach do chártaí saincheaptha amhairc turais. Díchumasaíonn 0 (réamhshocrú) an uath-fháil go hiomlán (gan aon iarrataí API breise). Cumasaíonn 1-20 uath-fháil ar imeachtaí stad; maireann an taisce athshocrú HA. Feidhmíonn an tseirbhís toyota.refresh_recent_trips agus an cnaipe 'Nuashonraigh na turais dheireanacha' in aghaidh gach feithicle beag beann ar an socrú seo, mar sin is féidir leat an uath-fháil a choinneáil díchumasaithe agus fáltais a thiomáint trí uathoibríochtaí laethúla."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Suíomh páirceála"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Uimhir Aitheantais Feithicle (VIN)"
+      },
+      "recent_trips": {
+        "name": "Turais dheireanacha"
+      },
+      "odometer": {
+        "name": "Odaiméadar"
+      },
+      "fuel_level": {
+        "name": "Leibhéal breosla"
+      },
+      "fuel_range": {
+        "name": "Raon breosla"
+      },
+      "battery_level": {
+        "name": "Leibhéal ceallraí"
+      },
+      "battery_range_ac": {
+        "name": "Raon ceallraí le aercóiriú"
+      },
+      "battery_range": {
+        "name": "Raon ceallraí"
+      },
+      "total_range": {
+        "name": "Raon iomlán"
+      },
+      "charging_status": {
+        "name": "Stádas luchtaithe",
+        "state": {
+          "charge_complete": "Luchtú críochnaithe",
+          "charging": "Ag luchtú",
+          "none": "Gan nasc",
+          "plugged": "Plugáilte isteach"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Nóiméid go dtí go bhfuil sé lán"
+          },
+          "has_charging_schedule": {
+            "name": "Sceideal luchtaithe ann"
+          },
+          "scheduled_charging_start": {
+            "name": "Tús sceidealta an luchtaithe"
+          },
+          "scheduled_charging_end": {
+            "name": "Deireadh sceidealta an luchtaithe"
+          },
+          "scheduled_charging_duration": {
+            "name": "Fad sceidealta an luchtaithe"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Am luchtaithe atá fágtha"
+      },
+      "current_day_statistics": {
+        "name": "Staitisticí an lae inniu"
+      },
+      "current_week_statistics": {
+        "name": "Staitisticí na seachtaine seo"
+      },
+      "current_month_statistics": {
+        "name": "Staitisticí na míosa seo"
+      },
+      "current_year_statistics": {
+        "name": "Staitisticí na bliana seo"
+      },
+      "last_successful_fetch": {
+        "name": "An nuashonrú rathúil deiridh"
+      },
+      "last_error_time": {
+        "name": "An earráid dheiridh"
+      },
+      "last_error_code": {
+        "name": "Cód na hearráide deiridh"
+      },
+      "status_last_reported": {
+        "name": "Stádas a tuairiscíodh go deireanach ón charr"
+      },
+      "status_refresh_state": {
+        "name": "Stádas nuashonraithe stádais",
+        "state": {
+          "active": "Gníomhach",
+          "soft_disabled_unreachable": "Dorochtana",
+          "hard_disabled_auto": "Díchumasaithe (gan tacaíocht)",
+          "hard_disabled_user": "Díchumasaithe (ag an úsáideoir)"
+        }
+      },
+      "last_service": {
+        "name": "An tseirbhís dheiridh"
+      },
+      "last_trip_score": {
+        "name": "Scór an turais dheiridh"
+      },
+      "cabin_temperature": {
+        "name": "Teocht an chábáin"
+      },
+      "notifications": {
+        "name": "Fógraí"
+      },
+      "warning_lights": {
+        "name": "Soilse rabhaidh"
+      },
+      "last_service_detail": {
+        "name": "Sonraí na seirbhíse deiridh"
+      },
+      "average_speed_week": {
+        "name": "Meánluas na seachtaine"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Nuashonraigh stádas na feithicle"
+      },
+      "refresh_recent_trips": {
+        "name": "Nuashonraigh na turais dheireanacha"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Nuashonraigh stádas leictreach fíor-ama"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Stádas foriomlán"
+      },
+      "hood": {
+        "name": "Cochall"
+      },
+      "key_in_car": {
+        "name": "Eochair sa charr"
+      },
+      "front_defogger": {
+        "name": "Dí-cheobhránóir tosaigh"
+      },
+      "rear_defogger": {
+        "name": "Dí-cheobhránóir deiridh"
+      },
+      "driverseat_window": {
+        "name": "Fuinneog an tiománaí"
+      },
+      "passengerseat_window": {
+        "name": "Fuinneog an phaisinéir"
+      },
+      "leftrearseat_window": {
+        "name": "Fuinneog chlé chúil"
+      },
+      "rightrearseat_window": {
+        "name": "Fuinneog dheas chúil"
+      },
+      "driverseat_door": {
+        "name": "Doras an tiománaí"
+      },
+      "driverseat_lock": {
+        "name": "Glas dhoras an tiománaí"
+      },
+      "passengerseat_door": {
+        "name": "Doras an phaisinéir"
+      },
+      "passengerseat_lock": {
+        "name": "Glas dhoras an phaisinéir"
+      },
+      "leftrearseat_door": {
+        "name": "Doras clé chúil"
+      },
+      "leftrearseat_lock": {
+        "name": "Glas an dorais chlé chúil"
+      },
+      "rightrearseat_door": {
+        "name": "Doras deas chúil"
+      },
+      "rightrearseat_lock": {
+        "name": "Glas an dorais dheas chúil"
+      },
+      "trunk_door": {
+        "name": "Cófra"
+      },
+      "trunk_lock": {
+        "name": "Glas an chófra"
+      },
+      "hazardlights": {
+        "name": "Soilse guaise"
+      },
+      "headlights": {
+        "name": "Ceannsoilse"
+      },
+      "taillights": {
+        "name": "Soilse cúil"
+      },
+      "vehicle_health": {
+        "name": "Sláinte na feithicle"
+      },
+      "driving": {
+        "name": "Tiomáint"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Díshioctha tosaigh",
+              "rear_defrost": "Díshioctha deiridh",
+              "both_defrost": "An dá dhíshioctha"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Glas dorais"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Téitheoir shuíochán an tiománaí"
+      },
+      "seat_heater_passenger": {
+        "name": "Téitheoir shuíochán an phaisinéir"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Téitheoir shuíochán chúil an tiománaí"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Téitheoir shuíochán chúil an phaisinéir"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Téitheoir an roth stiúrtha"
+      }
+    }
+  }
+}

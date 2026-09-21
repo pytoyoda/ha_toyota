@@ -20,8 +20,26 @@
   "options": {
     "step": {
       "init": {
+        "title": "Toyota Connected Services-Optionen",
         "data": {
-          "use_liters": "Verwende Liter (L/100 Meilen) anstelle von MPG. Nur anwendbar, wenn dein Fahrzeug Daten in Meilen (imperiales Einheitensystem) meldet."
+          "polling_interval_minutes": "Abrufintervall (Minuten)",
+          "retain_on_transient_failure": "Letzte gültige Daten bei vorübergehenden Fehlern behalten (empfohlen)",
+          "enable_status_refresh": "Fahrzeugstatus remote aktualisieren (empfohlen)",
+          "idle_wake_hours": "Ruhendes Fahrzeug alle N Stunden aufwecken (0 = deaktiviert)",
+          "failed_wake_threshold": "Nach N fehlgeschlagenen Weckversuchen als nicht erreichbar markieren",
+          "max_cache_age_minutes": "Statuscache aktualisieren, wenn älter als",
+          "post_count_per_stop": "Weck-POSTs pro Stopp-Ereignis",
+          "max_recent_trips": "Anzahl der im Cache gespeicherten letzten Fahrten (0 = deaktiviert)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Wie oft die Integration Toyota nach aktuellen Daten abfragt (0-1440 Minuten; Standard 6; 0 = automatische Abfrage deaktivieren, nur die manuellen Aktualisierungsdienste/-schaltflächen verwenden). Niedrigere Werte können Ratenbegrenzungen auslösen.",
+          "retain_on_transient_failure": "Wenn aktiviert, bleiben bei einem vorübergehenden Toyota-API-Fehler (HTTP 429, Timeout, Verbindungsfehler) die zuletzt erfolgreich abgerufenen Fahrzeugdaten erhalten, anstatt alle Toyota-Entitäten als nicht verfügbar zu markieren. Die neuen Diagnosesensoren 'Letzter erfolgreicher Abruf', 'Letzter Fehler' und 'Letzter Fehlercode' zeigen den tatsächlichen Zustand der Integration.",
+          "enable_status_refresh": "Toyotas API-Gateway liefert oft veralteten Schloss- und Türstatus, solange das Modem des Fahrzeugs nicht explizit geweckt wird. Wenn aktiviert, sendet die Integration vor dem Auslesen des Status eine Weckanfrage, ähnlich wie die Toyota-App. Jedes Wecken verbraucht etwas Mobilfunkzeit und 12V-Batterie; die intelligenten Auslöser (Erkennung des gerade-gestoppt-Zustands, optionales Weck-Intervall im Ruhezustand) halten die Kosten gering. Deaktiviere dies für Fahrzeuge, deren Toyota-Konto refresh-status nicht unterstützt; die Integration deaktiviert dies automatisch, wenn sie nicht unterstützte Antworten erkennt. Hinweis: Dies betrifft nur den Endpunkt /v1/global/remote/status (Tür-, Fenster-, Schloss- und Motorhaubenstatus); andere Daten (Kilometerstand, Kraftstoff, Standort usw.) werden unabhängig davon in jedem Zyklus abgerufen. Wenn diese Option AUS ist, haben die vier folgenden Optionen (Weck-Intervall im Ruhezustand, Schwellenwert für fehlgeschlagene Weckversuche, Cache-Alter des Status, Weck-POSTs pro Stopp) keine Wirkung. Manuelle Aktualisierungen (der Dienst toyota.refresh_vehicle_status oder die Aktualisierungsschaltfläche) umgehen diesen Schalter und jede automatische Deaktivierung, und ein erfolgreiches manuelles Wecken aktiviert die automatische Strategie wieder.",
+          "idle_wake_hours": "Weckt das Fahrzeug regelmäßig, auch wenn es sich nicht bewegt hat. Nützlich für Fahrzeuge, die tagelang ungenutzt stehen und bei denen du trotzdem einen aktuellen Schlossstatus möchtest. 0 (Standard) deaktiviert dies vollständig; 1-72 = wecke alle N Stunden. Jedes Wecken kostet Mobilfunkzeit und etwas 12V-Batterie. Hinweis: Das Wecken aktualisiert nur den Endpunkt /v1/global/remote/status (Tür-, Fenster-, Schloss- und Motorhaubenstatus). Andere Daten (Kilometerstand, Kraftstoff, Standort usw.) werden unabhängig davon in jedem Zyklus abgerufen und benötigen kein Wecken.",
+          "failed_wake_threshold": "Wenn ein Fahrzeug so oft in Folge nicht auf Weckanfragen reagiert, wird es pro Fahrgestellnummer als nicht erreichbar markiert, bis es ein Lebenszeichen zeigt (Fahrereignis, externe App-Aktualisierung, manueller Dienstaufruf). Standard 3.",
+          "max_cache_age_minutes": "Maximal akzeptables Alter der zwischengespeicherten Statusdaten, bevor ein neuer GET-Abruf ausgelöst wird (5-180 Minuten; Standard 30). Hinweis: Dies steuert nur den Endpunkt /v1/global/remote/status, der Tür-, Fenster-, Schloss- und Motorhaubenstatus überträgt. Andere Daten (Kilometerstand, Kraftstoff, Standort usw.) werden unabhängig davon in jedem Zyklus abgerufen.",
+          "post_count_per_stop": "Wie viele Weck-POSTs ausgelöst werden, wenn erkannt wird, dass das Fahrzeug gerade gestoppt hat, jeweils einer pro Koordinator-Zyklus. 1 = einzelner POST. 2 (Standard) = ein zusätzlicher POST im nächsten Zyklus, der typischerweise Statusänderungen erfasst, die kurz nach dem Anhalten vorgenommen werden (Türen verriegeln, Kofferraum öffnen usw.) - diese Ereignisse lösen neue Modemmeldungen aus, die die Abrufschleife des zweiten POSTs erfasst. Höhere Werte helfen selten und verbrauchen mehr 12V-Batterie.",
+          "max_recent_trips": "Füllt einen fahrzeugspezifischen Sensor 'Letzte Fahrten' mit den letzten N Fahrten (Routenpunkte + Fahrtstatistiken), geeignet für benutzerdefinierte Journey-Viewer-Karten. 0 (Standard) deaktiviert den automatischen Abruf vollständig (keine zusätzlichen API-Aufrufe). 1-20 aktiviert den automatischen Abruf bei Stopp-Ereignissen; der Cache bleibt auch nach einem HA-Neustart erhalten. Der Dienst toyota.refresh_recent_trips und die fahrzeugspezifische Schaltfläche 'Letzte Fahrten aktualisieren' funktionieren unabhängig von dieser Einstellung, sodass du den automatischen Abruf deaktiviert lassen und ihn stattdessen über tägliche Automatisierungen auslösen kannst."
         }
       }
     }
@@ -44,6 +62,9 @@
       "vin": {
         "name": "Fahrzeug-Identifizierungsnummer"
       },
+      "recent_trips": {
+        "name": "Letzte Fahrten"
+      },
       "odometer": {
         "name": "Kilometerzähler"
       },
@@ -56,11 +77,11 @@
       "battery_level": {
         "name": "Batteriestand"
       },
-      "battery_range": {
-        "name": "Batteriereichweite"
-      },
       "battery_range_ac": {
         "name": "Batteriereichweite mit AC"
+      },
+      "battery_range": {
+        "name": "Batteriereichweite"
       },
       "total_range": {
         "name": "Gesamtreichweite"
@@ -105,6 +126,59 @@
       },
       "current_year_statistics": {
         "name": "Aktuelle Jahresstatistiken"
+      },
+      "last_successful_fetch": {
+        "name": "Letzter erfolgreicher Abruf"
+      },
+      "last_error_time": {
+        "name": "Letzter Fehler"
+      },
+      "last_error_code": {
+        "name": "Letzter Fehlercode"
+      },
+      "status_last_reported": {
+        "name": "Status zuletzt vom Fahrzeug gemeldet"
+      },
+      "status_refresh_state": {
+        "name": "Status-Aktualisierungsstatus",
+        "state": {
+          "active": "Aktiv",
+          "soft_disabled_unreachable": "Nicht erreichbar",
+          "hard_disabled_auto": "Deaktiviert (nicht unterstützt)",
+          "hard_disabled_user": "Deaktiviert (durch Benutzer)"
+        }
+      },
+      "last_service": {
+        "name": "Letzter Service"
+      },
+      "last_trip_score": {
+        "name": "Bewertung der letzten Fahrt"
+      },
+      "cabin_temperature": {
+        "name": "Innenraumtemperatur"
+      },
+      "notifications": {
+        "name": "Benachrichtigungen"
+      },
+      "warning_lights": {
+        "name": "Kontrollleuchten"
+      },
+      "last_service_detail": {
+        "name": "Serviceverlauf"
+      },
+      "average_speed_week": {
+        "name": "Durchschnittsgeschwindigkeit (Woche)"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Fahrzeugstatus aktualisieren"
+      },
+      "refresh_recent_trips": {
+        "name": "Letzte Fahrten aktualisieren"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Elektrischen Echtzeitstatus aktualisieren"
       }
     },
     "binary_sensor": {
@@ -173,6 +247,12 @@
       },
       "taillights": {
         "name": "Rückleuchten"
+      },
+      "vehicle_health": {
+        "name": "Fahrzeugzustand"
+      },
+      "driving": {
+        "name": "Fährt"
       }
     },
     "climate": {
@@ -186,6 +266,30 @@
             }
           }
         }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Türverriegelung"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Sitzheizung Fahrer"
+      },
+      "seat_heater_passenger": {
+        "name": "Sitzheizung Beifahrer"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Sitzheizung hinten Fahrerseite"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Sitzheizung hinten Beifahrerseite"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Lenkradheizung"
       }
     }
   }

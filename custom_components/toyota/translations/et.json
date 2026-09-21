@@ -1,0 +1,296 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Palun valige oma sõiduki mark ning sisestage allpool oma e-posti aadress ja parool MyT/Lexus Linki jaoks.",
+        "data": {
+          "brand": "Sõiduki mark",
+          "email": "E-post",
+          "password": "Parool",
+          "use_metric_values": "Kasuta meetermõõdustiku ühikuid (nt km miilide asemel)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "E-post peab sisaldama @ märki.",
+      "invalid_auth": "E-post või parool on vale.",
+      "unknown": "Ootamatu viga."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Toyota Connected Services seaded",
+        "data": {
+          "polling_interval_minutes": "Päringu intervall (minutites)",
+          "retain_on_transient_failure": "Säilita viimased head andmed ajutiste rikete korral (soovitatav)",
+          "enable_status_refresh": "Värskenda sõiduki olekut kaugjuhtimisega (soovitatav)",
+          "idle_wake_hours": "Ärata seisev sõiduk iga N tunni järel (0 = keelatud)",
+          "failed_wake_threshold": "Märgi kättesaamatuks pärast N ebaõnnestunud äratust",
+          "max_cache_age_minutes": "Värskenda oleku vahemälu, kui see on vanem kui",
+          "post_count_per_stop": "Äratus-POST-e peatumise kohta",
+          "max_recent_trips": "Vahemälus hoitavate viimaste sõitude arv (0 = keelatud)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Kui tihti integratsioon küsib Toyotalt uusi andmeid (0-1440 minutit; vaikimisi 6; 0 = keelab automaatse päringu, kasuta ainult käsitsi värskendamise teenuseid/nuppe). Väiksemad väärtused võivad põhjustada piirmäära ületamist.",
+          "retain_on_transient_failure": "Kui lubatud, säilitab ajutine Toyota API tõrge (HTTP 429, ajalõpp, ühendusviga) viimased õnnestunud sõidukipõhised andmed selle asemel, et märkida kõik Toyota olemid mittekättesaadavaks. Uued diagnostikaandurid 'Viimane õnnestunud pärimine', 'Viimane viga' ja 'Viimane veakood' näitavad integratsiooni tegelikku olekut.",
+          "enable_status_refresh": "Toyota API-vahendaja tagastab sageli kinnijäänud või vananenud lukustus- ja ukseoleku, kui auto modemit ei äratata otseselt. Kui lubatud, saadab integratsioon enne oleku lugemist äratuspäringu, jäljendades Toyota mobiilirakendust. Iga äratus kasutab väikest kogust mobiilset andmesidet ja 12V akut; nutikad käivitajad (hetkel-peatunud tuvastus, valikuline jõudeäratus) hoiavad kulu madalal. Keela sõidukite jaoks, mille Toyota konto ei toeta oleku värskendamist; integratsioon keelab selle sulle automaatselt, kui tuvastab toetamata vastuseid. Märkus: see hõlmab ainult /v1/global/remote/status lõpp-punkti (ukse, akna, luku ja kapoti olek); muud andmed (läbisõidumõõdik, kütus, asukoht jne) laaditakse igal tsüklil sõltumata sellest. Kui see suvand on VÄLJAS, ei mõjuta neli allolevat suvandit (jõudeäratus, ebaõnnestunud äratuse piirmäär, oleku vahemälu vanus, äratus-POST-id peatumise kohta) midagi. Käsitsi värskendused (teenus toyota.refresh_vehicle_status või värskendusnupp) mööduvad sellest lülitist ja mistahes automaatsest keelamisest, ning õnnestunud käsitsi äratus taasaktiveerib automaatse strateegia.",
+          "idle_wake_hours": "Ärata auto perioodiliselt, isegi kui see ei ole liikunud. Kasulik autodele, mis seisavad kasutult mitu päeva, kuid mille lukustuse olekut soovid siiski värskena hoida. 0 (vaikimisi) keelab selle täielikult; 1-72 = ärata iga N tunni järel. Iga äratus maksab mobiilset andmesidet ja väikest kogust 12V akut. Märkus: äratus värskendab ainult /v1/global/remote/status lõpp-punkti (ukse, akna, luku ja kapoti olek). Muud andmed (läbisõidumõõdik, kütus, asukoht jne) laaditakse iseseisvalt igal tsüklil ja ei vaja äratust.",
+          "failed_wake_threshold": "Kui sõiduk lakkab järjest nii palju kordi äratuspäringutele vastamast, märgitakse see VIN-koodi põhjal kättesaamatuks, kuni see näitab mistahes elumärki (sõidusündmus, välise rakenduse värskendus, käsitsi teenusekõne). Vaikimisi 3.",
+          "max_cache_age_minutes": "Vahemälus oleva olekuandme maksimaalne lubatud vanus enne uue GET-päringu tegemist (5-180 minutit; vaikimisi 30). Märkus: see reguleerib ainult /v1/global/remote/status lõpp-punkti, mis kannab ukse, akna, luku ja kapoti olekut. Muud andmed (läbisõidumõõdik, kütus, asukoht jne) laaditakse iseseisvalt igal tsüklil.",
+          "post_count_per_stop": "Mitu äratus-POST-i saadetakse, kui sõiduk tuvastatakse hetkel peatununa, üks koordinaatori tsükli kohta. 1 = üksik POST. 2 (vaikimisi) = täiendav POST järgmisel tsüklil, mis tavaliselt tuvastab oleku, mida kasutaja muudab kohe pärast peatumist (uste lukustamine, pagasiruumi avamine jne) - need sündmused käivitavad uued modemi teated, mille teine POST-i päringutsükkel tuvastab. Suuremad väärtused aitavad harva ja kulutavad 12V akut.",
+          "max_recent_trips": "Täidab sõidukipõhise 'Viimased sõidud' anduri N viimase sõiduga (teekonnapunktid + sõidupõhine statistika), sobiv kohandatud journey-viewer kaartidele. 0 (vaikimisi) keelab automaatse pärimise täielikult (ei tehta täiendavaid API kõnesid). 1-20 lubab automaatse pärimise peatumissündmuste korral; vahemälu püsib HA taaskäivituse üle. Teenus toyota.refresh_recent_trips ja sõidukipõhine nupp 'Värskenda viimaseid sõite' töötavad sellest seadest sõltumata, nii et saad hoida automaatse pärimise väljas ja käivitada pärimisi igapäevaste automatiseeringute kaudu."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Parkimiskoht"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Sõiduki identifitseerimisnumber"
+      },
+      "recent_trips": {
+        "name": "Viimased sõidud"
+      },
+      "odometer": {
+        "name": "Läbisõidumõõdik"
+      },
+      "fuel_level": {
+        "name": "Kütuse tase"
+      },
+      "fuel_range": {
+        "name": "Kütuse sõiduulatus"
+      },
+      "battery_level": {
+        "name": "Aku tase"
+      },
+      "battery_range_ac": {
+        "name": "Aku sõiduulatus kliimaseadmega"
+      },
+      "battery_range": {
+        "name": "Aku sõiduulatus"
+      },
+      "total_range": {
+        "name": "Kogu sõiduulatus"
+      },
+      "charging_status": {
+        "name": "Laadimise olek",
+        "state": {
+          "charge_complete": "Laadimine lõpetatud",
+          "charging": "Laadib",
+          "none": "Pole ühendatud",
+          "plugged": "Ühendatud"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuteid täislaadimiseni"
+          },
+          "has_charging_schedule": {
+            "name": "Laadimisgraafik on olemas"
+          },
+          "scheduled_charging_start": {
+            "name": "Planeeritud laadimise algus"
+          },
+          "scheduled_charging_end": {
+            "name": "Planeeritud laadimise lõpp"
+          },
+          "scheduled_charging_duration": {
+            "name": "Planeeritud laadimise kestus"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Laadimiseni jäänud aeg"
+      },
+      "current_day_statistics": {
+        "name": "Tänase päeva statistika"
+      },
+      "current_week_statistics": {
+        "name": "Käesoleva nädala statistika"
+      },
+      "current_month_statistics": {
+        "name": "Käesoleva kuu statistika"
+      },
+      "current_year_statistics": {
+        "name": "Käesoleva aasta statistika"
+      },
+      "last_successful_fetch": {
+        "name": "Viimane õnnestunud pärimine"
+      },
+      "last_error_time": {
+        "name": "Viimane viga"
+      },
+      "last_error_code": {
+        "name": "Viimane veakood"
+      },
+      "status_last_reported": {
+        "name": "Auto viimane olekuteade"
+      },
+      "status_refresh_state": {
+        "name": "Oleku värskendamise seisund",
+        "state": {
+          "active": "Aktiivne",
+          "soft_disabled_unreachable": "Kättesaamatu",
+          "hard_disabled_auto": "Keelatud (ei toetata)",
+          "hard_disabled_user": "Keelatud (kasutaja poolt)"
+        }
+      },
+      "last_service": {
+        "name": "Viimane hooldus"
+      },
+      "last_trip_score": {
+        "name": "Viimase sõidu skoor"
+      },
+      "cabin_temperature": {
+        "name": "Salongi temperatuur"
+      },
+      "notifications": {
+        "name": "Teavitused"
+      },
+      "warning_lights": {
+        "name": "Hoiatustuled"
+      },
+      "last_service_detail": {
+        "name": "Viimase hoolduse üksikasjad"
+      },
+      "average_speed_week": {
+        "name": "Nädala keskmine kiirus"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Värskenda sõiduki olekut"
+      },
+      "refresh_recent_trips": {
+        "name": "Värskenda viimaseid sõite"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Värskenda elektrilist reaalajas olekut"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Üldine olek"
+      },
+      "hood": {
+        "name": "Kapott"
+      },
+      "key_in_car": {
+        "name": "Võti autos"
+      },
+      "front_defogger": {
+        "name": "Esiklaasi sulatus"
+      },
+      "rear_defogger": {
+        "name": "Tagaklaasi sulatus"
+      },
+      "driverseat_window": {
+        "name": "Juhiistme aken"
+      },
+      "passengerseat_window": {
+        "name": "Kaassõitja istme aken"
+      },
+      "leftrearseat_window": {
+        "name": "Vasak tagumine aken"
+      },
+      "rightrearseat_window": {
+        "name": "Parem tagumine aken"
+      },
+      "driverseat_door": {
+        "name": "Juhiuks"
+      },
+      "driverseat_lock": {
+        "name": "Juhiukse lukk"
+      },
+      "passengerseat_door": {
+        "name": "Kaassõitja uks"
+      },
+      "passengerseat_lock": {
+        "name": "Kaassõitja ukse lukk"
+      },
+      "leftrearseat_door": {
+        "name": "Vasak tagauks"
+      },
+      "leftrearseat_lock": {
+        "name": "Vasaku tagaukse lukk"
+      },
+      "rightrearseat_door": {
+        "name": "Parem tagauks"
+      },
+      "rightrearseat_lock": {
+        "name": "Parema tagaukse lukk"
+      },
+      "trunk_door": {
+        "name": "Pagasiruum"
+      },
+      "trunk_lock": {
+        "name": "Pagasiruumi lukk"
+      },
+      "hazardlights": {
+        "name": "Hädatuled"
+      },
+      "headlights": {
+        "name": "Esituled"
+      },
+      "taillights": {
+        "name": "Tagatuled"
+      },
+      "vehicle_health": {
+        "name": "Sõiduki tervis"
+      },
+      "driving": {
+        "name": "Sõitmine"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Esiklaasi sulatus",
+              "rear_defrost": "Tagaklaasi sulatus",
+              "both_defrost": "Mõlemad sulatused"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Ukselukk"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Juhiistme soojendus"
+      },
+      "seat_heater_passenger": {
+        "name": "Kaassõitja istme soojendus"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Tagumine juhipoolne istmesoojendus"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Tagumine kaassõitjapoolne istmesoojendus"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Rooli soojendus"
+      }
+    }
+  }
+}

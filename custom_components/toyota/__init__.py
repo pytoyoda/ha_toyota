@@ -856,9 +856,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             _persist_status_for_cache(vehicle, vin)
 
         # Phase 2b: recent-trips manager.
-        # No-op when CONF_MAX_RECENT_TRIPS is 0 (default). Independent of
-        # the /status decision; uses the same trigger info so we fetch trips
-        # only on stop-event ticks (just_stopped + conditional followup).
+        # No-op when CONF_MAX_RECENT_TRIPS is 0 (auto-fetch disabled).
+        # Independent of the /status decision; uses the same trigger info so
+        # we fetch trips only on stop-event ticks (just_stopped + conditional
+        # followup).
         await trips_manager.async_maybe_refresh(vehicle, vin, decision)
 
         # Movement / sensor state.

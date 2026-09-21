@@ -4,7 +4,6 @@ Adds per-vehicle sensors:
 - last_trip_score: overall driving score of the most recent cached trip
   (from the trips manager cache, same source as recent_trips).
 - cabin_temperature: climate status current temperature.
-- notifications: Toyota notification count + detail attributes.
 - warning_lights: dashboard warning lights count + detail.
 - last_service_detail: full service history detail (operations, notes,
   dealer, ro_number) with newest record's date as state.
@@ -140,36 +139,6 @@ class ToyotaCabinTemperatureSensor(ToyotaExtraSensorBase):
         return _cabin_temperature(self.vehicle)
 
 
-class ToyotaNotificationsSensor(ToyotaExtraSensorBase):
-    """Toyota notifications count and detail."""
-
-    @property
-    def native_value(self) -> StateType:
-        """Return the total number of notifications."""
-        notes = getattr(self.vehicle, "notifications", None) or []
-        return len(notes)
-
-    @property
-    def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return the unread count and the most recent notification details."""
-        notes = getattr(self.vehicle, "notifications", None) or []
-        if not notes:
-            return None
-        return {
-            "unread": sum(1 for n in notes if not getattr(n, "read", True)),
-            "messages": [
-                {
-                    "date": str(getattr(n, "date", "")),
-                    "category": getattr(n, "category", None),
-                    "type": getattr(n, "type", None),
-                    "message": getattr(n, "message", None),
-                    "read": getattr(n, "read", None),
-                }
-                for n in notes[:20]
-            ],
-        }
-
-
 class ToyotaWarningLightsSensor(ToyotaExtraSensorBase):
     """Dashboard warning lights count and detail."""
 
@@ -288,12 +257,6 @@ DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         state_class=SensorStateClass.MEASUREMENT,
         native_unit_of_measurement=UnitOfTemperature.CELSIUS,
     ),
-    "notifications": SensorEntityDescription(
-        key="notifications",
-        translation_key="notifications",
-        icon="mdi:bell-outline",
-        entity_category=EntityCategory.DIAGNOSTIC,
-    ),
     "warning_lights": SensorEntityDescription(
         key="warning_lights",
         translation_key="warning_lights",
@@ -321,7 +284,6 @@ DESCRIPTIONS: dict[str, SensorEntityDescription] = {
 _CLASSES = {
     "last_trip_score": ToyotaLastTripScoreSensor,
     "cabin_temperature": ToyotaCabinTemperatureSensor,
-    "notifications": ToyotaNotificationsSensor,
     "warning_lights": ToyotaWarningLightsSensor,
     "last_service_detail": ToyotaServiceDetailSensor,
     "average_speed_week": ToyotaAverageSpeedWeekSensor,

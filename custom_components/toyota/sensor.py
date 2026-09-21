@@ -20,6 +20,7 @@ from homeassistant.helpers.entity import EntityCategory
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
 from .sensor_extra import _CLASSES as _EXTRA_SENSOR_CLASSES
+from .sensor_extra import CAPABILITY_CHECKS as _EXTRA_SENSOR_CAPABILITY_CHECKS
 from .sensor_extra import DESCRIPTIONS as _EXTRA_SENSOR_DESCRIPTIONS
 from .utils import (
     charging_status_key,
@@ -44,6 +45,11 @@ if TYPE_CHECKING:
     from . import StatisticsData, VehicleData
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _always_capable(vehicle: Vehicle) -> bool:  # noqa : ARG001
+    """Default capability check: no gate, always create the sensor."""
+    return True
 
 
 def get_vehicle_capability(
@@ -935,6 +941,7 @@ async def async_setup_entry(
                 description=_EXTRA_SENSOR_DESCRIPTIONS[key],
             )
             for key in _EXTRA_SENSOR_CLASSES
+            if _EXTRA_SENSOR_CAPABILITY_CHECKS.get(key, _always_capable)(vehicle)
         )
 
     async_add_devices(sensors)

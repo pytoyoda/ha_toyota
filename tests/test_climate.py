@@ -18,12 +18,9 @@ from pytoyoda.models.endpoints.climate import (
     RemoteClimateControlResponseModel,
 )
 
-from custom_components.toyota.climate import (
-    ToyotaClimate,
-    _vehicle_has_climate_capability,
-    async_setup_entry,
-)
+from custom_components.toyota.climate import ToyotaClimate, async_setup_entry
 from custom_components.toyota.const import DOMAIN
+from custom_components.toyota.utils import vehicle_has_climate_capability
 
 CLIMATE_DESCRIPTION = EntityDescription(key="climate", name="Climate")
 
@@ -150,7 +147,7 @@ class _Vehicle:
 def test_legacy_feature_flag_grants_capability() -> None:
     """The old ICE/hybrid feature flag alone must enable climate."""
     vehicle = _Vehicle(capabilities={"features": True})
-    assert _vehicle_has_climate_capability(vehicle) is True
+    assert vehicle_has_climate_capability(vehicle) is True
 
 
 @pytest.mark.parametrize(
@@ -160,18 +157,18 @@ def test_legacy_feature_flag_grants_capability() -> None:
 def test_extended_capability_flags_grant_capability(cap: str) -> None:
     """Each PHEV/EV extended-capability flag alone must enable climate."""
     vehicle = _Vehicle(capabilities={cap: True})
-    assert _vehicle_has_climate_capability(vehicle) is True
+    assert vehicle_has_climate_capability(vehicle) is True
 
 
 def test_no_capability_flags_means_no_climate() -> None:
     """A vehicle with none of the known flags must not get a climate entity."""
-    assert _vehicle_has_climate_capability(_Vehicle()) is False
+    assert vehicle_has_climate_capability(_Vehicle()) is False
 
 
 def test_capability_check_is_defensive_against_missing_attrs() -> None:
     """A vehicle info object missing the expected attributes must not crash setup."""
     vehicle = SimpleNamespace(_vehicle_info=object())
-    assert _vehicle_has_climate_capability(vehicle) is False
+    assert vehicle_has_climate_capability(vehicle) is False
 
 
 @pytest.mark.asyncio

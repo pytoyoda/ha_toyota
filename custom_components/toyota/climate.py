@@ -31,6 +31,7 @@ if TYPE_CHECKING:
 
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
+from .utils import vehicle_has_climate_capability
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=120)
@@ -59,7 +60,7 @@ async def async_setup_entry(
 
     entities = []
     for index, vehicle_data in enumerate(coordinator.data):
-        if _vehicle_has_climate_capability(vehicle_data["data"]):
+        if vehicle_has_climate_capability(vehicle_data["data"]):
             entities.append(
                 ToyotaClimate(coordinator, entry.entry_id, index, description)
             )
@@ -151,31 +152,6 @@ async def async_apply_climate_settings(
             "the car is unlocked, a door/window/trunk is open, or a key is inside."
         )
         raise HomeAssistantError(msg)
-
-
-def _vehicle_has_climate_capability(vehicle: Vehicle) -> bool:
-    """Check if vehicle supports climate control."""
-    try:
-        # Standard path (ICE / hybrid, e.g. Corolla): legacy feature flag.
-        if getattr(
-            getattr(vehicle._vehicle_info, "features", False),  # noqa : SLF001
-            "climate_start_engine",
-            False,
-        ):
-            return True
-        # PHEV / EV path: extended capabilities (added upstream in ea73031).
-        caps = getattr(vehicle._vehicle_info, "extended_capabilities", False)  # noqa : SLF001
-        for cap in [
-            "climate_capable",
-            "econnect_climate_capable",
-            "remote_engine_start_stop",
-        ]:
-            if getattr(caps, cap, False):
-                return True
-    except Exception:  # pylint: disable=W0718 # noqa : BLE001
-        return False
-
-    return False
 
 
 class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):

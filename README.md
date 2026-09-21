@@ -179,8 +179,8 @@ climate control.
 | `sensor.<you_car_alias>_last_service_detail`         | Date of the most recent service record; attributes include the full service history list.                                                     |
 | `sensor.<you_car_alias>_average_speed_week`          | Average speed from the current week's trip summary.                                                                                           |
 | `sensor.<you_car_alias>_last_successful_fetch`       | Diagnostic: timestamp of the last successful refresh.                                                                                         |
-| `sensor.<you_car_alias>_last_error`                  | Diagnostic: timestamp of the last refresh error.                                                                                              |
-| `sensor.<you_car_alias>_last_error_code`             | Diagnostic: HTTP status or exception class of the last error.                                                                                 |
+| `sensor.<you_car_alias>_last_refresh_error`          | Diagnostic: timestamp of the last error refreshing data from Toyota (HTTP/network - not a vehicle fault).                                     |
+| `sensor.<you_car_alias>_last_refresh_error_code`     | Diagnostic: HTTP status or exception class of the last refresh error; reads `none` while no error has occurred yet.                           |
 | `sensor.<you_car_alias>_status_last_reported_by_car` | Diagnostic: `occurrence_date` of the most recent `/v1/global/remote/status` payload (i.e. when the car last transmitted its lock/door state). |
 | `sensor.<you_car_alias>_status_refresh_state`        | Diagnostic: smart-refresh state (`active` / `soft_disabled_unreachable` / `hard_disabled_auto` / `hard_disabled_user`).                       |
 

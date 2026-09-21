@@ -619,18 +619,29 @@ LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION = SensorEntityDescription(
     device_class=SensorDeviceClass.TIMESTAMP,
     entity_category=EntityCategory.DIAGNOSTIC,
 )
-LAST_ERROR_TIME_ENTITY_DESCRIPTION = SensorEntityDescription(
-    key="last_error_time",
-    translation_key="last_error_time",
-    name="Last error",
+# Named "refresh error", not "vehicle error" or bare "error": this reports
+# HTTP/transport failures talking to Toyota's API (429s, timeouts, auth
+# errors, ...) from the integration's own refresh cycle. It says nothing
+# about the vehicle's own health/DTCs, which "last error" could easily be
+# misread as.
+LAST_REFRESH_ERROR_TIME_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="last_refresh_error_time",
+    translation_key="last_refresh_error_time",
+    name="Last refresh error",
     icon="mdi:clock-alert-outline",
     device_class=SensorDeviceClass.TIMESTAMP,
     entity_category=EntityCategory.DIAGNOSTIC,
 )
-LAST_ERROR_CODE_ENTITY_DESCRIPTION = SensorEntityDescription(
-    key="last_error_code",
-    translation_key="last_error_code",
-    name="Last error code",
+# State for last_refresh_error_code when no error has occurred yet.
+# last_refresh_error_time can't carry an equivalent - its
+# device_class=TIMESTAMP forces the frontend to render "Unknown" for any
+# non-timestamp value, so only this free-text sibling sensor can say "no
+# error" outright.
+NO_ERROR_CODE = "none"
+LAST_REFRESH_ERROR_CODE_ENTITY_DESCRIPTION = SensorEntityDescription(
+    key="last_refresh_error_code",
+    translation_key="last_refresh_error_code",
+    name="Last refresh error code",
     icon="mdi:alert-outline",
     entity_category=EntityCategory.DIAGNOSTIC,
 )
@@ -661,9 +672,10 @@ STATUS_REFRESH_STATE_ENTITY_DESCRIPTION = SensorEntityDescription(
 class ToyotaCoordinatorStateSensor(ToyotaBaseEntity, SensorEntity):
     """Sensor backed by per-VIN diagnostic dicts on the coordinator.
 
-    Used for observability sensors (last_successful_fetch, last_error_time,
-    last_error_code, status_last_reported, status_refresh_state) that
-    describe the fetch itself or the strategy's state, not the vehicle.
+    Used for observability sensors (last_successful_fetch,
+    last_refresh_error_time, last_refresh_error_code, status_last_reported,
+    status_refresh_state) that describe the fetch itself or the strategy's
+    state, not the vehicle.
 
     Two overrides are in play:
 
@@ -681,12 +693,18 @@ class ToyotaCoordinatorStateSensor(ToyotaBaseEntity, SensorEntity):
        last SUCCESSFUL refresh (where the error fields were None). Reading
        from the per-VIN dicts instead means error info appears as soon as
        it's known, regardless of retain toggle or UpdateFailed.
+
+    Note: last_refresh_error_code reads NO_ERROR_CODE ("none") instead of
+    None when no error has occurred yet, so the entity says something more
+    useful than "Unknown". last_refresh_error_time can't do the same - HA
+    always renders a None state as "Unknown" for a device_class=TIMESTAMP
+    sensor.
     """
 
     _DIAG_KEY_MAP: ClassVar[dict[str, tuple[str, int | None]]] = {
         "last_successful_fetch": ("_diag_last_fetch_per_vin", None),
-        "last_error_time": ("_diag_last_error_per_vin", 0),
-        "last_error_code": ("_diag_last_error_per_vin", 1),
+        "last_refresh_error_time": ("_diag_last_error_per_vin", 0),
+        "last_refresh_error_code": ("_diag_last_error_per_vin", 1),
         "status_last_reported": ("_diag_status_occurrence_per_vin", None),
         "status_refresh_state": ("_diag_status_refresh_state_per_vin", None),
     }
@@ -711,7 +729,7 @@ class ToyotaCoordinatorStateSensor(ToyotaBaseEntity, SensorEntity):
             return None
         value = per_vin.get(vin)
         if value is None:
-            return None
+            return NO_ERROR_CODE if key == "last_refresh_error_code" else None
         return value if tuple_idx is None else value[tuple_idx]
 
 
@@ -913,8 +931,8 @@ async def async_setup_entry(
             )
             for desc in (
                 LAST_SUCCESSFUL_FETCH_ENTITY_DESCRIPTION,
-                LAST_ERROR_TIME_ENTITY_DESCRIPTION,
-                LAST_ERROR_CODE_ENTITY_DESCRIPTION,
+                LAST_REFRESH_ERROR_TIME_ENTITY_DESCRIPTION,
+                LAST_REFRESH_ERROR_CODE_ENTITY_DESCRIPTION,
                 STATUS_LAST_REPORTED_ENTITY_DESCRIPTION,
                 STATUS_REFRESH_STATE_ENTITY_DESCRIPTION,
             )

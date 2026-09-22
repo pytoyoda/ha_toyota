@@ -22,6 +22,7 @@ from pytoyoda.models.endpoints.climate import (
 
 from custom_components.toyota.climate import (
     _onoff,
+    _seat_write_value,
     async_apply_climate_settings,
 )
 from custom_components.toyota.const import DOMAIN
@@ -145,6 +146,29 @@ def test_onoff_converts_tristate_bool_to_wire_string(
     assert _onoff(value=value) == expected
 
 
+# --- _seat_write_value --------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        (None, None),
+        ("off", "off"),
+        ("low", "heater"),
+        ("medium", "heater"),
+        ("high", "heater"),
+        ("heater", "heater"),
+        ("ventilation", "ventilation"),
+        ("bogus", None),
+    ],
+)
+def test_seat_write_value_maps_read_levels_to_write_modes(
+    value: str | None, expected: str | None
+) -> None:
+    """Read levels translate to the wire modes; unknown values are omitted."""
+    assert _seat_write_value(value) == expected
+
+
 # --- async_apply_climate_settings --------------------------------------------
 
 
@@ -171,7 +195,7 @@ async def test_apply_settings_preserves_steering_heater_when_only_seat_changes()
 
     request = vehicle.set_climate.call_args.args[0]
     assert request.heating_options.steering_heater == "on"
-    assert request.seat_options.driver_seat == "medium"
+    assert request.seat_options.driver_seat == "heater"
     # Unrelated seats are echoed unchanged.
     assert request.seat_options.passenger_seat == "off"
     assert request.command == "start"
@@ -187,6 +211,24 @@ async def test_apply_settings_overrides_steering_heater_explicitly() -> None:
 
     request = vehicle.set_climate.call_args.args[0]
     assert request.heating_options.steering_heater == "on"
+
+
+@pytest.mark.asyncio
+async def test_apply_settings_echoes_read_seat_level_as_write_mode() -> None:
+    """Regression test: a seat read as a level must be echoed as a mode.
+
+    Before the fix, every seat value was sent verbatim, so a car whose read
+    reports a level (``medium`` here) 400ed the whole climate start.
+    """
+    vehicle = _Vehicle(
+        climate_settings=_climate_settings(driver_seat="off", passenger_seat="medium")
+    )
+
+    await async_apply_climate_settings(vehicle, seat_overrides={"driver_seat": "low"})
+
+    request = vehicle.set_climate.call_args.args[0]
+    assert request.seat_options.driver_seat == "heater"
+    assert request.seat_options.passenger_seat == "heater"
 
 
 @pytest.mark.asyncio
@@ -285,6 +327,70 @@ def test_select_options_are_the_four_backend_levels(hass) -> None:
     vehicle = _Vehicle(climate_settings=_climate_settings())
     entity = _select_entity(hass, vehicle, "driver_seat")
     assert entity.options == list(SEAT_HEATER_OPTIONS)
+
+
+@pytest.mark.asyncio
+async def test_select_sends_heater_mode_for_a_non_off_level(hass) -> None:
+    """Regression test: a level selection must go out as the ``heater`` mode."""
+    vehicle = _Vehicle(climate_settings=_climate_settings(driver_seat="off"))
+    entity = _select_entity(hass, vehicle, "driver_seat")
+
+    await entity.async_select_option("high")
+
+    request = vehicle.set_climate.call_args.args[0]
+    assert request.seat_options.driver_seat == "heater"
+
+
+@pytest.mark.asyncio
+async def test_select_off_sends_off_mode(hass) -> None:
+    """Selecting ``off`` must still go out as the ``off`` mode."""
+    vehicle = _Vehicle(climate_settings=_climate_settings(driver_seat="high"))
+    entity = _select_entity(hass, vehicle, "driver_seat")
+
+    await entity.async_select_option("off")
+
+    request = vehicle.set_climate.call_args.args[0]
+    assert request.seat_options.driver_seat == "off"
+
+
+@pytest.mark.asyncio
+async def test_select_pending_clears_on_a_different_non_off_read(hass) -> None:
+    """Any non-off read confirms a non-off request; the car picks the level."""
+    vehicle = _Vehicle(climate_settings=_climate_settings(driver_seat="off"))
+    entity = _select_entity(hass, vehicle, "driver_seat")
+
+    await entity.async_select_option("low")
+    assert entity._pending_option == "low"
+
+    # The car reports a different level than requested (the write only said
+    # "heater"), so the pending override must still clear.
+    vehicle._endpoint_data["climate_settings"] = _climate_settings(driver_seat="high")
+    entity.async_write_ha_state.reset_mock()
+    entity._handle_coordinator_update()
+
+    assert entity._pending_option is None
+    assert entity.current_option == "high"
+    # ``super()`` writes once while the pending value still masks the read; a
+    # second write must follow clearing it, so the confirmed level is
+    # published immediately rather than one coordinator cycle late.
+    assert entity.async_write_ha_state.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_select_pending_survives_an_absent_read(hass) -> None:
+    """A None read must never clear the optimistic selection."""
+    vehicle = _Vehicle(climate_settings=_climate_settings(driver_seat="off"))
+    entity = _select_entity(hass, vehicle, "driver_seat")
+
+    await entity.async_select_option("high")
+
+    vehicle._endpoint_data["climate_settings"] = _climate_settings(
+        driver_seat=None, passenger_seat=None
+    )
+    entity._handle_coordinator_update()
+
+    assert entity._pending_option == "high"
+    assert entity.current_option == "high"
 
 
 @pytest.mark.asyncio

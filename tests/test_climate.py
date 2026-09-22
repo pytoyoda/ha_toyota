@@ -30,6 +30,8 @@ def _climate_settings(
     front_defroster: str | None = "off",
     rear_defogger: str | None = "off",
     steering_heater: str | None = "off",
+    driver_seat: str | None = "off",
+    passenger_seat: str | None = "off",
     temperature: float | None = 22,
 ) -> ClimateSettingsResponseModel:
     return ClimateSettingsResponseModel.model_validate(
@@ -47,8 +49,8 @@ def _climate_settings(
                     "steeringHeater": steering_heater,
                 },
                 "seatOptions": {
-                    "driverSeat": "off",
-                    "passengerSeat": "off",
+                    "driverSeat": driver_seat,
+                    "passengerSeat": passenger_seat,
                 },
             }
         }
@@ -361,6 +363,25 @@ async def test_turn_on_climate_sends_start_and_confirms(hass) -> None:
     vehicle.set_climate.assert_awaited_once()
     request = vehicle.set_climate.call_args.args[0]
     assert request.command == "start"
+
+
+@pytest.mark.asyncio
+async def test_turn_on_echoes_read_seat_level_as_write_mode(hass) -> None:
+    """Regression test: a start must echo a read level as the write mode.
+
+    The climate entity echoes the read seat values into its start body; a car
+    whose read reports a level (``medium`` here) must not 400 on every start.
+    """
+    vehicle = _Vehicle(
+        climate_settings=_climate_settings(driver_seat="medium"),
+        climate_status=_climate_status(status="running"),
+    )
+    entity = _entity(hass, vehicle)
+
+    await entity.async_turn_on()
+
+    request = vehicle.set_climate.call_args.args[0]
+    assert request.seat_options.driver_seat == "heater"
 
 
 @pytest.mark.asyncio

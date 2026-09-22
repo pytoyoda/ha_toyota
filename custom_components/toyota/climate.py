@@ -90,6 +90,30 @@ def _onoff(*, value: bool | None) -> str | None:
     return "on" if value else "off"
 
 
+def _seat_write_value(value: str | None) -> str | None:
+    """Translate a read seat level into the wire's seat *mode*.
+
+    Toyota's seat control uses two value spaces: the climate-settings read
+    reports a seat *level* (``off``/``low``/``medium``/``high``), while the V2
+    climate-control write body only accepts a seat *mode*
+    (``off``/``heater``/``ventilation``) and rejects anything else with HTTP
+    400 ``CTP-REMOTE-40005``. A non-off level therefore means the seat heater
+    is on, so it maps to the ``heater`` mode; the level the car then applies is
+    not observable when the vehicle reports no seat read-back. Unknown values
+    return ``None`` so the caller omits the field instead of sending a value
+    the API will reject (requests use ``exclude_none=True``).
+    """
+    if value is None:
+        return None
+    if value == "off":
+        return "off"
+    if value in ("low", "medium", "high"):
+        return "heater"
+    if value in ("heater", "ventilation"):
+        return value
+    return None
+
+
 async def async_apply_climate_settings(
     vehicle: Vehicle,
     *,
@@ -106,6 +130,13 @@ async def async_apply_climate_settings(
     climate-settings read so this can't clobber values the climate entity or
     user has already set. Used by the seat-heater select entities and the
     steering-heater switch.
+
+    Seat values need translating before they go on the wire: the write body
+    can only express a seat *mode* (``off``/``heater``/``ventilation``), while
+    the read reports a seat *level* (``off``/``low``/``medium``/``high``).
+    Every read echo and every ``seat_overrides`` value goes through
+    :func:`_seat_write_value`, so a select handing over ``"high"`` sends
+    ``"heater"``.
 
     Raises:
         HomeAssistantError: if Toyota rejects the command.
@@ -126,13 +157,21 @@ async def async_apply_climate_settings(
         ),
     )
     seat_values = {
-        "driver_seat": getattr(read_seats, "driver_seat", None),
-        "passenger_seat": getattr(read_seats, "passenger_seat", None),
-        "rear_driver_seat": getattr(read_seats, "rear_driver_seat", None),
-        "rear_passenger_seat": getattr(read_seats, "rear_passenger_seat", None),
+        "driver_seat": _seat_write_value(getattr(read_seats, "driver_seat", None)),
+        "passenger_seat": _seat_write_value(
+            getattr(read_seats, "passenger_seat", None)
+        ),
+        "rear_driver_seat": _seat_write_value(
+            getattr(read_seats, "rear_driver_seat", None)
+        ),
+        "rear_passenger_seat": _seat_write_value(
+            getattr(read_seats, "rear_passenger_seat", None)
+        ),
     }
     if seat_overrides:
-        seat_values.update(seat_overrides)
+        seat_values.update(
+            {field: _seat_write_value(value) for field, value in seat_overrides.items()}
+        )
     seats = SeatOptionsModel(**seat_values)
 
     temp_value = read_temp.value if read_temp is not None else DEFAULT_MIN_TEMP + 3
@@ -389,11 +428,14 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         )
         seats = None
         if read_seats is not None:
+            # Seats read as a level (off/low/medium/high) but the write body only
+            # accepts a mode (off/heater/ventilation), so translate the echo -
+            # otherwise a car reporting a level 400s every start (issue #423).
             seats = SeatOptionsModel(
-                driver_seat=read_seats.driver_seat,
-                passenger_seat=read_seats.passenger_seat,
-                rear_driver_seat=read_seats.rear_driver_seat,
-                rear_passenger_seat=read_seats.rear_passenger_seat,
+                driver_seat=_seat_write_value(read_seats.driver_seat),
+                passenger_seat=_seat_write_value(read_seats.passenger_seat),
+                rear_driver_seat=_seat_write_value(read_seats.rear_driver_seat),
+                rear_passenger_seat=_seat_write_value(read_seats.rear_passenger_seat),
             )
 
         unit = (

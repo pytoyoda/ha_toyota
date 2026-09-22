@@ -6,6 +6,13 @@ remote API has no settings-only write, so changing a level sends a full
 climate-control ``start`` (see ``async_apply_climate_settings`` in
 ``climate.py``) - this also (re)starts remote climate control, mirroring the
 MyToyota app's own behavior for these controls.
+
+The options are the levels the car reports (``off``/``low``/``medium``/
+``high``); the write body can only express a seat *mode*
+(``off``/``heater``/``ventilation``), so any non-off selection is sent as
+``heater``. The entity shows the car's reported level once it reports one,
+and the optimistic selection until then; on vehicles that report no seat
+level, the optimistic value may remain.
 """
 
 from __future__ import annotations
@@ -92,7 +99,13 @@ async def async_setup_entry(
 
 
 class ToyotaSeatHeaterSelect(ToyotaBaseEntity, SelectEntity):
-    """Per-seat heater level control (off/low/medium/high)."""
+    """Per-seat heater level control (off/low/medium/high).
+
+    Options are the car's reported levels; a non-off selection is written as
+    the ``heater`` mode. The level the car then applies is not observable on
+    vehicles that report no seat read-back, so the shown value follows the
+    car's read once it changes and stays optimistic until then.
+    """
 
     _attr_options: ClassVar[list[str]] = list(SEAT_HEATER_OPTIONS)
 
@@ -107,9 +120,13 @@ class ToyotaSeatHeaterSelect(ToyotaBaseEntity, SelectEntity):
         """Initialize the seat-heater select entity."""
         super().__init__(coordinator, entry_id, vehicle_index, description)
         self._seat_field = seat_field
-        # Optimistic write-through: holds the just-requested level until the
-        # coordinator's next read confirms it, so the tile doesn't flicker
-        # back to the pre-change value while Toyota's backend catches up.
+        # Optimistic write-through: holds the just-requested level until a
+        # coordinator read confirms the write landed, so the tile doesn't
+        # flicker back to the pre-change value while Toyota's backend catches
+        # up. The write only says ``heater`` (a mode), so the car may report a
+        # different level than requested; any non-off read confirms a non-off
+        # request. A ``None`` read never confirms, so the optimistic value can
+        # legitimately stay when the car reports no seat data.
         self._pending_option: str | None = None
 
     def _read_option(self) -> str | None:
@@ -148,7 +165,18 @@ class ToyotaSeatHeaterSelect(ToyotaBaseEntity, SelectEntity):
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
         super()._handle_coordinator_update()
-        if self._pending_option is not None and (
-            self._read_option() == self._pending_option
-        ):
+        if self._pending_option is None:
+            return
+        read = self._read_option()
+        if read is None:
+            # No seat data (yet): the car may never read back, so keep the
+            # optimistic value rather than clearing it on an absent read.
+            return
+        # A non-off read confirms a non-off request (which includes an exact
+        # match); an ``off`` read only confirms an ``off`` request.
+        if (read != "off") == (self._pending_option != "off"):
             self._pending_option = None
+            # ``super()`` already published the state while the pending value
+            # still masked the read, so write again to publish the confirmed
+            # value immediately instead of on the next poll.
+            self.async_write_ha_state()

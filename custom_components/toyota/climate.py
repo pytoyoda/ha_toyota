@@ -114,6 +114,54 @@ def _seat_write_value(value: str | None) -> str | None:
     return None
 
 
+def _heating_value(override: str | None, *, read_value: bool | None) -> str | None:
+    """Return an explicit override, or the tri-state read value as a wire string."""
+    return override if override is not None else _onoff(value=read_value)
+
+
+def _build_seat_options(
+    read_seats: object, seat_overrides: dict[str, str] | None
+) -> SeatOptionsModel:
+    """Echo the vehicle's current seat levels as write modes, applying overrides.
+
+    Every echoed read and every override goes through :func:`_seat_write_value`
+    so a select handing over ``"high"`` sends ``"heater"`` (see
+    :func:`async_apply_climate_settings`).
+    """
+    seat_values = {
+        "driver_seat": _seat_write_value(getattr(read_seats, "driver_seat", None)),
+        "passenger_seat": _seat_write_value(
+            getattr(read_seats, "passenger_seat", None)
+        ),
+        "rear_driver_seat": _seat_write_value(
+            getattr(read_seats, "rear_driver_seat", None)
+        ),
+        "rear_passenger_seat": _seat_write_value(
+            getattr(read_seats, "rear_passenger_seat", None)
+        ),
+    }
+    if seat_overrides:
+        seat_values.update(
+            {field: _seat_write_value(value) for field, value in seat_overrides.items()}
+        )
+    return SeatOptionsModel(**seat_values)
+
+
+def _resolve_temperature(
+    override: float | None, read_temp: object
+) -> tuple[float, str]:
+    """Resolve the wire temperature value + unit from an override or the last read."""
+    value = (
+        override
+        if override is not None
+        else (
+            read_temp.value if read_temp is not None else DEFAULT_MIN_TEMP + 3  # type: ignore[attr-defined]
+        )
+    )
+    unit = (read_temp.unit if read_temp is not None else "C") or "C"  # type: ignore[attr-defined]
+    return value, unit
+
+
 async def async_apply_climate_settings(  # noqa: PLR0913
     vehicle: Vehicle,
     *,
@@ -160,46 +208,18 @@ async def async_apply_climate_settings(  # noqa: PLR0913
     read_temp = getattr(settings, "temperature", None)
 
     heating = HeatingOptionsModel(
-        front_defroster=(
-            front_defroster
-            if front_defroster is not None
-            else _onoff(value=getattr(read_heating, "front_defroster", None))
+        front_defroster=_heating_value(
+            front_defroster, read_value=getattr(read_heating, "front_defroster", None)
         ),
-        rear_defogger=(
-            rear_defogger
-            if rear_defogger is not None
-            else _onoff(value=getattr(read_heating, "rear_defogger", None))
+        rear_defogger=_heating_value(
+            rear_defogger, read_value=getattr(read_heating, "rear_defogger", None)
         ),
-        steering_heater=(
-            steering_heater
-            if steering_heater is not None
-            else _onoff(value=getattr(read_heating, "steering_heater", None))
+        steering_heater=_heating_value(
+            steering_heater, read_value=getattr(read_heating, "steering_heater", None)
         ),
     )
-    seat_values = {
-        "driver_seat": _seat_write_value(getattr(read_seats, "driver_seat", None)),
-        "passenger_seat": _seat_write_value(
-            getattr(read_seats, "passenger_seat", None)
-        ),
-        "rear_driver_seat": _seat_write_value(
-            getattr(read_seats, "rear_driver_seat", None)
-        ),
-        "rear_passenger_seat": _seat_write_value(
-            getattr(read_seats, "rear_passenger_seat", None)
-        ),
-    }
-    if seat_overrides:
-        seat_values.update(
-            {field: _seat_write_value(value) for field, value in seat_overrides.items()}
-        )
-    seats = SeatOptionsModel(**seat_values)
-
-    temp_value = (
-        temperature
-        if temperature is not None
-        else (read_temp.value if read_temp is not None else DEFAULT_MIN_TEMP + 3)
-    )
-    temp_unit = (read_temp.unit if read_temp is not None else "C") or "C"
+    seats = _build_seat_options(read_seats, seat_overrides)
+    temp_value, temp_unit = _resolve_temperature(temperature, read_temp)
 
     request = V2RemoteClimateControlRequestModel(
         command="start",

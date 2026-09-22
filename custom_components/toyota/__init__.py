@@ -1405,6 +1405,56 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
     await _async_register_trips_services(hass)
 
 
+async def _apply_start_climate(
+    vehicle: Vehicle, call: ServiceCall, seat_overrides: dict[str, str]
+) -> None:
+    """Apply one ``toyota.start_climate`` call's fields to a single vehicle.
+
+    Failures are logged and swallowed so one bad vehicle doesn't abort the
+    call for the rest of the targeted fleet.
+    """
+    from .climate import async_apply_climate_settings  # noqa: PLC0415
+
+    try:
+        await async_apply_climate_settings(
+            vehicle,
+            steering_heater=_onoff_field(call, ATTR_STEERING_HEATER),
+            front_defroster=_onoff_field(call, ATTR_FRONT_DEFROSTER),
+            rear_defogger=_onoff_field(call, ATTR_REAR_DEFOGGER),
+            seat_overrides=seat_overrides or None,
+            temperature=call.data.get(ATTR_TEMPERATURE),
+            duration_minutes=call.data.get(ATTR_DURATION_MINUTES),
+        )
+    except Exception:
+        _LOGGER.exception(
+            "toyota.start_climate failed for vin=...%s", (vehicle.vin or "")[-6:]
+        )
+
+
+async def _apply_start_climate_to_entry(
+    hass: HomeAssistant,
+    coord: DataUpdateCoordinator,
+    vins: list[str],
+    call: ServiceCall,
+    seat_overrides: dict[str, str],
+) -> None:
+    """Apply ``toyota.start_climate`` to every targeted VIN in one config entry."""
+    if coord.data is None:
+        return
+    for vin in vins:
+        vehicle = _find_vehicle_by_vin(coord.data, vin)
+        if vehicle is None:
+            _LOGGER.warning(
+                "toyota.start_climate: VIN ...%s not in coordinator data; skipping",
+                vin[-6:],
+            )
+            continue
+        await _apply_start_climate(vehicle, call, seat_overrides)
+    # Schedule a refresh so the climate/seat/steering entities pick up the
+    # just-applied settings on the next coordinator cycle.
+    hass.async_create_task(coord.async_request_refresh())
+
+
 async def _async_register_climate_services(hass: HomeAssistant) -> None:
     """Register the toyota.start_climate service exactly once."""
     if hass.services.has_service(DOMAIN, SERVICE_START_CLIMATE):
@@ -1423,8 +1473,6 @@ async def _async_register_climate_services(hass: HomeAssistant) -> None:
         remote-start unit is consumed regardless of how many settings are
         changed.
         """
-        from .climate import async_apply_climate_settings  # noqa: PLC0415
-
         device_ids = _extract_device_ids(call)
         if not device_ids:
             _LOGGER.warning("toyota.start_climate called with no device target")
@@ -1438,34 +1486,9 @@ async def _async_register_climate_services(hass: HomeAssistant) -> None:
         per_entry_vins = _resolve_devices_to_vins_per_entry(hass, device_ids)
         for entry_id, vins in per_entry_vins.items():
             coord = hass.data[DOMAIN].get(entry_id)
-            if coord is None or coord.data is None:
+            if coord is None:
                 continue
-            for vin in vins:
-                vehicle = _find_vehicle_by_vin(coord.data, vin)
-                if vehicle is None:
-                    _LOGGER.warning(
-                        "toyota.start_climate: VIN ...%s not in coordinator data; "
-                        "skipping",
-                        vin[-6:],
-                    )
-                    continue
-                try:
-                    await async_apply_climate_settings(
-                        vehicle,
-                        steering_heater=_onoff_field(call, ATTR_STEERING_HEATER),
-                        front_defroster=_onoff_field(call, ATTR_FRONT_DEFROSTER),
-                        rear_defogger=_onoff_field(call, ATTR_REAR_DEFOGGER),
-                        seat_overrides=seat_overrides or None,
-                        temperature=call.data.get(ATTR_TEMPERATURE),
-                        duration_minutes=call.data.get(ATTR_DURATION_MINUTES),
-                    )
-                except Exception:
-                    _LOGGER.exception(
-                        "toyota.start_climate failed for vin=...%s", vin[-6:]
-                    )
-            # Schedule a refresh so the climate/seat/steering entities pick up
-            # the just-applied settings on the next coordinator cycle.
-            hass.async_create_task(coord.async_request_refresh())
+            await _apply_start_climate_to_entry(hass, coord, vins, call, seat_overrides)
 
     hass.services.async_register(
         DOMAIN,

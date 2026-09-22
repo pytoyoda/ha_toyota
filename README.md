@@ -130,6 +130,20 @@ a seat-heater level, or toggling the steering-wheel heater all send the
 same `POST /v2/remote/climate-control` "start" command with the full
 desired body (matching the MyToyota app's own behavior).
 
+> [!WARNING]
+> Toyota enforces a strict per-ignition-cycle quota on remote climate
+> starts: a maximum of **2 starts, or 20 cumulative minutes**, between two
+> physical ignition (READY mode) cycles. Every climate "start" - whether
+> from the climate entity, a seat-heater select, or the steering-wheel
+> heater switch - consumes one unit of that quota. Toggling several of
+> these individually within a short time (e.g. a scene or a few quick
+> dashboard taps) can exhaust the quota within seconds and lock out remote
+> climate control until the car is physically started. Use the
+> `toyota.start_climate` service (see [Service(s)](#services)) to set
+> temperature, defrost, steering heater and seat heaters together in a
+> single call - one call, one quota unit, regardless of how many settings
+> you change.
+
 ### Select(s)
 
 | <div style="width:250px">Name</div>                 | Description                                                  |
@@ -142,6 +156,9 @@ desired body (matching the MyToyota app's own behavior).
 Only the seats your vehicle actually reports get an entity - a car without
 rear seat heaters won't show those two. Picking a level (re)starts remote
 climate control, since Toyota's API has no way to change it independently.
+See the [climate quota warning](#climate) above - prefer
+`toyota.start_climate` when setting multiple seat heaters (and/or the
+steering heater, defrost, temperature) at once.
 
 ### Switch(es)
 
@@ -150,7 +167,7 @@ climate control, since Toyota's API has no way to change it independently.
 | `switch.<you_car_alias>_steering_wheel_heater` | On/off control for the steering-wheel heater. Only created if your vehicle reports it. |
 
 Same caveat as the seat-heater selects: toggling this (re)starts remote
-climate control.
+climate control. See the [climate quota warning](#climate) above.
 
 ### Sensor(s)
 
@@ -200,20 +217,31 @@ status support).
 
 ### Service(s)
 
-| Service                                   | Description                                                                                                                  |
-| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
-| `toyota.refresh_vehicle_status`           | Wakes the vehicle's cellular modem and fetches a fresh door / lock / window / hood payload. Targets one or more `device_id`. |
-| `toyota.refresh_recent_trips`             | Fetches the most recent trips (with route data) and replaces the `recent_trips` sensor's cache.                              |
-| `toyota.refresh_electric_realtime_status` | Wakes the vehicle to force a fresh read of the EV realtime status (battery level, charging state, range).                    |
-| `toyota.get_trip_route`                   | Read-only: returns the cached GPS route polyline for a single cached trip, by trip id.                                       |
+| Service                                   | Description                                                                                                                                                            |
+| ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `toyota.refresh_vehicle_status`           | Wakes the vehicle's cellular modem and fetches a fresh door / lock / window / hood payload. Targets one or more `device_id`.                                           |
+| `toyota.refresh_recent_trips`             | Fetches the most recent trips (with route data) and replaces the `recent_trips` sensor's cache.                                                                        |
+| `toyota.refresh_electric_realtime_status` | Wakes the vehicle to force a fresh read of the EV realtime status (battery level, charging state, range).                                                              |
+| `toyota.start_climate`                    | Sends temperature, defrost, steering-wheel heater and/or seat-heater levels as **one** consolidated climate-control start - see the [climate quota warning](#climate). |
+| `toyota.get_trip_route`                   | Read-only: returns the cached GPS route polyline for a single cached trip, by trip id.                                                                                 |
 
 Service fields:
 
-| Service                         | Field             | Default | Description                                                                                                        |
-| ------------------------------- | ----------------- | ------- | ------------------------------------------------------------------------------------------------------------------ |
-| `toyota.refresh_vehicle_status` | `timeout_seconds` | `60`    | How long to wait for the car to transmit fresh data before returning (10 - 180).                                   |
-| `toyota.refresh_recent_trips`   | `limit`           | -       | How many recent trips to fetch (1 - 50, required). Replaces the entire cache.                                      |
-| `toyota.get_trip_route`         | `trip_id`         | -       | UUID of the cached trip whose route to return (required). Match the `id` field on an item in the sensor's `trips`. |
+| Service                         | Field                                                                                                                                                                                            | Default | Description                                                                                                        |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------- | ------------------------------------------------------------------------------------------------------------------ |
+| `toyota.refresh_vehicle_status` | `timeout_seconds`                                                                                                                                                                                | `60`    | How long to wait for the car to transmit fresh data before returning (10 - 180).                                   |
+| `toyota.refresh_recent_trips`   | `limit`                                                                                                                                                                                          | -       | How many recent trips to fetch (1 - 50, required). Replaces the entire cache.                                      |
+| `toyota.start_climate`          | `temperature`, `front_defroster`, `rear_defogger`, `steering_heater`, `seat_heater_driver`, `seat_heater_passenger`, `seat_heater_rear_driver`, `seat_heater_rear_passenger`, `duration_minutes` | -       | All optional; any field left unset keeps the vehicle's last-read value. See below.                                 |
+| `toyota.get_trip_route`         | `trip_id`                                                                                                                                                                                        | -       | UUID of the cached trip whose route to return (required). Match the `id` field on an item in the sensor's `trips`. |
+
+`toyota.start_climate` fields, in detail:
+
+- `temperature` - target cabin temperature (18-29 °C).
+- `front_defroster` / `rear_defogger` / `steering_heater` - on/off booleans.
+- `seat_heater_driver` / `seat_heater_passenger` / `seat_heater_rear_driver` /
+  `seat_heater_rear_passenger` - `off` / `low` / `medium` / `high`.
+- `duration_minutes` - how many minutes remote climate should run for
+  (1 - 20); leave unset to use Toyota's default duration.
 
 Use sparingly: `refresh_vehicle_status` and `refresh_electric_realtime_status`
 each use a small amount of cellular airtime and 12 V battery. For routine

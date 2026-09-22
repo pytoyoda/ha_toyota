@@ -81,6 +81,103 @@ refresh_electric_realtime_status:
         device:
           integration: toyota
 
+start_climate:
+  name: Start climate
+  description: >
+    Send a single consolidated remote climate-control start covering
+    temperature, front/rear defrost, steering-wheel heater and seat-heater
+    levels. Toyota enforces a strict per-ignition-cycle quota on remote
+    climate starts (2 starts / 20 cumulative minutes between two physical
+    ignition cycles); setting these one at a time via the individual
+    switch/select entities each dispatches its own start and can exhaust
+    that quota within seconds. Use this service from a script or automation
+    to apply everything in one call - one start, regardless of how many
+    fields you set. Any field left unset keeps the vehicle's last-read
+    value unchanged.
+  fields:
+    device_id:
+      name: Vehicle
+      description: The Toyota vehicle to start climate control on.
+      required: true
+      selector:
+        device:
+          integration: toyota
+    temperature:
+      name: Temperature
+      description: Target cabin temperature. Leave unset to keep the last-read value.
+      selector:
+        number:
+          min: 18
+          max: 29
+          step: 1
+          unit_of_measurement: "°"
+    front_defroster:
+      name: Front defroster
+      description: Turn the front defroster on or off.
+      selector:
+        boolean:
+    rear_defogger:
+      name: Rear defogger
+      description: Turn the rear defogger on or off.
+      selector:
+        boolean:
+    steering_heater:
+      name: Steering wheel heater
+      description: Turn the steering-wheel heater on or off.
+      selector:
+        boolean:
+    seat_heater_driver:
+      name: Driver seat heater
+      description: Driver seat heater level.
+      selector:
+        select:
+          options:
+            - "off"
+            - low
+            - medium
+            - high
+    seat_heater_passenger:
+      name: Passenger seat heater
+      description: Passenger seat heater level.
+      selector:
+        select:
+          options:
+            - "off"
+            - low
+            - medium
+            - high
+    seat_heater_rear_driver:
+      name: Rear driver seat heater
+      description: Rear driver-side seat heater level.
+      selector:
+        select:
+          options:
+            - "off"
+            - low
+            - medium
+            - high
+    seat_heater_rear_passenger:
+      name: Rear passenger seat heater
+      description: Rear passenger-side seat heater level.
+      selector:
+        select:
+          options:
+            - "off"
+            - low
+            - medium
+            - high
+    duration_minutes:
+      name: Duration
+      description: >
+        How many minutes remote climate should run for. Leave unset to use
+        Toyota's default duration.
+      selector:
+        number:
+          min: 1
+          max: 20
+          step: 1
+          unit_of_measurement: min
+
 get_trip_route:
   name: Get trip route
   description: >

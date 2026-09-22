@@ -114,22 +114,34 @@ def _seat_write_value(value: str | None) -> str | None:
     return None
 
 
-async def async_apply_climate_settings(
+async def async_apply_climate_settings(  # noqa: PLR0913
     vehicle: Vehicle,
     *,
     steering_heater: str | None = None,
     seat_overrides: dict[str, str] | None = None,
+    front_defroster: str | None = None,
+    rear_defogger: str | None = None,
+    temperature: float | None = None,
+    duration_minutes: int | None = None,
 ) -> None:
     """Send a V2 climate-control ``start``, echoing current settings + overrides.
 
     Toyota's remote API has no settings-only write: the only way to change a
     seat-heater level or the steering-wheel heater is a ``start`` command that
     carries the full desired body (this mirrors the MyToyota app, which also
-    starts climate control when these controls are touched). Front/rear
-    defrost and target temperature are echoed unchanged from the last
+    starts climate control when these controls are touched). Any of
+    front/rear defrost, steering heater, seat levels and target temperature
+    that isn't explicitly overridden here is echoed unchanged from the last
     climate-settings read so this can't clobber values the climate entity or
-    user has already set. Used by the seat-heater select entities and the
-    steering-heater switch.
+    user has already set. Used by the seat-heater select entities, the
+    steering-heater switch, and the ``toyota.start_climate`` service.
+
+    Toyota enforces a strict per-ignition-cycle quota on remote climate
+    starts (2 starts / 20 cumulative minutes between two READY-mode cycles -
+    see ha_toyota#424). Every call here is one ``start`` / one quota unit, so
+    callers wanting to change several settings at once (e.g. the
+    ``toyota.start_climate`` service) should pass them all in a single call
+    rather than calling this once per setting.
 
     Seat values need translating before they go on the wire: the write body
     can only express a seat *mode* (``off``/``heater``/``ventilation``), while
@@ -148,8 +160,16 @@ async def async_apply_climate_settings(
     read_temp = getattr(settings, "temperature", None)
 
     heating = HeatingOptionsModel(
-        front_defroster=_onoff(value=getattr(read_heating, "front_defroster", None)),
-        rear_defogger=_onoff(value=getattr(read_heating, "rear_defogger", None)),
+        front_defroster=(
+            front_defroster
+            if front_defroster is not None
+            else _onoff(value=getattr(read_heating, "front_defroster", None))
+        ),
+        rear_defogger=(
+            rear_defogger
+            if rear_defogger is not None
+            else _onoff(value=getattr(read_heating, "rear_defogger", None))
+        ),
         steering_heater=(
             steering_heater
             if steering_heater is not None
@@ -174,11 +194,16 @@ async def async_apply_climate_settings(
         )
     seats = SeatOptionsModel(**seat_values)
 
-    temp_value = read_temp.value if read_temp is not None else DEFAULT_MIN_TEMP + 3
+    temp_value = (
+        temperature
+        if temperature is not None
+        else (read_temp.value if read_temp is not None else DEFAULT_MIN_TEMP + 3)
+    )
     temp_unit = (read_temp.unit if read_temp is not None else "C") or "C"
 
     request = V2RemoteClimateControlRequestModel(
         command="start",
+        duration=duration_minutes,
         temperature=UnitValueModel(unit=temp_unit, value=temp_value),
         heating_options=heating,
         seat_options=seats,

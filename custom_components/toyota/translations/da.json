@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Opdater elektrisk status i realtid"
+      },
+      "sound_buzzer": {
+        "name": "Udløs alarm"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Rat opvarmning"
+      },
+      "hazard_lights": {
+        "name": "Advarselsblink"
       }
     }
   }

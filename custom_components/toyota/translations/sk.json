@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Aktualizovať stav elektrického systému v reálnom čase"
+      },
+      "sound_buzzer": {
+        "name": "Spustiť zvukový signál"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Ohrev volantu"
+      },
+      "hazard_lights": {
+        "name": "Výstražné svetlá"
       }
     }
   }

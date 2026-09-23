@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Uppdatera elektrisk realtidsstatus"
+      },
+      "sound_buzzer": {
+        "name": "Utlös ljudsignal"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Rattvärme"
+      },
+      "hazard_lights": {
+        "name": "Varningsblinkers"
       }
     }
   }

@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Atnaujinti elektrinės sistemos būseną realiuoju laiku"
+      },
+      "sound_buzzer": {
+        "name": "Įjungti garsinį signalą"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Vairo šildymas"
+      },
+      "hazard_lights": {
+        "name": "Avarinė signalizacija"
       }
     }
   }

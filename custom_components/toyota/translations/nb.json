@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Oppdater bilens batteri prosent"
+      },
+      "sound_buzzer": {
+        "name": "Utløs lydsignal"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Rattvarmer"
+      },
+      "hazard_lights": {
+        "name": "Varselblink"
       }
     }
   }

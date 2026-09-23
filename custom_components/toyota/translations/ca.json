@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Actualitzar estat elèctric en temps real"
+      },
+      "sound_buzzer": {
+        "name": "Activa l'avisador acústic"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Escalfador del volant"
+      },
+      "hazard_lights": {
+        "name": "Llums d'emergència"
       }
     }
   }

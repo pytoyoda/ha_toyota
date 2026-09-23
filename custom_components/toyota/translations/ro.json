@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Reîmprospătare stare electrică în timp real"
+      },
+      "sound_buzzer": {
+        "name": "Activează semnalul sonor"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Încălzire volan"
+      },
+      "hazard_lights": {
+        "name": "Lumini de avarie"
       }
     }
   }

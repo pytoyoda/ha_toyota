@@ -162,12 +162,19 @@ steering heater, defrost, temperature) at once.
 
 ### Switch(es)
 
-| <div style="width:250px">Name</div>            | Description                                                                            |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `switch.<you_car_alias>_steering_wheel_heater` | On/off control for the steering-wheel heater. Only created if your vehicle reports it. |
+| <div style="width:250px">Name</div>            | Description                                                                                                            |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `switch.<you_car_alias>_steering_wheel_heater` | On/off control for the steering-wheel heater. Only created if your vehicle reports it.                                 |
+| `switch.<you_car_alias>_hazard_lights`         | Remote on/off control for the hazard lights (flashers). Only created for vehicles that report hazard-light capability. |
 
-Same caveat as the seat-heater selects: toggling this (re)starts remote
-climate control. See the [climate quota warning](#climate) above.
+Same caveat as the seat-heater selects: toggling the steering-wheel heater
+(re)starts remote climate control. See the
+[climate quota warning](#climate) above.
+
+The hazard-lights switch has no telemetry to confirm the vehicle's actual
+state - Toyota's remote API doesn't report it - so it always shows
+`assumed_state` and simply reflects the last command sent, resetting to
+"off" whenever Home Assistant restarts or the entity is reloaded.
 
 ### Sensor(s)
 
@@ -209,11 +216,12 @@ status support).
 
 ### Button(s)
 
-| <div style="width:250px">Name</div>                       | Description                                                                               |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `button.<you_car_alias>_refresh_vehicle_status`           | One-tap wake. Wraps `toyota.refresh_vehicle_status` for the corresponding vehicle.        |
-| `button.<you_car_alias>_refresh_recent_trips`             | Wraps `toyota.refresh_recent_trips` (fetches `max_recent_trips`, or 5 if disabled/unset). |
-| `button.<you_car_alias>_refresh_electric_realtime_status` | Wraps `toyota.refresh_electric_realtime_status`. Only created for EV/PHEV vehicles.       |
+| <div style="width:250px">Name</div>                       | Description                                                                                            |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `button.<you_car_alias>_refresh_vehicle_status`           | One-tap wake. Wraps `toyota.refresh_vehicle_status` for the corresponding vehicle.                     |
+| `button.<you_car_alias>_refresh_recent_trips`             | Wraps `toyota.refresh_recent_trips` (fetches `max_recent_trips`, or 5 if disabled/unset).              |
+| `button.<you_car_alias>_refresh_electric_realtime_status` | Wraps `toyota.refresh_electric_realtime_status`. Only created for EV/PHEV vehicles.                    |
+| `button.<you_car_alias>_sound_buzzer`                     | Sends the remote buzzer/horn-warning command. Only created for vehicles that report buzzer capability. |
 
 ### Service(s)
 

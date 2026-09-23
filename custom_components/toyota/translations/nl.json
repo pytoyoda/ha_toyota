@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Elektrische status in realtime vernieuwen"
+      },
+      "sound_buzzer": {
+        "name": "Zoemer activeren"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Stuurwielverwarming"
+      },
+      "hazard_lights": {
+        "name": "Alarmlichten"
       }
     }
   }

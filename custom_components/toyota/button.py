@@ -1,8 +1,13 @@
-"""Per-vehicle refresh-status button.
+"""Per-vehicle refresh-status button, plus a remote buzzer command button.
 
-Wraps the toyota.refresh_vehicle_status service with a one-tap dashboard
-entity. Each vehicle gets one button; pressing it triggers the same wake
-POST + status poll that the service does.
+The refresh buttons wrap the toyota.refresh_vehicle_status/etc. services
+with a one-tap dashboard entity. Each vehicle gets one button; pressing it
+triggers the same wake POST + status poll that the service does.
+
+The buzzer button (#428) sends pytoyoda's ``CommandType.BUZZER_WARNING``
+remote command directly - there is no corresponding HA service for it, and
+unlike the refresh buttons it isn't idempotent/repeatable-with-a-limit, so
+it doesn't need one.
 """
 
 from __future__ import annotations
@@ -10,6 +15,8 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
+from homeassistant.exceptions import HomeAssistantError
+from pytoyoda.models.endpoints.command import CommandType
 
 from .const import (
     CONF_MAX_RECENT_TRIPS,
@@ -18,6 +25,7 @@ from .const import (
 )
 from .entity import ToyotaBaseEntity
 from .sensor import get_vehicle_capability
+from .utils import command_failure_reason
 
 # Default fetch size for the manual button when auto-fetch is off
 # (max_recent_trips=0). Picked as a sensible "show me the last few drives".
@@ -51,6 +59,13 @@ REFRESH_ELECTRIC_REALTIME_STATUS_BUTTON_DESCRIPTION = ButtonEntityDescription(
     translation_key="refresh_electric_realtime_status",
     name="Refresh electric realtime status",
     icon="mdi:battery-sync",
+)
+
+BUZZER_BUTTON_DESCRIPTION = ButtonEntityDescription(
+    key="sound_buzzer",
+    translation_key="sound_buzzer",
+    name="Sound buzzer",
+    icon="mdi:bullhorn",
 )
 
 
@@ -92,6 +107,15 @@ async def async_setup_entry(
                     entry_id=entry.entry_id,
                     vehicle_index=index,
                     description=REFRESH_ELECTRIC_REALTIME_STATUS_BUTTON_DESCRIPTION,
+                )
+            )
+        if get_vehicle_capability(vehicle, "buzzer_capable"):
+            buttons.append(
+                ToyotaBuzzerButton(
+                    coordinator=coordinator,
+                    entry_id=entry.entry_id,
+                    vehicle_index=index,
+                    description=BUZZER_BUTTON_DESCRIPTION,
                 )
             )
     async_add_entities(buttons)
@@ -179,3 +203,17 @@ class ToyotaRefreshElectricRealtimeStatusButton(ToyotaBaseEntity, ButtonEntity):
             {"device_id": [device.id]},
             blocking=False,
         )
+
+
+class ToyotaBuzzerButton(ToyotaBaseEntity, ButtonEntity):
+    """One-tap remote buzzer/horn-warning command (see #428)."""
+
+    async def async_press(self) -> None:
+        """Send the buzzer-warning remote command to this vehicle."""
+        try:
+            response = await self.vehicle.post_command(CommandType.BUZZER_WARNING)
+        except Exception as err:
+            msg = "Toyota could not send the buzzer command"
+            raise HomeAssistantError(msg) from err
+        if reason := command_failure_reason(response):
+            raise HomeAssistantError(reason)

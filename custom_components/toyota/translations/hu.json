@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Elektromos valós idejű állapot frissítése"
+      },
+      "sound_buzzer": {
+        "name": "Hangjelzés indítása"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Kormánykerék fűtés"
+      },
+      "hazard_lights": {
+        "name": "Vészvillogó"
       }
     }
   }

@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Refresh electric realtime status"
+      },
+      "sound_buzzer": {
+        "name": "Sound buzzer"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Steering wheel heater"
+      },
+      "hazard_lights": {
+        "name": "Hazard lights"
       }
     }
   }

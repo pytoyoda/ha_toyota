@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Odśwież status elektryczny w czasie rzeczywistym"
+      },
+      "sound_buzzer": {
+        "name": "Uruchom sygnał dźwiękowy"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Ogrzewanie kierownicy"
+      },
+      "hazard_lights": {
+        "name": "Światła awaryjne"
       }
     }
   }

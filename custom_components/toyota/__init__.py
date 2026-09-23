@@ -709,11 +709,14 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         elif decision.action is RefreshAction.GET_ONLY:
             await _execute_get_only(vehicle, vin, state)
         elif decision.action is RefreshAction.HARD_DISABLED:
-            # Legacy path: include /status in the standard sweep.
-            with contextlib.suppress(ToyotaApiError, httpx.ReadTimeout):
-                await _call_tagged(
-                    "status_legacy", vin, vehicle.update(only=["status"])
-                )
+            # Legacy path: include /status in the standard sweep. Routed
+            # through _execute_get_only (not a bare vehicle.update()) so the
+            # diagnostic bookkeeping (last_status_fetch_at /
+            # last_status_occurrence_date) still advances here. Without this,
+            # status_last_reported_by_car never populates for the lifetime of
+            # a user- or auto-disabled entry, even though /status itself
+            # keeps refreshing fine every cycle.
+            await _execute_get_only(vehicle, vin, state)
         # SERVE_FROM_CACHE: no new fetch; the cached response gets re-injected
         # via _persist_status_for_cache() below.
 
@@ -856,9 +859,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             _persist_status_for_cache(vehicle, vin)
 
         # Phase 2b: recent-trips manager.
-        # No-op when CONF_MAX_RECENT_TRIPS is 0 (default). Independent of
-        # the /status decision; uses the same trigger info so we fetch trips
-        # only on stop-event ticks (just_stopped + conditional followup).
+        # No-op when CONF_MAX_RECENT_TRIPS is 0 (auto-fetch disabled).
+        # Independent of the /status decision; uses the same trigger info so
+        # we fetch trips only on stop-event ticks (just_stopped + conditional
+        # followup).
         await trips_manager.async_maybe_refresh(vehicle, vin, decision)
 
         # Movement / sensor state.

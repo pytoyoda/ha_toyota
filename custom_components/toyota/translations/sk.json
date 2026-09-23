@@ -1,0 +1,302 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Vyberte prosím značku vášho vozidla a nižšie zadajte svoj e-mail a heslo pre MyT/Lexus Link.",
+        "data": {
+          "brand": "Značka vozidla",
+          "email": "E-mail",
+          "password": "Heslo",
+          "use_metric_values": "Používať metrické jednotky (napr. km namiesto míľ)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "E-mail musí obsahovať @.",
+      "invalid_auth": "E-mail/heslo je nesprávne.",
+      "unknown": "Neočakávaná chyba."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Možnosti Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Interval aktualizácie (minúty)",
+          "retain_on_transient_failure": "Zachovať posledné platné údaje pri prechodných zlyhaniach (odporúčané)",
+          "enable_status_refresh": "Vzdialene aktualizovať stav vozidla (odporúčané)",
+          "idle_wake_hours": "Zobudiť nečinné vozidlo každých N hodín (0 = vypnuté)",
+          "failed_wake_threshold": "Označiť ako nedostupné po N neúspešných zobudeniach",
+          "max_cache_age_minutes": "Aktualizovať vyrovnávaciu pamäť stavu, ak je staršia ako",
+          "post_count_per_stop": "Počet POST požiadaviek na zobudenie pri zastavení",
+          "max_recent_trips": "Počet nedávnych jázd v vyrovnávacej pamäti (0 = vypnuté)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Ako často integrácia zisťuje nové údaje od Toyoty (0 - 1440 minút; predvolené 6; 0 = vypne automatické zisťovanie, použijú sa iba manuálne služby/tlačidlá na aktualizáciu). Nižšie hodnoty môžu naraziť na limity požiadaviek.",
+          "retain_on_transient_failure": "Ak je zapnuté, dočasné zlyhanie Toyota API (HTTP 429, časový limit, chyba pripojenia) zachová posledné úspešne získané údaje vozidla namiesto toho, aby všetky entity Toyota označilo ako nedostupné. Nové diagnostické senzory „Posledná úspešná aktualizácia“, „Posledná chyba“ a „Kód poslednej chyby“ zobrazujú skutočný stav integrácie.",
+          "enable_status_refresh": "API brána Toyoty často vracia zastaraný stav zámkov a dverí, pokiaľ nie je modem vozidla explicitne zobudený. Ak je zapnuté, integrácia pred čítaním stavu odošle požiadavku na zobudenie, podobne ako mobilná aplikácia Toyota. Každé zobudenie spotrebuje malé množstvo mobilných dát a energie 12V batérie; inteligentné spúšťače (detekcia „práve zastavilo“, voliteľné zobudenie pri nečinnosti) udržujú náklady nízke. Vypnite pre vozidlá, ktorých konto Toyota nepodporuje obnovenie stavu; integrácia to za vás automaticky vypne, ak zistí nepodporované odpovede. Poznámka: tento rozsah sa vzťahuje iba na koncový bod /v1/global/remote/status (stav dverí, okien, zámkov a kapoty); ostatné údaje (počítadlo kilometrov, palivo, poloha atď.) sa načítavajú v každom cykle bez ohľadu na toto nastavenie. Keď je táto možnosť VYPNUTÁ, štyri možnosti nižšie (zobudenie pri nečinnosti, prah neúspešných zobudení, vek vyrovnávacej pamäte stavu, počet POST požiadaviek na zastavenie) nemajú žiadny účinok. Manuálne aktualizácie (služba toyota.refresh_vehicle_status alebo tlačidlo aktualizácie) obídu tento prepínač aj automatické vypnutie a úspešné manuálne zobudenie znovu zapne automatickú strategiu.",
+          "idle_wake_hours": "Pravidelne zobudí vozidlo, aj keď sa nehýbalo. Užitočné pre vozidlá, ktoré stoja nepoužívané viac dní a napriek tomu chcete aktuálny stav zámkov. 0 (predvolené) túto funkciu úplne vypne; 1 - 72 = zobudenie každých N hodín. Každé zobudenie stojí mobilné dáta a malé množstvo energie 12V batérie. Poznámka: zobudenie aktualizuje iba koncový bod /v1/global/remote/status (stav dverí, okien, zámkov a kapoty). Ostatné údaje (počítadlo kilometrov, palivo, poloha atď.) sa načítavajú v každom cykle nezávisle a zobudenie nepotrebujú.",
+          "failed_wake_threshold": "Ak vozidlo prestane odpovedať na požiadavky o zobudenie toľkokrát po sebe, je pre dané VIN označené ako nedostupné, kým nevykáže akýkoľvek náznak aktivity (jazda, externá aktualizácia z aplikácie, manuálne vyvolanie služby). Predvolené 3.",
+          "max_cache_age_minutes": "Maximálny prijateľný vek uložených údajov o stave predtým, ako sa vyžiada nová GET požiadavka (5 - 180 minút; predvolené 30). Poznámka: toto ovláda iba koncový bod /v1/global/remote/status, ktorý prenáša stav dverí, okien, zámkov a kapoty. Ostatné údaje (počítadlo kilometrov, palivo, poloha atď.) sa načítavajú v každom cykle nezávisle.",
+          "post_count_per_stop": "Koľko POST požiadaviek na zobudenie sa odošle, keď je vozidlo zistené ako práve zastavené, jedna na cyklus koordinátora. 1 = jedna POST požiadavka. 2 (predvolené) = ďalšia POST požiadavka v nasledujúcom cykle, ktorá obvykle zachytí stav, ktorý užívateľ zmení krátko po zastavení (zamknutie dverí, otvorenie kufra atď.) - tieto udalosti vyvolajú nové hlásenia modemu, ktoré zachytí opytovacia slučka druhej POST požiadavky. Vyššie hodnoty zvyčajne nepomáhajú a zbytočne zaťažujú 12V batériu.",
+          "max_recent_trips": "Naplní senzor „Nedávne jazdy“ pre každé vozidlo posledných N jázd (body trasy + štatistiky jednotlivých jázd), vhodné pre vlastné karty na zobrazenie jázd. 0 (predvolené) úplne vypne automatické načítanie (žiadne ďalšie API požiadavky). 1 - 20 zapne automatické načítanie pri zastavení; vyrovnávacia pamäť prežije reštart HA. Služba toyota.refresh_recent_trips a tlačidlo „Aktualizovať nedávne jazdy“ pre každé vozidlo funguje bez ohľadu na toto nastavenie, takže automatické načítanie môžete ponechať vypnuté a spúšťať aktualizácie pomocou denných automatizácií."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Miesto parkovania"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Identifikačné číslo vozidla (VIN)"
+      },
+      "recent_trips": {
+        "name": "Nedávne jazdy"
+      },
+      "odometer": {
+        "name": "Počítadlo kilometrov"
+      },
+      "fuel_level": {
+        "name": "Stav paliva"
+      },
+      "fuel_range": {
+        "name": "Dojazd na palivo"
+      },
+      "battery_level": {
+        "name": "Stav batérie"
+      },
+      "battery_range_ac": {
+        "name": "Dojazd na batériu s klimatizáciou"
+      },
+      "battery_range": {
+        "name": "Dojazd na batériu"
+      },
+      "total_range": {
+        "name": "Celkový dojazd"
+      },
+      "charging_status": {
+        "name": "Stav nabíjania",
+        "state": {
+          "charge_complete": "Nabíjanie dokončené",
+          "charging": "Nabíja sa",
+          "none": "Nepripojené",
+          "plugged": "Zapojené"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minúty do plného nabitia"
+          },
+          "has_charging_schedule": {
+            "name": "Má plán nabíjania"
+          },
+          "scheduled_charging_start": {
+            "name": "Plánovaný začiatok nabíjania"
+          },
+          "scheduled_charging_end": {
+            "name": "Plánovaný koniec nabíjania"
+          },
+          "scheduled_charging_duration": {
+            "name": "Plánovaná dĺžka nabíjania"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Zostávajúci čas nabíjania"
+      },
+      "current_day_statistics": {
+        "name": "Štatistiky aktuálneho dňa"
+      },
+      "current_week_statistics": {
+        "name": "Štatistiky aktuálneho týždňa"
+      },
+      "current_month_statistics": {
+        "name": "Štatistiky aktuálneho mesiaca"
+      },
+      "current_year_statistics": {
+        "name": "Štatistiky aktuálneho roka"
+      },
+      "last_successful_fetch": {
+        "name": "Posledná úspešná aktualizácia"
+      },
+      "last_refresh_error_time": {
+        "name": "Posledná chyba obnovenia"
+      },
+      "last_refresh_error_code": {
+        "name": "Kód poslednej chyby obnovenia"
+      },
+      "status_last_reported": {
+        "name": "Stav posledný raz nahlásený vozidlom"
+      },
+      "status_refresh_state": {
+        "name": "Stav aktualizácie stavu",
+        "state": {
+          "active": "Aktívne",
+          "soft_disabled_unreachable": "Nedostupné",
+          "hard_disabled_auto": "Vypnuté (nepodporované)",
+          "hard_disabled_user": "Vypnuté (užívateľom)"
+        }
+      },
+      "last_service": {
+        "name": "Posledný servis"
+      },
+      "last_trip_score": {
+        "name": "Skóre poslednej jazdy"
+      },
+      "cabin_temperature": {
+        "name": "Teplota v kabíne"
+      },
+      "notifications": {
+        "name": "Upozornenia"
+      },
+      "warning_lights": {
+        "name": "Výstražné kontrolky"
+      },
+      "last_service_detail": {
+        "name": "Detail posledného servisu"
+      },
+      "average_speed_week": {
+        "name": "Priemerná rýchlosť za týždeň"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Aktualizovať stav vozidla"
+      },
+      "refresh_recent_trips": {
+        "name": "Aktualizovať nedávne jazdy"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Aktualizovať stav elektrického systému v reálnom čase"
+      },
+      "sound_buzzer": {
+        "name": "Spustiť zvukový signál"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Celkový stav"
+      },
+      "hood": {
+        "name": "Kapota"
+      },
+      "key_in_car": {
+        "name": "Kľúč v aute"
+      },
+      "front_defogger": {
+        "name": "Predný odhmlievač"
+      },
+      "rear_defogger": {
+        "name": "Zadný odhmlievač"
+      },
+      "driverseat_window": {
+        "name": "Okno vodiča"
+      },
+      "passengerseat_window": {
+        "name": "Okno spolujazdca"
+      },
+      "leftrearseat_window": {
+        "name": "Ľavé zadné okno"
+      },
+      "rightrearseat_window": {
+        "name": "Pravé zadné okno"
+      },
+      "driverseat_door": {
+        "name": "Dvere vodiča"
+      },
+      "driverseat_lock": {
+        "name": "Zámok dverí vodiča"
+      },
+      "passengerseat_door": {
+        "name": "Dvere spolujazdca"
+      },
+      "passengerseat_lock": {
+        "name": "Zámok dverí spolujazdca"
+      },
+      "leftrearseat_door": {
+        "name": "Ľavé zadné dvere"
+      },
+      "leftrearseat_lock": {
+        "name": "Zámok ľavých zadných dverí"
+      },
+      "rightrearseat_door": {
+        "name": "Pravé zadné dvere"
+      },
+      "rightrearseat_lock": {
+        "name": "Zámok pravých zadných dverí"
+      },
+      "trunk_door": {
+        "name": "Kufor"
+      },
+      "trunk_lock": {
+        "name": "Zámok kufra"
+      },
+      "hazardlights": {
+        "name": "Výstražné svetlá"
+      },
+      "headlights": {
+        "name": "Svetlomety"
+      },
+      "taillights": {
+        "name": "Zadné svetlá"
+      },
+      "vehicle_health": {
+        "name": "Stav vozidla"
+      },
+      "driving": {
+        "name": "Jazda"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Predné odmrazovanie",
+              "rear_defrost": "Zadné odmrazovanie",
+              "both_defrost": "Obe odmrazovania"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Zámok dverí"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Ohrev sedadla vodiča"
+      },
+      "seat_heater_passenger": {
+        "name": "Ohrev sedadla spolujazdca"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Ohrev zadného sedadla za vodičom"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Ohrev zadného sedadla za spolujazdcom"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Ohrev volantu"
+      },
+      "hazard_lights": {
+        "name": "Výstražné svetlá"
+      }
+    }
+  }
+}

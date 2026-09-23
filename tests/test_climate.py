@@ -18,12 +18,9 @@ from pytoyoda.models.endpoints.climate import (
     RemoteClimateControlResponseModel,
 )
 
-from custom_components.toyota.climate import (
-    ToyotaClimate,
-    _vehicle_has_climate_capability,
-    async_setup_entry,
-)
+from custom_components.toyota.climate import ToyotaClimate, async_setup_entry
 from custom_components.toyota.const import DOMAIN
+from custom_components.toyota.utils import vehicle_has_climate_capability
 
 CLIMATE_DESCRIPTION = EntityDescription(key="climate", name="Climate")
 
@@ -33,6 +30,8 @@ def _climate_settings(
     front_defroster: str | None = "off",
     rear_defogger: str | None = "off",
     steering_heater: str | None = "off",
+    driver_seat: str | None = "off",
+    passenger_seat: str | None = "off",
     temperature: float | None = 22,
 ) -> ClimateSettingsResponseModel:
     return ClimateSettingsResponseModel.model_validate(
@@ -50,8 +49,8 @@ def _climate_settings(
                     "steeringHeater": steering_heater,
                 },
                 "seatOptions": {
-                    "driverSeat": "off",
-                    "passengerSeat": "off",
+                    "driverSeat": driver_seat,
+                    "passengerSeat": passenger_seat,
                 },
             }
         }
@@ -150,7 +149,7 @@ class _Vehicle:
 def test_legacy_feature_flag_grants_capability() -> None:
     """The old ICE/hybrid feature flag alone must enable climate."""
     vehicle = _Vehicle(capabilities={"features": True})
-    assert _vehicle_has_climate_capability(vehicle) is True
+    assert vehicle_has_climate_capability(vehicle) is True
 
 
 @pytest.mark.parametrize(
@@ -160,18 +159,18 @@ def test_legacy_feature_flag_grants_capability() -> None:
 def test_extended_capability_flags_grant_capability(cap: str) -> None:
     """Each PHEV/EV extended-capability flag alone must enable climate."""
     vehicle = _Vehicle(capabilities={cap: True})
-    assert _vehicle_has_climate_capability(vehicle) is True
+    assert vehicle_has_climate_capability(vehicle) is True
 
 
 def test_no_capability_flags_means_no_climate() -> None:
     """A vehicle with none of the known flags must not get a climate entity."""
-    assert _vehicle_has_climate_capability(_Vehicle()) is False
+    assert vehicle_has_climate_capability(_Vehicle()) is False
 
 
 def test_capability_check_is_defensive_against_missing_attrs() -> None:
     """A vehicle info object missing the expected attributes must not crash setup."""
     vehicle = SimpleNamespace(_vehicle_info=object())
-    assert _vehicle_has_climate_capability(vehicle) is False
+    assert vehicle_has_climate_capability(vehicle) is False
 
 
 @pytest.mark.asyncio
@@ -364,6 +363,25 @@ async def test_turn_on_climate_sends_start_and_confirms(hass) -> None:
     vehicle.set_climate.assert_awaited_once()
     request = vehicle.set_climate.call_args.args[0]
     assert request.command == "start"
+
+
+@pytest.mark.asyncio
+async def test_turn_on_echoes_read_seat_level_as_write_mode(hass) -> None:
+    """Regression test: a start must echo a read level as the write mode.
+
+    The climate entity echoes the read seat values into its start body; a car
+    whose read reports a level (``medium`` here) must not 400 on every start.
+    """
+    vehicle = _Vehicle(
+        climate_settings=_climate_settings(driver_seat="medium"),
+        climate_status=_climate_status(status="running"),
+    )
+    entity = _entity(hass, vehicle)
+
+    await entity.async_turn_on()
+
+    request = vehicle.set_climate.call_args.args[0]
+    assert request.seat_options.driver_seat == "heater"
 
 
 @pytest.mark.asyncio

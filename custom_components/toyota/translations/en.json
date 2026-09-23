@@ -130,11 +130,11 @@
       "last_successful_fetch": {
         "name": "Last successful fetch"
       },
-      "last_error_time": {
-        "name": "Last error"
+      "last_refresh_error_time": {
+        "name": "Last refresh error"
       },
-      "last_error_code": {
-        "name": "Last error code"
+      "last_refresh_error_code": {
+        "name": "Last refresh error code"
       },
       "status_last_reported": {
         "name": "Status last reported by car"
@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Refresh electric realtime status"
+      },
+      "sound_buzzer": {
+        "name": "Sound buzzer"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Steering wheel heater"
+      },
+      "hazard_lights": {
+        "name": "Hazard lights"
       }
     }
   }

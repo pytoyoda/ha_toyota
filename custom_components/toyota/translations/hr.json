@@ -1,0 +1,302 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Odaberite marku svog vozila i unesite svoju e-poštu i lozinku za MyT/Lexus Link u nastavku.",
+        "data": {
+          "brand": "Marka vozila",
+          "email": "E-pošta",
+          "password": "Lozinka",
+          "use_metric_values": "Koristi metrijske jedinice (npr. km umjesto milja)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "E-pošta mora sadržavati @.",
+      "invalid_auth": "E-pošta/lozinka su neispravni.",
+      "unknown": "Neočekivana pogreška."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcije za Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Interval dohvaćanja podataka (minute)",
+          "retain_on_transient_failure": "Zadrži posljednje ispravne podatke kod privremenih pogrešaka (preporučeno)",
+          "enable_status_refresh": "Daljinsko osvježavanje statusa vozila (preporučeno)",
+          "idle_wake_hours": "Budi neaktivno vozilo svakih N sati (0 = onemogućeno)",
+          "failed_wake_threshold": "Označi kao nedostupno nakon N neuspjelih budenja",
+          "max_cache_age_minutes": "Osvježi predmemoriju statusa ako je starija od",
+          "post_count_per_stop": "POST zahtjevi za budenje po događaju zaustavljanja",
+          "max_recent_trips": "Broj nedavnih putovanja pohranjenih u predmemoriji (0 = onemogućeno)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Koliko često integracija dohvaća nove podatke od Toyote (0-1440 minuta; zadano 6; 0 = onemogućuje automatsko dohvaćanje, koriste se samo usluge/gumbi za ručno osvježavanje). Niže vrijednosti mogu doseći ograničenja brzine zahtjeva.",
+          "retain_on_transient_failure": "Kada je omogućeno, privremena pogreška Toyota API-ja (HTTP 429, isteklo vrijeme čekanja, pogreška veze) zadržava zadnje uspješno dohvaćene podatke po vozilu umjesto da svaki Toyota entitet označi kao nedostupan. Novi dijagnostički senzori „Posljednje uspješno dohvaćanje”, „Posljednja pogreška” i „Kod posljednje pogreške” prikazuju stvarno stanje integracije.",
+          "enable_status_refresh": "Toyotin API gateway često vraća zaglavljeno, zastarjelo stanje brave i vrata osim ako se modem automobila ne probudi izričito. Kada je omogućeno, integracija šalje zahtjev za budenje prije čitanja statusa, oponašajući Toyotinu mobilnu aplikaciju. Svako budenje koristi malu količinu mobilnog prijenosa podataka i 12V baterije; pametni okidači (otkrivanje „upravo zaustavljeno”, opcionalno budenje pri neaktivnosti) održavaju trošak niskim. Onemogućite za vozila čiji Toyota račun ne podržava osvježavanje statusa; integracija automatski onemogućuje ovu opciju ako otkrije nepodržane odgovore. Napomena: ovaj opseg odnosi se samo na krajnju točku /v1/global/remote/status (stanje vrata, prozora, brave i haube); ostali podaci (kilometraža, gorivo, lokacija itd.) dohvaćaju se u svakom ciklusu bez obzira na ovu postavku. Kada je ova opcija ISKLJUČENA, četiri opcije ispod (budenje pri neaktivnosti, prag neuspjelih budenja, starost predmemorije statusa, POST zahtjevi za budenje po zaustavljanju) nemaju učinka. Ručna osvježavanja (usluga toyota.refresh_vehicle_status ili gumb za osvježavanje) zaobilaze ovu postavku i svako automatsko onemogućavanje, a uspješno ručno budenje ponovno omogućuje automatsku strategiju.",
+          "idle_wake_hours": "Periodično budi automobil, čak i ako se nije pomicao. Korisno za automobile koji stoje neiskorišteni danima, a za koje ipak želite ažurno stanje brave. 0 (zadano) potpuno onemogućuje ovu značajku; 1-72 = budenje svakih N sati. Svako budenje košta mobilni prijenos podataka i malu količinu 12V baterije. Napomena: budenje osvježava samo krajnju točku /v1/global/remote/status (stanje vrata, prozora, brave i haube). Ostali podaci (kilometraža, gorivo, lokacija itd.) dohvaćaju se u svakom ciklusu neovisno i ne zahtijevaju budenje.",
+          "failed_wake_threshold": "Ako vozilo prestane odgovarati na zahtjeve za budenje ovoliko puta zaredom, označava se kao nedostupno po VIN-u dok ne pokaže ikakav znak života (događaj vožnje, osvježavanje putem vanjske aplikacije, ručni poziv usluge). Zadano 3.",
+          "max_cache_age_minutes": "Maksimalna prihvatljiva starost predmemoriranih podataka o statusu prije slanja novog GET zahtjeva (5-180 minuta; zadano 30). Napomena: ovo kontrolira samo krajnju točku /v1/global/remote/status, koja nosi stanje vrata, prozora, brave i haube. Ostali podaci (kilometraža, gorivo, lokacija itd.) dohvaćaju se u svakom ciklusu neovisno.",
+          "post_count_per_stop": "Koliko POST zahtjeva za budenje poslati kada se vozilo otkrije kao „upravo zaustavljeno”, jedan po ciklusu koordinatora. 1 = jedan POST. 2 (zadano) = dodatni POST u sljedećem ciklusu, koji obično uhvati stanje koje korisnik promijeni kratko nakon zaustavljanja (zaključavanje vrata, otvaranje prtljažnika itd.) - ti događaji pokreću nova izvješća modema koja petlja dohvaćanja drugog POST-a uhvati. Veće vrijednosti rijetko pomažu i troše 12V bateriju.",
+          "max_recent_trips": "Popunjava senzor „Nedavna putovanja” po vozilu s posljednjih N putovanja (točke rute + statistika po putovanju), pogodno za prilagođene kartice za pregled putovanja. 0 (zadano) potpuno onemogućuje automatsko dohvaćanje (nema dodatnih API poziva). 1-20 omogućuje automatsko dohvaćanje na događaje zaustavljanja; predmemorija opstaje nakon ponovnog pokretanja HA. Usluga toyota.refresh_recent_trips i gumb „Osvježi nedavna putovanja” po vozilu rade bez obzira na ovu postavku, tako da automatsko dohvaćanje možete držati isključenim i pokretati dohvaćanja putem dnevnih automatizacija."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Lokacija parkiranja"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Identifikacijski broj vozila (VIN)"
+      },
+      "recent_trips": {
+        "name": "Nedavna putovanja"
+      },
+      "odometer": {
+        "name": "Brojač kilometara"
+      },
+      "fuel_level": {
+        "name": "Razina goriva"
+      },
+      "fuel_range": {
+        "name": "Doseg s gorivom"
+      },
+      "battery_level": {
+        "name": "Razina baterije"
+      },
+      "battery_range_ac": {
+        "name": "Doseg baterije s klimom"
+      },
+      "battery_range": {
+        "name": "Doseg baterije"
+      },
+      "total_range": {
+        "name": "Ukupni doseg"
+      },
+      "charging_status": {
+        "name": "Status punjenja",
+        "state": {
+          "charge_complete": "Punjenje dovršeno",
+          "charging": "Punjenje u tijeku",
+          "none": "Nije priključeno",
+          "plugged": "Priključeno"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minute do potpunog punjenja"
+          },
+          "has_charging_schedule": {
+            "name": "Ima raspored punjenja"
+          },
+          "scheduled_charging_start": {
+            "name": "Planirani početak punjenja"
+          },
+          "scheduled_charging_end": {
+            "name": "Planirani kraj punjenja"
+          },
+          "scheduled_charging_duration": {
+            "name": "Planirano trajanje punjenja"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Preostalo vrijeme punjenja"
+      },
+      "current_day_statistics": {
+        "name": "Statistika trenutnog dana"
+      },
+      "current_week_statistics": {
+        "name": "Statistika trenutnog tjedna"
+      },
+      "current_month_statistics": {
+        "name": "Statistika trenutnog mjeseca"
+      },
+      "current_year_statistics": {
+        "name": "Statistika trenutne godine"
+      },
+      "last_successful_fetch": {
+        "name": "Posljednje uspješno dohvaćanje"
+      },
+      "last_refresh_error_time": {
+        "name": "Posljednja pogreška obnavljanja"
+      },
+      "last_refresh_error_code": {
+        "name": "Kod posljednje pogreške obnavljanja"
+      },
+      "status_last_reported": {
+        "name": "Zadnji status prijavljen od automobila"
+      },
+      "status_refresh_state": {
+        "name": "Stanje osvježavanja statusa",
+        "state": {
+          "active": "Aktivno",
+          "soft_disabled_unreachable": "Nedostupno",
+          "hard_disabled_auto": "Onemogućeno (nepodržano)",
+          "hard_disabled_user": "Onemogućeno (od korisnika)"
+        }
+      },
+      "last_service": {
+        "name": "Posljednji servis"
+      },
+      "last_trip_score": {
+        "name": "Ocjena posljednjeg putovanja"
+      },
+      "cabin_temperature": {
+        "name": "Temperatura u kabini"
+      },
+      "notifications": {
+        "name": "Obavijesti"
+      },
+      "warning_lights": {
+        "name": "Kontrolne žaruljice upozorenja"
+      },
+      "last_service_detail": {
+        "name": "Detalji posljednjeg servisa"
+      },
+      "average_speed_week": {
+        "name": "Prosječna brzina tjedno"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Osvježi status vozila"
+      },
+      "refresh_recent_trips": {
+        "name": "Osvježi nedavna putovanja"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Osvježi status električnog sustava u stvarnom vremenu"
+      },
+      "sound_buzzer": {
+        "name": "Aktiviraj zvučni signal"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Ukupni status"
+      },
+      "hood": {
+        "name": "Hauba"
+      },
+      "key_in_car": {
+        "name": "Ključ u automobilu"
+      },
+      "front_defogger": {
+        "name": "Prednji odmagljivač"
+      },
+      "rear_defogger": {
+        "name": "Stražnji odmagljivač"
+      },
+      "driverseat_window": {
+        "name": "Prozor vozačevog sjedala"
+      },
+      "passengerseat_window": {
+        "name": "Prozor suvozačevog sjedala"
+      },
+      "leftrearseat_window": {
+        "name": "Lijevi stražnji prozor"
+      },
+      "rightrearseat_window": {
+        "name": "Desni stražnji prozor"
+      },
+      "driverseat_door": {
+        "name": "Vozačeva vrata"
+      },
+      "driverseat_lock": {
+        "name": "Brava vozačevih vrata"
+      },
+      "passengerseat_door": {
+        "name": "Suvozačeva vrata"
+      },
+      "passengerseat_lock": {
+        "name": "Brava suvozačevih vrata"
+      },
+      "leftrearseat_door": {
+        "name": "Lijeva stražnja vrata"
+      },
+      "leftrearseat_lock": {
+        "name": "Brava lijevih stražnjih vrata"
+      },
+      "rightrearseat_door": {
+        "name": "Desna stražnja vrata"
+      },
+      "rightrearseat_lock": {
+        "name": "Brava desnih stražnjih vrata"
+      },
+      "trunk_door": {
+        "name": "Prtljažnik"
+      },
+      "trunk_lock": {
+        "name": "Brava prtljažnika"
+      },
+      "hazardlights": {
+        "name": "Svjetla za opasnost"
+      },
+      "headlights": {
+        "name": "Farovi"
+      },
+      "taillights": {
+        "name": "Stražnja svjetla"
+      },
+      "vehicle_health": {
+        "name": "Stanje vozila"
+      },
+      "driving": {
+        "name": "Vožnja"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Prednje odmrzavanje",
+              "rear_defrost": "Stražnje odmrzavanje",
+              "both_defrost": "Prednje i stražnje odmrzavanje"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Brava vrata"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Grijanje vozačevog sjedala"
+      },
+      "seat_heater_passenger": {
+        "name": "Grijanje suvozačevog sjedala"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Grijanje stražnjeg sjedala vozača"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Grijanje stražnjeg sjedala suvozača"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Grijanje volana"
+      },
+      "hazard_lights": {
+        "name": "Sigurnosna svjetla"
+      }
+    }
+  }
+}

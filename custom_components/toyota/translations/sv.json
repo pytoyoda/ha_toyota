@@ -1,0 +1,302 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Välj ditt fordons märke och ange din e-postadress och lösenord för MyT/Lexus Link nedan.",
+        "data": {
+          "brand": "Fordonsmärke",
+          "email": "E-post",
+          "password": "Lösenord",
+          "use_metric_values": "Använd metriska enheter (t.ex. km istället för miles)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "E-postadressen måste innehålla @.",
+      "invalid_auth": "E-post/lösenord är felaktigt.",
+      "unknown": "Oväntat fel."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Alternativ för Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Pollingintervall (minuter)",
+          "retain_on_transient_failure": "Behåll senaste giltiga data vid tillfälliga fel (rekommenderas)",
+          "enable_status_refresh": "Uppdatera fordonsstatus på distans (rekommenderas)",
+          "idle_wake_hours": "Väck vilande fordon var N timmar (0 = inaktiverat)",
+          "failed_wake_threshold": "Markera som ej nåbar efter N misslyckade uppvakningar",
+          "max_cache_age_minutes": "Uppdatera statuscache om den är äldre än",
+          "post_count_per_stop": "Uppvaknings-POST:ar per stopphändelse",
+          "max_recent_trips": "Senaste resor att spara i cache (0 = inaktiverat)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Hur ofta integrationen frågar Toyota efter ny data (0-1440 minuter; standard 6; 0 = inaktivera automatisk polling, använd endast de manuella uppdateringstjänsterna/knapparna). Lägre värden kan orsaka att hastighetsbegränsningar (rate limits) nås.",
+          "retain_on_transient_failure": "När detta är aktiverat behåller ett tillfälligt fel i Toyotas API (HTTP 429, timeout, anslutningsfel) den senast lyckade datan per fordon istället för att markera alla Toyota-entiteter som otillgängliga. De nya diagnossensorerna 'Senaste lyckade hämtning', 'Senaste fel' och 'Senaste felkod' visar integrationens verkliga status.",
+          "enable_status_refresh": "Toyotas API-gateway returnerar ofta fastnat/inaktuellt lås- och dörrstatus om bilens modem inte väcks explicit. När detta är aktiverat skickar integrationen en uppvakningsförfrågan innan statusen läses, vilket imiterar Toyota-mobilappen. Varje uppvakning förbrukar en liten mängd mobildata och 12V-batteri; de smarta utlösarna (upptäckt av att bilen precis stannat, valfri viloväckning) håller kostnaden låg. Inaktivera för fordon vars Toyota-konto inte stöder statusuppdatering; integrationen inaktiverar detta automatiskt åt dig om den upptäcker ej stödda svar. Obs: denna omfattning gäller endast /v1/global/remote/status-slutpunkten (dörr-, fönster-, lås- och huvstatus); övrig data (vägmätare, bränsle, plats, etc.) hämtas varje cykel oavsett. När detta alternativ är AV har de fyra alternativen nedan (viloväckning, tröskel för misslyckad väckning, ålder på statuscache, uppvaknings-POST:ar per stopp) ingen effekt. Manuella uppdateringar (tjänsten toyota.refresh_vehicle_status eller uppdateringsknappen) kringgår denna inställning och eventuell automatisk inaktivering, och en lyckad manuell uppvakning återaktiverar den automatiska strategin.",
+          "idle_wake_hours": "Väck bilen periodiskt även om den inte har flyttats. Användbart för bilar som står oanvända i flera dagar där du fortfarande vill ha aktuell låsstatus. 0 (standard) inaktiverar detta helt; 1-72 = väck var N:e timme. Varje uppvakning kostar mobildata och en liten mängd 12V-batteri. Obs: uppvakningen uppdaterar endast /v1/global/remote/status-slutpunkten (dörr-, fönster-, lås- och huvstatus). Övrig data (vägmätare, bränsle, plats, etc.) hämtas varje cykel oberoende och behöver ingen uppvakning.",
+          "failed_wake_threshold": "Om ett fordon slutar svara på uppvakningsförfrågningar detta antal gånger i rad markeras det som ej nåbart per VIN-nummer tills det visar tecken på liv (körhändelse, extern app-uppdatering, manuellt tjänsteanrop). Standard 3.",
+          "max_cache_age_minutes": "Maximal acceptabel ålder på cachad statusdata innan en ny GET-förfrågan görs (5-180 minuter; standard 30). Obs: detta styr endast /v1/global/remote/status-slutpunkten, som innehåller dörr-, fönster-, lås- och huvstatus. Övrig data (vägmätare, bränsle, plats, etc.) hämtas varje cykel oberoende.",
+          "post_count_per_stop": "Hur många uppvaknings-POST:ar som skickas när fordonet upptäcks ha precis stannat, en per koordinatorcykel. 1 = enstaka POST. 2 (standard) = ytterligare en POST i nästa cykel, vilket vanligtvis fångar status som användaren ändrar strax efter att ha stannat (låsa dörrarna, öppna bagageluckan, etc.) - dessa händelser utlöser nya modemrapporter som den andra POST:ens pollingloop hämtar. Högre värden hjälper sällan och tär på 12V-batteriet.",
+          "max_recent_trips": "Fyller en fordonsspecifik sensor för 'Senaste resor' med de senaste N resorna (ruttvägpunkter + statistik per resa), lämplig för anpassade reskort. 0 (standard) inaktiverar automatisk hämtning helt (inga extra API-anrop). 1-20 aktiverar automatisk hämtning vid stopphändelser; cachen överlever en omstart av HA. Tjänsten toyota.refresh_recent_trips och den fordonsspecifika knappen 'Uppdatera senaste resor' fungerar oavsett denna inställning, så du kan hålla automatisk hämtning avstängd och styra hämtningar via dagliga automatiseringar."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Parkeringsplats"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Fordonsidentifieringsnummer"
+      },
+      "recent_trips": {
+        "name": "Senaste resor"
+      },
+      "odometer": {
+        "name": "Vägmätare"
+      },
+      "fuel_level": {
+        "name": "Bränslenivå"
+      },
+      "fuel_range": {
+        "name": "Bränsleräckvidd"
+      },
+      "battery_level": {
+        "name": "Batterinivå"
+      },
+      "battery_range_ac": {
+        "name": "Batteriräckvidd med AC"
+      },
+      "battery_range": {
+        "name": "Batteriräckvidd"
+      },
+      "total_range": {
+        "name": "Total räckvidd"
+      },
+      "charging_status": {
+        "name": "Laddningsstatus",
+        "state": {
+          "charge_complete": "Laddning klar",
+          "charging": "Laddar",
+          "none": "Inte ansluten",
+          "plugged": "Inkopplad"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minuter till fullt"
+          },
+          "has_charging_schedule": {
+            "name": "Har laddningsschema"
+          },
+          "scheduled_charging_start": {
+            "name": "Schemalagd laddningsstart"
+          },
+          "scheduled_charging_end": {
+            "name": "Schemalagt laddningsslut"
+          },
+          "scheduled_charging_duration": {
+            "name": "Schemalagd laddningslängd"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Återstående laddningstid"
+      },
+      "current_day_statistics": {
+        "name": "Dagens statistik"
+      },
+      "current_week_statistics": {
+        "name": "Veckans statistik"
+      },
+      "current_month_statistics": {
+        "name": "Månadens statistik"
+      },
+      "current_year_statistics": {
+        "name": "Årets statistik"
+      },
+      "last_successful_fetch": {
+        "name": "Senaste lyckade hämtning"
+      },
+      "last_refresh_error_time": {
+        "name": "Senaste uppdateringsfel"
+      },
+      "last_refresh_error_code": {
+        "name": "Senaste uppdateringsfelkod"
+      },
+      "status_last_reported": {
+        "name": "Status senast rapporterad av bilen"
+      },
+      "status_refresh_state": {
+        "name": "Statusuppdateringens tillstånd",
+        "state": {
+          "active": "Aktiv",
+          "soft_disabled_unreachable": "Ej nåbar",
+          "hard_disabled_auto": "Inaktiverad (stöds inte)",
+          "hard_disabled_user": "Inaktiverad (av användare)"
+        }
+      },
+      "last_service": {
+        "name": "Senaste service"
+      },
+      "last_trip_score": {
+        "name": "Senaste respoäng"
+      },
+      "cabin_temperature": {
+        "name": "Kabintemperatur"
+      },
+      "notifications": {
+        "name": "Aviseringar"
+      },
+      "warning_lights": {
+        "name": "Varningslampor"
+      },
+      "last_service_detail": {
+        "name": "Senaste servicedetalj"
+      },
+      "average_speed_week": {
+        "name": "Genomsnittlig hastighet, vecka"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Uppdatera fordonsstatus"
+      },
+      "refresh_recent_trips": {
+        "name": "Uppdatera senaste resor"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Uppdatera elektrisk realtidsstatus"
+      },
+      "sound_buzzer": {
+        "name": "Utlös ljudsignal"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Övergripande status"
+      },
+      "hood": {
+        "name": "Motorhuv"
+      },
+      "key_in_car": {
+        "name": "Nyckel i bilen"
+      },
+      "front_defogger": {
+        "name": "Främre avfrostning"
+      },
+      "rear_defogger": {
+        "name": "Bakre avfrostning"
+      },
+      "driverseat_window": {
+        "name": "Förarsätets fönster"
+      },
+      "passengerseat_window": {
+        "name": "Passagerarsätets fönster"
+      },
+      "leftrearseat_window": {
+        "name": "Vänster baksätesfönster"
+      },
+      "rightrearseat_window": {
+        "name": "Höger baksätesfönster"
+      },
+      "driverseat_door": {
+        "name": "Förardörr"
+      },
+      "driverseat_lock": {
+        "name": "Förardörrens lås"
+      },
+      "passengerseat_door": {
+        "name": "Passagerardörr"
+      },
+      "passengerseat_lock": {
+        "name": "Passagerardörrens lås"
+      },
+      "leftrearseat_door": {
+        "name": "Vänster bakdörr"
+      },
+      "leftrearseat_lock": {
+        "name": "Vänster bakdörrens lås"
+      },
+      "rightrearseat_door": {
+        "name": "Höger bakdörr"
+      },
+      "rightrearseat_lock": {
+        "name": "Höger bakdörrens lås"
+      },
+      "trunk_door": {
+        "name": "Bagagelucka"
+      },
+      "trunk_lock": {
+        "name": "Bagageluckans lås"
+      },
+      "hazardlights": {
+        "name": "Varningsblinkers"
+      },
+      "headlights": {
+        "name": "Strålkastare"
+      },
+      "taillights": {
+        "name": "Baklampor"
+      },
+      "vehicle_health": {
+        "name": "Fordonshälsa"
+      },
+      "driving": {
+        "name": "Körning"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Frontrutedefroster",
+              "rear_defrost": "Bakrutedefroster",
+              "both_defrost": "Båda defroster"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Dörrlås"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Förarsätets värme"
+      },
+      "seat_heater_passenger": {
+        "name": "Passagerarsätets värme"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Bakre förarsätets värme"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Bakre passagerarsätets värme"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Rattvärme"
+      },
+      "hazard_lights": {
+        "name": "Varningsblinkers"
+      }
+    }
+  }
+}

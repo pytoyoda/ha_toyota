@@ -29,10 +29,14 @@ from homeassistant.helpers.entity import EntityCategory
 
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
+from .utils import vehicle_has_climate_capability
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from homeassistant.core import HomeAssistant
     from homeassistant.helpers.typing import StateType
+    from pytoyoda.models.vehicle import Vehicle
 
     from .trips_manager import RecentTripsManager
 
@@ -184,7 +188,7 @@ class ToyotaServiceDetailSensor(ToyotaExtraSensorBase):
         hist = getattr(self.vehicle, "service_history", None) or []
         if not hist:
             return None
-        sd = getattr(hist[-1], "service_date", None)
+        sd = getattr(hist[0], "service_date", None)
         return str(sd) if sd else None
 
     @property
@@ -287,4 +291,17 @@ _CLASSES = {
     "warning_lights": ToyotaWarningLightsSensor,
     "last_service_detail": ToyotaServiceDetailSensor,
     "average_speed_week": ToyotaAverageSpeedWeekSensor,
+}
+
+# Per-key capability gate, checked before an extra sensor is created for a
+# vehicle. Keys absent here are always created (matches the pre-existing
+# behaviour for notifications/warning_lights/last_service_detail/
+# average_speed_week - none of them read from an endpoint pytoyoda gates on
+# a capability flag). cabin_temperature reads climate_status, which
+# pytoyoda only ever populates for climate-capable vehicles (see
+# vehicle_has_climate_capability) - without this gate the sensor is created
+# for every vehicle and reads permanently unknown on non-climate-capable
+# ones.
+CAPABILITY_CHECKS: dict[str, Callable[[Vehicle], bool]] = {
+    "cabin_temperature": vehicle_has_climate_capability,
 }

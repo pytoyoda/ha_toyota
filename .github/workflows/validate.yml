@@ -28,3 +28,58 @@ jobs:
         uses: "actions/checkout@v7"
       - name: "🏠 Hassfest validation"
         uses: "home-assistant/actions/hassfest@master"
+
+  pytoyoda-version-sync:
+    runs-on: "ubuntu-latest"
+    name: "pytoyoda version sync"
+    steps:
+      - name: "⤵️ Check out code from GitHub"
+        uses: "actions/checkout@v7"
+      # manifest.json's requirements pin is what Home Assistant actually
+      # installs for end users - pyproject.toml/poetry.lock only pin what CI
+      # tests against. Renovate bumps pyproject.toml (and the lock file) but
+      # has no notion of manifest.json's requirements string, so the two
+      # silently drift apart unless something checks them on every PR/push.
+      - name: "🔍 Compare pinned pytoyoda version (manifest.json vs pyproject.toml)"
+        shell: bash
+        run: |
+          python3 - <<'PYEOF'
+          import json
+          import re
+          import sys
+          import tomllib
+
+          with open("pyproject.toml", "rb") as f:
+              pyproject = tomllib.load(f)
+          pyproject_version = pyproject["tool"]["poetry"]["dependencies"]["pytoyoda"]
+
+          with open("custom_components/toyota/manifest.json", encoding="utf-8") as f:
+              manifest = json.load(f)
+          manifest_requirement = next(
+              (r for r in manifest["requirements"] if r.startswith("pytoyoda")), None
+          )
+          if manifest_requirement is None:
+              print("::error file=custom_components/toyota/manifest.json::"
+                    "requirements has no pytoyoda entry")
+              sys.exit(1)
+
+          match = re.fullmatch(r"pytoyoda==(.+)", manifest_requirement)
+          if match is None:
+              print(f"::error file=custom_components/toyota/manifest.json::"
+                    f"unexpected pytoyoda requirement format {manifest_requirement!r} "
+                    "(expected pytoyoda==X.Y.Z)")
+              sys.exit(1)
+          manifest_version = match.group(1)
+
+          if manifest_version != pyproject_version:
+              print(
+                  f"::error file=custom_components/toyota/manifest.json::"
+                  f"pytoyoda version mismatch: manifest.json pins "
+                  f"{manifest_version!r}, pyproject.toml pins "
+                  f"{pyproject_version!r}. Keep both in sync - manifest.json "
+                  "is what Home Assistant actually installs for users."
+              )
+              sys.exit(1)
+
+          print(f"pytoyoda version in sync: {manifest_version}")
+          PYEOF

@@ -7,11 +7,17 @@ have silently reported a broken/empty state in production.
 
 from __future__ import annotations
 
+from datetime import date
 from types import SimpleNamespace
 
 from homeassistant.const import UnitOfSpeed
 
-from custom_components.toyota.sensor_extra import _attr, _cabin_temperature, _speed_unit
+from custom_components.toyota.sensor_extra import (
+    ToyotaServiceDetailSensor,
+    _attr,
+    _cabin_temperature,
+    _speed_unit,
+)
 
 
 class _UnitValue:
@@ -73,3 +79,32 @@ def test_speed_unit_metric_is_kmh():
 
 def test_speed_unit_imperial_is_mph():
     assert _speed_unit(metric_values=False) == UnitOfSpeed.MILES_PER_HOUR
+
+
+def _make_service_detail_sensor(history) -> ToyotaServiceDetailSensor:
+    """Build the entity without HA wiring; ``native_value`` only reads vehicle."""
+    sensor = ToyotaServiceDetailSensor.__new__(ToyotaServiceDetailSensor)
+    sensor.vehicle = SimpleNamespace(service_history=history)
+    return sensor
+
+
+def test_service_detail_reads_newest_record_first():
+    """``service_history`` is newest-first, so the state is hist[0]'s date.
+
+    Regression guard: reading hist[-1] reported the OLDEST record as the
+    last-service date and disagreed with the sibling last_service sensor.
+    """
+    history = [
+        SimpleNamespace(service_date=date(2026, 5, 20)),
+        SimpleNamespace(service_date=date(2023, 6, 20)),
+    ]
+    sensor = _make_service_detail_sensor(history)
+    assert sensor.native_value == "2026-05-20"
+
+
+def test_service_detail_none_when_history_empty():
+    assert _make_service_detail_sensor([]).native_value is None
+
+
+def test_service_detail_none_when_history_missing():
+    assert _make_service_detail_sensor(None).native_value is None

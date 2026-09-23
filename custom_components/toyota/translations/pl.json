@@ -20,8 +20,26 @@
   "options": {
     "step": {
       "init": {
+        "title": "Opcje Toyota Connected Services",
         "data": {
-          "use_liters": "Używaj litrów (L/100 mil) zamiast MPG. Dotyczy tylko, jeśli samochód raportuje dane w milach (imperialny system jednostek)."
+          "polling_interval_minutes": "Interwał odpytywania (minuty)",
+          "retain_on_transient_failure": "Zachowaj ostatnie dobre dane w przypadku przejściowych błędów (zalecane)",
+          "enable_status_refresh": "Zdalne odświeżanie statusu pojazdu (zalecane)",
+          "idle_wake_hours": "Wybudzaj bezczynny pojazd co N godzin (0 = wyłączone)",
+          "failed_wake_threshold": "Oznacz jako niedostępny po N nieudanych wybudzeniach",
+          "max_cache_age_minutes": "Odśwież pamięć podręczną statusu, jeśli jest starsza niż",
+          "post_count_per_stop": "Liczba żądań wybudzenia (POST) na zdarzenie zatrzymania",
+          "max_recent_trips": "Liczba ostatnich podróży przechowywanych w pamięci podręcznej (0 = wyłączone)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Jak często integracja odpytuje Toyotę o nowe dane (0-1440 minut; domyślnie 6; 0 = wyłącza automatyczne odpytywanie, użyj tylko ręcznych usług/przycisków odświeżania). Niższe wartości mogą szybciej powodować przekroczenie limitów zapytań.",
+          "retain_on_transient_failure": "Gdy włączone, tymczasowy błąd API Toyoty (HTTP 429, przekroczenie czasu, błąd połączenia) zachowuje ostatnie poprawne dane dla danego pojazdu, zamiast oznaczać każdą encję Toyoty jako niedostępną. Nowe sensory diagnostyczne 'Ostatnie udane pobranie', 'Ostatni błąd' i 'Ostatni kod błędu' pokazują rzeczywisty stan integracji.",
+          "enable_status_refresh": "Bramka API Toyoty często zwraca nieaktualny stan zamków i drzwi, jeśli modem samochodu nie zostanie wyraźnie wybudzony. Gdy włączone, integracja wysyła żądanie wybudzenia przed odczytem statusu, imitując aplikację mobilną Toyota. Każde wybudzenie wykorzystuje niewielką ilość transmisji danych komórkowych i baterii 12V; inteligentne wyzwalacze (wykrywanie właśnie zatrzymanego pojazdu, opcjonalne wybudzanie bezczynnego pojazdu) utrzymują niski koszt. Wyłącz tę opcję dla pojazdów, których konto Toyota nie obsługuje odświeżania statusu; integracja automatycznie wyłącza tę funkcję, jeśli wykryje nieobsługiwane odpowiedzi. Uwaga: ten zakres obejmuje tylko endpoint /v1/global/remote/status (stan drzwi, okien, zamków i maski); inne dane (przebieg, paliwo, lokalizacja itp.) są pobierane w każdym cyklu niezależnie od tej opcji. Gdy ta opcja jest WYŁĄCZONA, cztery poniższe opcje (wybudzanie bezczynne, próg nieudanych wybudzeń, wiek pamięci podręcznej statusu, liczba żądań wybudzenia na zatrzymanie) nie mają żadnego efektu. Ręczne odświeżenia (usługa toyota.refresh_vehicle_status lub przycisk odświeżania) omijają ten przełącznik i każde automatyczne wyłączenie, a udane ręczne wybudzenie ponownie włącza automatyczną strategię.",
+          "idle_wake_hours": "Wybudzaj samochód okresowo, nawet jeśli nie jeździł. Przydatne dla samochodów, które stoją nieużywane przez wiele dni, a mimo to chcesz mieć aktualny stan zamków. 0 (domyślnie) całkowicie wyłącza tę funkcję; 1-72 = wybudzaj co N godzin. Każde wybudzenie kosztuje transmisję danych komórkowych i niewielką ilość baterii 12V. Uwaga: wybudzenie odświeża tylko endpoint /v1/global/remote/status (stan drzwi, okien, zamków i maski). Inne dane (przebieg, paliwo, lokalizacja itp.) są pobierane w każdym cyklu niezależnie i nie wymagają wybudzenia.",
+          "failed_wake_threshold": "Jeśli pojazd przestanie odpowiadać na żądania wybudzenia tyle razy z rzędu, zostanie oznaczony jako niedostępny dla danego numeru VIN, aż wykaże jakikolwiek znak życia (zdarzenie jazdy, odświeżenie przez aplikację zewnętrzną, ręczne wywołanie usługi). Domyślnie 3.",
+          "max_cache_age_minutes": "Maksymalny akceptowalny wiek zbuforowanych danych statusu przed wykonaniem nowego zapytania GET (5-180 minut; domyślnie 30). Uwaga: to ustawienie kontroluje tylko endpoint /v1/global/remote/status, który zawiera stan drzwi, okien, zamków i maski. Inne dane (przebieg, paliwo, lokalizacja itp.) są pobierane w każdym cyklu niezależnie.",
+          "post_count_per_stop": "Ile żądań wybudzenia (POST) wysłać, gdy pojazd zostanie wykryty jako właśnie zatrzymany, jedno na cykl koordynatora. 1 = pojedynczy POST. 2 (domyślnie) = dodatkowy POST w następnym cyklu, który zwykle wychwytuje zmiany stanu wprowadzone przez użytkownika krótko po zatrzymaniu (zablokowanie drzwi, otwarcie bagażnika itp.) - te zdarzenia wywołują nowe raporty modemu, które przechwytuje pętla odpytywania drugiego żądania POST. Wyższe wartości rzadko pomagają i zużywają baterię 12V.",
+          "max_recent_trips": "Wypełnia sensor 'Ostatnie podróże' dla danego pojazdu ostatnimi N podróżami (punkty trasy + statystyki podróży), odpowiedni dla niestandardowych kart typu journey-viewer. 0 (domyślnie) całkowicie wyłącza automatyczne pobieranie (brak dodatkowych wywołań API). 1-20 włącza automatyczne pobieranie przy zdarzeniach zatrzymania; pamięć podręczna przetrwa restart HA. Usługa toyota.refresh_recent_trips i przycisk 'Odśwież ostatnie podróże' dla danego pojazdu działają niezależnie od tego ustawienia, dzięki czemu można pozostawić automatyczne pobieranie wyłączone i sterować pobieraniem za pomocą codziennych automatyzacji."
         }
       }
     }
@@ -43,6 +61,9 @@
     "sensor": {
       "vin": {
         "name": "Numer identyfikacyjny pojazdu"
+      },
+      "recent_trips": {
+        "name": "Ostatnie podróże"
       },
       "odometer": {
         "name": "Licznik przebiegu"
@@ -105,6 +126,62 @@
       },
       "current_year_statistics": {
         "name": "Statystyki bieżącego roku"
+      },
+      "last_successful_fetch": {
+        "name": "Ostatnie udane pobranie"
+      },
+      "last_refresh_error_time": {
+        "name": "Ostatni błąd odświeżania"
+      },
+      "last_refresh_error_code": {
+        "name": "Ostatni kod błędu odświeżania"
+      },
+      "status_last_reported": {
+        "name": "Status ostatnio zgłoszony przez samochód"
+      },
+      "status_refresh_state": {
+        "name": "Stan odświeżania statusu",
+        "state": {
+          "active": "Aktywny",
+          "soft_disabled_unreachable": "Niedostępny",
+          "hard_disabled_auto": "Wyłączony (nieobsługiwany)",
+          "hard_disabled_user": "Wyłączony (przez użytkownika)"
+        }
+      },
+      "last_service": {
+        "name": "Ostatni serwis"
+      },
+      "last_trip_score": {
+        "name": "Wynik ostatniej podróży"
+      },
+      "cabin_temperature": {
+        "name": "Temperatura w kabinie"
+      },
+      "notifications": {
+        "name": "Powiadomienia"
+      },
+      "warning_lights": {
+        "name": "Kontrolki ostrzegawcze"
+      },
+      "last_service_detail": {
+        "name": "Szczegóły ostatniego serwisu"
+      },
+      "average_speed_week": {
+        "name": "Średnia prędkość w tygodniu"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Odśwież stan pojazdu"
+      },
+      "refresh_recent_trips": {
+        "name": "Odśwież ostatnie podróże"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Odśwież status elektryczny w czasie rzeczywistym"
+      },
+      "sound_buzzer": {
+        "name": "Uruchom sygnał dźwiękowy"
       }
     },
     "binary_sensor": {
@@ -173,6 +250,12 @@
       },
       "taillights": {
         "name": "Światła tylne"
+      },
+      "vehicle_health": {
+        "name": "Stan techniczny pojazdu"
+      },
+      "driving": {
+        "name": "Jazda"
       }
     },
     "climate": {
@@ -186,6 +269,33 @@
             }
           }
         }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Zamek drzwi"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Podgrzewanie fotela kierowcy"
+      },
+      "seat_heater_passenger": {
+        "name": "Podgrzewanie fotela pasażera"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Podgrzewanie fotela tylnego za kierowcą"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Podgrzewanie fotela tylnego za pasażerem"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Ogrzewanie kierownicy"
+      },
+      "hazard_lights": {
+        "name": "Światła awaryjne"
       }
     }
   }

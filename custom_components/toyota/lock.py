@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import logging
-import re
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
@@ -15,6 +14,7 @@ from pytoyoda.models.endpoints.command import CommandType
 
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
+from .utils import command_failure_reason as _command_failure_reason
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -30,11 +30,7 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 _OPTIMISTIC_SECONDS = 180
-_HTTP_CLIENT_ERROR = 400
-_HTTP_SERVER_ERROR = 600
 _DOOR_ATTRIBUTES = ("driver", "passenger", "rear_left", "rear_right")
-_FAILURE_STATUSES = frozenset({"error", "failed", "failure", "rejected"})
-_HTTP_CODE = re.compile(r"(?:^|[^0-9])([45][0-9]{2})(?:$|[^0-9])")
 
 DOOR_LOCK_DESCRIPTION = LockEntityDescription(
     key="door_lock",
@@ -103,48 +99,6 @@ def _lock_timestamp(vehicle: Vehicle) -> datetime | None:
     if timestamp.tzinfo is None:
         return timestamp.replace(tzinfo=UTC)
     return timestamp.astimezone(UTC)
-
-
-def _command_failure_reason(response: object) -> str | None:
-    """Return a safe reason when Toyota explicitly rejects a command."""
-    errors = getattr(response, "errors", None)
-    if errors:
-        return "Toyota reported an error"
-    return _http_failure_reason(
-        getattr(response, "code", None)
-    ) or _status_failure_reason(getattr(response, "status", None))
-
-
-def _http_failure_reason(code: object) -> str | None:
-    """Return a reason for an HTTP client/server response code."""
-    if not isinstance(code, int):
-        return None
-    if _HTTP_CLIENT_ERROR <= code < _HTTP_SERVER_ERROR:
-        return f"Toyota returned HTTP {code}"
-    return None
-
-
-def _status_failure_reason(status: object) -> str | None:
-    """Return a reason for a known failure status or gateway message."""
-    if isinstance(status, str):
-        return (
-            "Toyota rejected the command"
-            if status.lower() in _FAILURE_STATUSES
-            else None
-        )
-    messages = getattr(status, "messages", None) or ()
-    return (
-        "Toyota rejected the command" if _has_http_failure_message(messages) else None
-    )
-
-
-def _has_http_failure_message(messages: object) -> bool:
-    """Return whether a gateway message contains an HTTP 4xx or 5xx code."""
-    return any(
-        isinstance(response_code := getattr(message, "response_code", ""), str)
-        and _HTTP_CODE.search(response_code)
-        for message in messages
-    )
 
 
 async def async_setup_entry(

@@ -1,0 +1,302 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "description": "Selectați marca vehiculului dvs. și introduceți adresa de email și parola pentru MyT/Lexus Link mai jos.",
+        "data": {
+          "brand": "Marca vehiculului",
+          "email": "Email",
+          "password": "Parolă",
+          "use_metric_values": "Utilizează unități metrice (de ex. km în loc de mile)"
+        }
+      }
+    },
+    "error": {
+      "invalid_username": "Adresa de email trebuie să conțină @.",
+      "invalid_auth": "Email/Parolă incorectă.",
+      "unknown": "Eroare neprevăzută."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opțiuni Toyota Connected Services",
+        "data": {
+          "polling_interval_minutes": "Interval de interogare (minute)",
+          "retain_on_transient_failure": "Păstrează ultimele date valide în cazul erorilor temporare (recomandat)",
+          "enable_status_refresh": "Actualizează starea vehiculului de la distanță (recomandat)",
+          "idle_wake_hours": "Trezește vehiculul inactiv la fiecare N ore (0 = dezactivat)",
+          "failed_wake_threshold": "Marchează ca inaccesibil după N treziri nereușite",
+          "max_cache_age_minutes": "Reîmprospătează memoria cache de stare dacă este mai veche de",
+          "post_count_per_stop": "Cereri POST de trezire per eveniment de oprire",
+          "max_recent_trips": "Călătorii recente păstrate în memoria cache (0 = dezactivat)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Cât de des interoghează integrarea Toyota pentru date noi (0-1440 minute; implicit 6; 0 = dezactivează interogarea automată, se folosesc doar serviciile/butoanele de reîmprospătare manuală). Valorile mai mici pot atinge limitele de rată ale API-ului.",
+          "retain_on_transient_failure": "Când este activată, o eroare temporară a API-ului Toyota (HTTP 429, timeout, eroare de conexiune) păstrează ultimele date valide per vehicul, în loc să marcheze fiecare entitate Toyota ca indisponibilă. Noii senzori de diagnosticare „Ultima preluare reușită”, „Ultima eroare” și „Cod ultimă eroare” arată starea reală a integrării.",
+          "enable_status_refresh": "Gateway-ul API al Toyota returnează frecvent o stare de blocare și uși rămasă blocată/veche, cu excepția cazului în care modemul mașinii este trezit explicit. Când este activată, integrarea trimite o cerere de trezire înainte de a citi starea, imitând aplicația mobilă Toyota. Fiecare trezire consumă o cantitate mică de date celulare și din bateria de 12V; declanșatoarele inteligente (detectarea „tocmai s-a oprit”, trezirea opțională la inactivitate) mențin costul scăzut. Dezactivați pentru vehiculele al căror cont Toyota nu suportă reîmprospătarea stării; integrarea dezactivează automat această opțiune dacă detectează răspunsuri neacceptate. Notă: acest domeniu se referă doar la endpoint-ul /v1/global/remote/status (starea ușilor, ferestrelor, blocării și capotei); celelalte date (kilometraj, combustibil, locație etc.) sunt preluate la fiecare ciclu, indiferent. Când această opțiune este DEZACTIVATĂ, cele patru opțiuni de mai jos (trezire la inactivitate, prag treziri nereușite, vechimea memoriei cache de stare, cereri POST de trezire per oprire) nu au niciun efect. Reîmprospătările manuale (serviciul toyota.refresh_vehicle_status sau butonul de reîmprospătare) ignoră acest comutator și orice dezactivare automată, iar o trezire manuală reușită reactivează strategia automată.",
+          "idle_wake_hours": "Trezește periodic mașina, chiar dacă nu s-a deplasat. Util pentru mașinile care rămân neutilizate zile în șir, dar pentru care doriți totuși o stare actualizată a blocării. 0 (implicit) dezactivează complet această funcție; 1-72 = trezire la fiecare N ore. Fiecare trezire costă date celulare și o cantitate mică din bateria de 12V. Notă: trezirea reîmprospătează doar endpoint-ul /v1/global/remote/status (starea ușilor, ferestrelor, blocării și capotei). Celelalte date (kilometraj, combustibil, locație etc.) sunt preluate la fiecare ciclu independent și nu necesită o trezire.",
+          "failed_wake_threshold": "Dacă un vehicul nu mai răspunde la cererile de trezire de acest număr de ori consecutiv, este marcat ca inaccesibil per VIN până când arată vreun semn de activitate (eveniment de condus, reîmprospătare din aplicație externă, apel manual de serviciu). Implicit 3.",
+          "max_cache_age_minutes": "Vechimea maximă acceptabilă a datelor de stare din memoria cache înainte de a emite o cerere GET nouă (5-180 minute; implicit 30). Notă: aceasta controlează doar endpoint-ul /v1/global/remote/status, care conține starea ușilor, ferestrelor, blocării și capotei. Celelalte date (kilometraj, combustibil, locație etc.) sunt preluate la fiecare ciclu independent.",
+          "post_count_per_stop": "Câte cereri POST de trezire să fie trimise atunci când vehiculul este detectat ca „tocmai s-a oprit”, una per ciclu al coordonatorului. 1 = un singur POST. 2 (implicit) = un POST adițional la ciclul următor, care de obicei captează starea pe care utilizatorul o schimbă la scurt timp după oprire (blocarea ușilor, deschiderea portbagajului etc.) - aceste evenimente declanșează rapoarte noi ale modemului pe care bucla de interogare a celui de-al doilea POST le captează. Valorile mai mari rareori ajută și consumă bateria de 12V.",
+          "max_recent_trips": "Populează un senzor „Călătorii recente” per vehicul cu ultimele N călătorii (puncte de traseu + statistici per călătorie), potrivit pentru carduri personalizate de vizualizare a traseului. 0 (implicit) dezactivează complet preluarea automată (fără apeluri API suplimentare). 1-20 activează preluarea automată la evenimentele de oprire; memoria cache supraviețuiește repornirii HA. Serviciul toyota.refresh_recent_trips și butonul per vehicul „Reîmprospătare călătorii recente” funcționează indiferent de această setare, astfel încât puteți păstra preluarea automată dezactivată și puteți declanșa preluările prin automatizări zilnice."
+        }
+      }
+    }
+  },
+  "selector": {
+    "brand": {
+      "options": {
+        "toyota": "Toyota",
+        "lexus": "Lexus"
+      }
+    }
+  },
+  "entity": {
+    "device_tracker": {
+      "parking_location": {
+        "name": "Locație de parcare"
+      }
+    },
+    "sensor": {
+      "vin": {
+        "name": "Numărul de identificare a vehiculului (VIN)"
+      },
+      "recent_trips": {
+        "name": "Călătorii recente"
+      },
+      "odometer": {
+        "name": "Kilometraj"
+      },
+      "fuel_level": {
+        "name": "Nivel combustibil"
+      },
+      "fuel_range": {
+        "name": "Autonomie combustibil"
+      },
+      "battery_level": {
+        "name": "Nivel baterie"
+      },
+      "battery_range_ac": {
+        "name": "Autonomie baterie cu AC"
+      },
+      "battery_range": {
+        "name": "Autonomie baterie"
+      },
+      "total_range": {
+        "name": "Autonomie totală"
+      },
+      "charging_status": {
+        "name": "Stare încărcare",
+        "state": {
+          "charge_complete": "Încărcare completă",
+          "charging": "Se încarcă",
+          "none": "Neconectat",
+          "plugged": "Conectat"
+        },
+        "state_attributes": {
+          "remaining_minutes": {
+            "name": "Minute până la încărcare completă"
+          },
+          "has_charging_schedule": {
+            "name": "Are program de încărcare"
+          },
+          "scheduled_charging_start": {
+            "name": "Început programat al încărcării"
+          },
+          "scheduled_charging_end": {
+            "name": "Sfârșit programat al încărcării"
+          },
+          "scheduled_charging_duration": {
+            "name": "Durată programată a încărcării"
+          }
+        }
+      },
+      "remaining_charge_time": {
+        "name": "Timp rămas de încărcare"
+      },
+      "current_day_statistics": {
+        "name": "Statistici ziua curentă"
+      },
+      "current_week_statistics": {
+        "name": "Statistici săptămâna curentă"
+      },
+      "current_month_statistics": {
+        "name": "Statistici luna curentă"
+      },
+      "current_year_statistics": {
+        "name": "Statistici anul curent"
+      },
+      "last_successful_fetch": {
+        "name": "Ultima preluare reușită"
+      },
+      "last_refresh_error_time": {
+        "name": "Ultima eroare de actualizare"
+      },
+      "last_refresh_error_code": {
+        "name": "Cod ultimă eroare de actualizare"
+      },
+      "status_last_reported": {
+        "name": "Ultima stare raportată de mașină"
+      },
+      "status_refresh_state": {
+        "name": "Starea reîmprospătării stării",
+        "state": {
+          "active": "Activ",
+          "soft_disabled_unreachable": "Inaccesibil",
+          "hard_disabled_auto": "Dezactivat (neacceptat)",
+          "hard_disabled_user": "Dezactivat (de utilizator)"
+        }
+      },
+      "last_service": {
+        "name": "Ultimul service"
+      },
+      "last_trip_score": {
+        "name": "Scorul ultimei călătorii"
+      },
+      "cabin_temperature": {
+        "name": "Temperatura cabinei"
+      },
+      "notifications": {
+        "name": "Notificări"
+      },
+      "warning_lights": {
+        "name": "Martori de avertizare"
+      },
+      "last_service_detail": {
+        "name": "Detalii ultimul service"
+      },
+      "average_speed_week": {
+        "name": "Viteza medie săptămânală"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Reîmprospătare stare vehicul"
+      },
+      "refresh_recent_trips": {
+        "name": "Reîmprospătare călătorii recente"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Reîmprospătare stare electrică în timp real"
+      },
+      "sound_buzzer": {
+        "name": "Activează semnalul sonor"
+      }
+    },
+    "binary_sensor": {
+      "over_all_status": {
+        "name": "Stare generală"
+      },
+      "hood": {
+        "name": "Capotă"
+      },
+      "key_in_car": {
+        "name": "Cheie în mașină"
+      },
+      "front_defogger": {
+        "name": "Dezaburire parbriz față"
+      },
+      "rear_defogger": {
+        "name": "Dezaburire parbriz spate"
+      },
+      "driverseat_window": {
+        "name": "Fereastră scaun șofer"
+      },
+      "passengerseat_window": {
+        "name": "Fereastră scaun pasager"
+      },
+      "leftrearseat_window": {
+        "name": "Fereastră spate stânga"
+      },
+      "rightrearseat_window": {
+        "name": "Fereastră spate dreapta"
+      },
+      "driverseat_door": {
+        "name": "Portieră șofer"
+      },
+      "driverseat_lock": {
+        "name": "Blocare portieră șofer"
+      },
+      "passengerseat_door": {
+        "name": "Portieră pasager"
+      },
+      "passengerseat_lock": {
+        "name": "Blocare portieră pasager"
+      },
+      "leftrearseat_door": {
+        "name": "Portieră spate stânga"
+      },
+      "leftrearseat_lock": {
+        "name": "Blocare portieră spate stânga"
+      },
+      "rightrearseat_door": {
+        "name": "Portieră spate dreapta"
+      },
+      "rightrearseat_lock": {
+        "name": "Blocare portieră spate dreapta"
+      },
+      "trunk_door": {
+        "name": "Portbagaj"
+      },
+      "trunk_lock": {
+        "name": "Blocare portbagaj"
+      },
+      "hazardlights": {
+        "name": "Avarii"
+      },
+      "headlights": {
+        "name": "Faruri"
+      },
+      "taillights": {
+        "name": "Stopuri"
+      },
+      "vehicle_health": {
+        "name": "Starea tehnică a vehiculului"
+      },
+      "driving": {
+        "name": "Conducere"
+      }
+    },
+    "climate": {
+      "climate": {
+        "state_attributes": {
+          "preset_mode": {
+            "state": {
+              "front_defrost": "Dezghețare față",
+              "rear_defrost": "Dezghețare spate",
+              "both_defrost": "Dezghețare față și spate"
+            }
+          }
+        }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Blocare portieră"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Încălzire scaun șofer"
+      },
+      "seat_heater_passenger": {
+        "name": "Încălzire scaun pasager"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Încălzire scaun spate șofer"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Încălzire scaun spate pasager"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Încălzire volan"
+      },
+      "hazard_lights": {
+        "name": "Lumini de avarie"
+      }
+    }
+  }
+}

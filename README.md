@@ -145,12 +145,18 @@ climate control, since Toyota's API has no way to change it independently.
 
 ### Switch(es)
 
-| <div style="width:250px">Name</div>            | Description                                                                            |
-| ---------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `switch.<you_car_alias>_steering_wheel_heater` | On/off control for the steering-wheel heater. Only created if your vehicle reports it. |
+| <div style="width:250px">Name</div>            | Description                                                                                                            |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `switch.<you_car_alias>_steering_wheel_heater` | On/off control for the steering-wheel heater. Only created if your vehicle reports it.                                 |
+| `switch.<you_car_alias>_hazard_lights`         | Remote on/off control for the hazard lights (flashers). Only created for vehicles that report hazard-light capability. |
 
-Same caveat as the seat-heater selects: toggling this (re)starts remote
-climate control.
+Same caveat as the seat-heater selects: toggling the steering-wheel heater
+(re)starts remote climate control.
+
+The hazard-lights switch has no telemetry to confirm the vehicle's actual
+state - Toyota's remote API doesn't report it - so it always shows
+`assumed_state` and simply reflects the last command sent, resetting to
+"off" whenever Home Assistant restarts or the entity is reloaded.
 
 ### Sensor(s)
 
@@ -179,8 +185,8 @@ climate control.
 | `sensor.<you_car_alias>_last_service_detail`         | Date of the most recent service record; attributes include the full service history list.                                                     |
 | `sensor.<you_car_alias>_average_speed_week`          | Average speed from the current week's trip summary.                                                                                           |
 | `sensor.<you_car_alias>_last_successful_fetch`       | Diagnostic: timestamp of the last successful refresh.                                                                                         |
-| `sensor.<you_car_alias>_last_error`                  | Diagnostic: timestamp of the last refresh error.                                                                                              |
-| `sensor.<you_car_alias>_last_error_code`             | Diagnostic: HTTP status or exception class of the last error.                                                                                 |
+| `sensor.<you_car_alias>_last_refresh_error`          | Diagnostic: timestamp of the last error refreshing data from Toyota (HTTP/network - not a vehicle fault).                                     |
+| `sensor.<you_car_alias>_last_refresh_error_code`     | Diagnostic: HTTP status or exception class of the last refresh error; reads `none` while no error has occurred yet.                           |
 | `sensor.<you_car_alias>_status_last_reported_by_car` | Diagnostic: `occurrence_date` of the most recent `/v1/global/remote/status` payload (i.e. when the car last transmitted its lock/door state). |
 | `sensor.<you_car_alias>_status_refresh_state`        | Diagnostic: smart-refresh state (`active` / `soft_disabled_unreachable` / `hard_disabled_auto` / `hard_disabled_user`).                       |
 
@@ -192,11 +198,12 @@ status support).
 
 ### Button(s)
 
-| <div style="width:250px">Name</div>                       | Description                                                                               |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| `button.<you_car_alias>_refresh_vehicle_status`           | One-tap wake. Wraps `toyota.refresh_vehicle_status` for the corresponding vehicle.        |
-| `button.<you_car_alias>_refresh_recent_trips`             | Wraps `toyota.refresh_recent_trips` (fetches `max_recent_trips`, or 5 if disabled/unset). |
-| `button.<you_car_alias>_refresh_electric_realtime_status` | Wraps `toyota.refresh_electric_realtime_status`. Only created for EV/PHEV vehicles.       |
+| <div style="width:250px">Name</div>                       | Description                                                                                            |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
+| `button.<you_car_alias>_refresh_vehicle_status`           | One-tap wake. Wraps `toyota.refresh_vehicle_status` for the corresponding vehicle.                     |
+| `button.<you_car_alias>_refresh_recent_trips`             | Wraps `toyota.refresh_recent_trips` (fetches `max_recent_trips`, or 5 if disabled/unset).              |
+| `button.<you_car_alias>_refresh_electric_realtime_status` | Wraps `toyota.refresh_electric_realtime_status`. Only created for EV/PHEV vehicles.                    |
+| `button.<you_car_alias>_sound_buzzer`                     | Sends the remote buzzer/horn-warning command. Only created for vehicles that report buzzer capability. |
 
 ### Service(s)
 
@@ -363,7 +370,7 @@ Defaults are tuned for a typical daily-driven car.
 | Option                                             | Default | Range    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
 | -------------------------------------------------- | ------- | -------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **Polling interval (minutes)**                     | 6       | 0 - 1440 | How often the integration polls Toyota for fresh data. Lower values may hit rate limits. 0 disables automatic polling entirely (data still updates on manual refresh via the button/service).                                                                                                                                                                                                                                                                                                             |
-| **Recent trips to keep in cache (0 = disabled)**   | 0       | 0 - 20   | Populates a per-vehicle `recent_trips` sensor with the last N trips (route waypoints + per-trip stats), suitable for journey-viewer custom cards. 0 (default) disables auto-fetch entirely (no extra API calls); 1-20 enables auto-fetch on stop events, and the cache survives an HA restart. The `toyota.refresh_recent_trips` service and the "Refresh recent trips" button work regardless of this setting.                                                                                           |
+| **Recent trips to keep in cache (0 = disabled)**   | 1       | 0 - 20   | Populates a per-vehicle `recent_trips` sensor with the last N trips (route waypoints + per-trip stats), suitable for journey-viewer custom cards. 0 disables auto-fetch entirely (no extra API calls); 1-20 (default 1) enables auto-fetch on stop events, and the cache survives an HA restart. The `toyota.refresh_recent_trips` service and the "Refresh recent trips" button work regardless of this setting.                                                                                         |
 | **Retain last good data on transient failures**    | off     | toggle   | When a refresh fails (HTTP 429, timeout, connection error), keep the last successful per-vehicle data in place instead of flipping to `unavailable`. The diagnostic sensors above still surface the underlying failure.                                                                                                                                                                                                                                                                                   |
 | **Refresh vehicle status remotely**                | on      | toggle   | Master switch for the smart status refresh feature. Scope is only the `/v1/global/remote/status` endpoint (door / window / lock / hood); other data is fetched every cycle regardless. Disable for vehicles whose Toyota account does not support `/refresh-status`; the integration also auto-disables this for you when it detects unsupported responses. **When this option is OFF, the four options below (idle wake, failed-wake threshold, status cache age, wake POSTs per stop) have no effect.** |
 | **Wake idle vehicle every N hours (0 = disabled)** | 0       | 0 - 72   | Wake the car periodically even if it has not moved. Useful for cars that sit unused for days where you still want fresh lock state. 0 disables the feature; 1-72 fires a wake POST every N hours. Off by default to spare 12 V battery. The wake only refreshes the `/v1/global/remote/status` endpoint (door / window / lock / hood); other data is fetched every cycle regardless.                                                                                                                      |

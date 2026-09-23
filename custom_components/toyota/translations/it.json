@@ -20,8 +20,26 @@
   "options": {
     "step": {
       "init": {
+        "title": "Opzioni di Toyota Connected Services",
         "data": {
-          "use_liters": "Usa Litri (L/100 miglia) al posto di MPG. Applicabile solo se la tua auto riporta i dati in miglia (Sistema di misura Imperiale)."
+          "polling_interval_minutes": "Intervallo di polling (minuti)",
+          "retain_on_transient_failure": "Mantieni gli ultimi dati validi in caso di errori temporanei (consigliato)",
+          "enable_status_refresh": "Aggiorna lo stato del veicolo da remoto (consigliato)",
+          "idle_wake_hours": "Risveglia il veicolo inattivo ogni N ore (0 = disabilitato)",
+          "failed_wake_threshold": "Segna come non raggiungibile dopo N risvegli falliti",
+          "max_cache_age_minutes": "Aggiorna la cache dello stato se più vecchia di",
+          "post_count_per_stop": "POST di risveglio per evento di arresto",
+          "max_recent_trips": "Numero di viaggi recenti da mantenere in cache (0 = disabilitato)"
+        },
+        "data_description": {
+          "polling_interval_minutes": "Con quale frequenza l'integrazione interroga Toyota per ottenere dati aggiornati (0-1440 minuti; predefinito 6; 0 = disabilita il polling automatico, usa solo i servizi/pulsanti di aggiornamento manuale). Valori più bassi possono raggiungere i limiti di frequenza.",
+          "retain_on_transient_failure": "Se abilitato, un errore temporaneo dell'API Toyota (HTTP 429, timeout, errore di connessione) mantiene gli ultimi dati validi per veicolo invece di contrassegnare tutte le entità Toyota come non disponibili. I nuovi sensori diagnostici 'Ultimo recupero riuscito', 'Ultimo errore' e 'Ultimo codice errore' mostrano lo stato reale dell'integrazione.",
+          "enable_status_refresh": "Il gateway API di Toyota spesso restituisce uno stato di blocco e delle porte non aggiornato a meno che il modem dell'auto non venga risvegliato esplicitamente. Se abilitato, l'integrazione invia una richiesta di risveglio prima di leggere lo stato, imitando l'app mobile Toyota. Ogni risveglio utilizza una piccola quantità di traffico dati cellulare e batteria a 12V; i trigger intelligenti (rilevamento dell'arresto appena avvenuto, risveglio opzionale in inattività) mantengono basso questo costo. Disabilita questa opzione per i veicoli il cui account Toyota non supporta refresh-status; l'integrazione la disabilita automaticamente se rileva risposte non supportate. Nota: questo ambito riguarda solo l'endpoint /v1/global/remote/status (stato di porte, finestre, blocchi e cofano); gli altri dati (chilometraggio, carburante, posizione, ecc.) vengono recuperati ad ogni ciclo indipendentemente. Quando questa opzione è disattivata, le quattro opzioni sottostanti (risveglio in inattività, soglia di risveglio fallito, età della cache di stato, POST di risveglio per arresto) non hanno effetto. Gli aggiornamenti manuali (il servizio toyota.refresh_vehicle_status o il pulsante di aggiornamento) bypassano questo interruttore e qualsiasi disabilitazione automatica, e un risveglio manuale riuscito riattiva la strategia automatica.",
+          "idle_wake_hours": "Risveglia periodicamente l'auto anche se non si è mossa. Utile per le auto che rimangono inutilizzate per giorni per le quali si desidera comunque uno stato di blocco aggiornato. 0 (predefinito) disabilita completamente questa funzione; 1-72 = risveglio ogni N ore. Ogni risveglio costa traffico dati cellulare e una piccola quantità di batteria a 12V. Nota: il risveglio aggiorna solo l'endpoint /v1/global/remote/status (stato di porte, finestre, blocchi e cofano). Gli altri dati (chilometraggio, carburante, posizione, ecc.) vengono recuperati indipendentemente ad ogni ciclo e non necessitano di risveglio.",
+          "failed_wake_threshold": "Se un veicolo smette di rispondere alle richieste di risveglio per questo numero di volte consecutive, viene contrassegnato come non raggiungibile per VIN finché non mostra segni di vita (evento di guida, aggiornamento tramite app esterna, chiamata di servizio manuale). Predefinito 3.",
+          "max_cache_age_minutes": "Età massima accettabile dei dati di stato in cache prima di effettuare una nuova richiesta GET (5-180 minuti; predefinito 30). Nota: questo controlla solo l'endpoint /v1/global/remote/status, che trasporta lo stato di porte, finestre, blocchi e cofano. Gli altri dati (chilometraggio, carburante, posizione, ecc.) vengono recuperati indipendentemente ad ogni ciclo.",
+          "post_count_per_stop": "Quanti POST di risveglio inviare quando il veicolo viene rilevato come appena fermato, uno per ciclo del coordinatore. 1 = singolo POST. 2 (predefinito) = un POST aggiuntivo nel ciclo successivo, che tipicamente rileva cambi di stato effettuati poco dopo l'arresto (bloccare le porte, aprire il bagagliaio, ecc.) - questi eventi attivano nuovi report del modem che il ciclo di polling del secondo POST rileva. Valori più alti raramente aiutano e consumano più batteria a 12V.",
+          "max_recent_trips": "Popola un sensore 'Viaggi recenti' per veicolo con gli ultimi N viaggi (waypoint del percorso + statistiche per viaggio), adatto per card personalizzate journey-viewer. 0 (predefinito) disabilita completamente il recupero automatico (nessuna chiamata API aggiuntiva). 1-20 abilita il recupero automatico agli eventi di arresto; la cache sopravvive al riavvio di HA. Il servizio toyota.refresh_recent_trips e il pulsante per veicolo 'Aggiorna viaggi recenti' funzionano indipendentemente da questa impostazione, quindi puoi lasciare disattivato il recupero automatico e guidare i recuperi tramite automazioni quotidiane."
         }
       }
     }
@@ -43,6 +61,9 @@
     "sensor": {
       "vin": {
         "name": "Numero-Identificativo-Veicolo"
+      },
+      "recent_trips": {
+        "name": "Viaggi recenti"
       },
       "odometer": {
         "name": "Odometro"
@@ -105,6 +126,62 @@
       },
       "current_year_statistics": {
         "name": "Statistiche anno corrente"
+      },
+      "last_successful_fetch": {
+        "name": "Ultimo recupero riuscito"
+      },
+      "last_refresh_error_time": {
+        "name": "Ultimo errore di aggiornamento"
+      },
+      "last_refresh_error_code": {
+        "name": "Ultimo codice errore di aggiornamento"
+      },
+      "status_last_reported": {
+        "name": "Stato riportato per l'ultima volta dall'auto"
+      },
+      "status_refresh_state": {
+        "name": "Stato di aggiornamento dello stato",
+        "state": {
+          "active": "Attivo",
+          "soft_disabled_unreachable": "Non raggiungibile",
+          "hard_disabled_auto": "Disabilitato (non supportato)",
+          "hard_disabled_user": "Disabilitato (dall'utente)"
+        }
+      },
+      "last_service": {
+        "name": "Ultimo tagliando"
+      },
+      "last_trip_score": {
+        "name": "Punteggio ultimo viaggio"
+      },
+      "cabin_temperature": {
+        "name": "Temperatura dell'abitacolo"
+      },
+      "notifications": {
+        "name": "Notifiche"
+      },
+      "warning_lights": {
+        "name": "Spie di avviso"
+      },
+      "last_service_detail": {
+        "name": "Dettaglio ultimo tagliando"
+      },
+      "average_speed_week": {
+        "name": "Velocità media settimanale"
+      }
+    },
+    "button": {
+      "refresh_vehicle_status": {
+        "name": "Aggiorna stato del veicolo"
+      },
+      "refresh_recent_trips": {
+        "name": "Aggiorna viaggi recenti"
+      },
+      "refresh_electric_realtime_status": {
+        "name": "Aggiorna stato elettrico in tempo reale"
+      },
+      "sound_buzzer": {
+        "name": "Attiva avvisatore acustico"
       }
     },
     "binary_sensor": {
@@ -173,6 +250,12 @@
       },
       "taillights": {
         "name": "Fari Posteriori"
+      },
+      "vehicle_health": {
+        "name": "Stato di salute del veicolo"
+      },
+      "driving": {
+        "name": "In marcia"
       }
     },
     "climate": {
@@ -186,6 +269,33 @@
             }
           }
         }
+      }
+    },
+    "lock": {
+      "door_lock": {
+        "name": "Blocco porte"
+      }
+    },
+    "select": {
+      "seat_heater_driver": {
+        "name": "Riscaldamento sedile conducente"
+      },
+      "seat_heater_passenger": {
+        "name": "Riscaldamento sedile passeggero"
+      },
+      "seat_heater_rear_driver": {
+        "name": "Riscaldamento sedile posteriore lato conducente"
+      },
+      "seat_heater_rear_passenger": {
+        "name": "Riscaldamento sedile posteriore lato passeggero"
+      }
+    },
+    "switch": {
+      "steering_heater": {
+        "name": "Riscaldamento volante"
+      },
+      "hazard_lights": {
+        "name": "Luci di emergenza"
       }
     }
   }

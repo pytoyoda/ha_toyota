@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Atjaunināt elektrisko reāllaika statusu"
+      },
+      "sound_buzzer": {
+        "name": "Ieslēgt skaņas signālu"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Stūres sildītājs"
+      },
+      "hazard_lights": {
+        "name": "Avārijas signalizācija"
       }
     }
   }

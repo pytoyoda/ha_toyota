@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Actualizar estado eléctrico en tiempo real"
+      },
+      "sound_buzzer": {
+        "name": "Activar avisador acústico"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Calefacción del volante"
+      },
+      "hazard_lights": {
+        "name": "Luces de emergencia"
       }
     }
   }

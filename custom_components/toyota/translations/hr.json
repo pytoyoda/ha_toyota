@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Osvježi status električnog sustava u stvarnom vremenu"
+      },
+      "sound_buzzer": {
+        "name": "Aktiviraj zvučni signal"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Grijanje volana"
+      },
+      "hazard_lights": {
+        "name": "Sigurnosna svjetla"
       }
     }
   }

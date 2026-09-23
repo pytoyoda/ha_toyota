@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Обновяване на електрическия статус в реално време"
+      },
+      "sound_buzzer": {
+        "name": "Звуков сигнал"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Отопление на волана"
+      },
+      "hazard_lights": {
+        "name": "Аварийни светлини"
       }
     }
   }

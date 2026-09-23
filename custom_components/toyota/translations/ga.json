@@ -179,6 +179,9 @@
       },
       "refresh_electric_realtime_status": {
         "name": "Nuashonraigh stádas leictreach fíor-ama"
+      },
+      "sound_buzzer": {
+        "name": "Séid an bonnán"
       }
     },
     "binary_sensor": {
@@ -290,6 +293,9 @@
     "switch": {
       "steering_heater": {
         "name": "Téitheoir an roth stiúrtha"
+      },
+      "hazard_lights": {
+        "name": "Soilse guaise"
       }
     }
   }

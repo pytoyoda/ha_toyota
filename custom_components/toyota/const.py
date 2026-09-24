@@ -46,7 +46,7 @@ REMOTE_DISPLAY_NAMES = {
 
 # CONF
 CONF_BRAND = "Brand"
-CONF_BRAND_MAPPING = {"T": "Toyota", "L": "Lexus"}
+CONF_BRAND_MAPPING = {"T": "Toyota", "L": "Lexus", "S": "Subaru"}
 CONF_METRIC_VALUES = "use_metric_values"
 # When True, per-vehicle cached data is returned on transient coordinator
 # failures (Toyota 429, connection timeouts, read timeouts) instead of

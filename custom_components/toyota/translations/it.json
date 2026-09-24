@@ -48,7 +48,8 @@
     "brand": {
       "options": {
         "toyota": "Toyota",
-        "lexus": "Lexus"
+        "lexus": "Lexus",
+        "subaru": "Subaru"
       }
     }
   },

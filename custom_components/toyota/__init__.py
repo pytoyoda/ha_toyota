@@ -231,7 +231,7 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     )  # Get brand from config, default to toyota
 
     # Map brand selection to API brand code
-    brand_map = {"toyota": "T", "lexus": "L"}
+    brand_map = {"toyota": "T", "lexus": "L", "subaru": "S"}
     brand_code = brand_map.get(brand, "T")
 
     _LOGGER.info("Setting up %s integration (brand code: %s)", brand, brand_code)

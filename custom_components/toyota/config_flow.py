@@ -56,12 +56,14 @@ _LOGGER = logging.getLogger(__name__)
 BRAND_OPTIONS = {
     "toyota": "Toyota",
     "lexus": "Lexus",
+    "subaru": "Subaru",
 }
 
 # Map user-friendly brand names to API codes
 BRAND_API_MAP = {
     "toyota": "T",
     "lexus": "L",
+    "subaru": "S",
 }
 
 

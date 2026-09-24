@@ -229,7 +229,7 @@ status support).
 | ----------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `toyota.refresh_vehicle_status`           | Wakes the vehicle's cellular modem and fetches a fresh door / lock / window / hood payload. Targets one or more `device_id`.                                           |
 | `toyota.refresh_recent_trips`             | Fetches the most recent trips (with route data) and replaces the `recent_trips` sensor's cache.                                                                        |
-| `toyota.refresh_electric_realtime_status` | Wakes the vehicle to force a fresh read of the EV realtime status (battery level, charging state, range).                                                              |
+| `toyota.refresh_electric_realtime_status` | Wakes the vehicle and waits (up to 25s) for a fresh read of the EV realtime status (battery level, charging state, range) before returning.                            |
 | `toyota.start_climate`                    | Sends temperature, defrost, steering-wheel heater and/or seat-heater levels as **one** consolidated climate-control start - see the [climate quota warning](#climate). |
 | `toyota.get_trip_route`                   | Read-only: returns the cached GPS route polyline for a single cached trip, by trip id.                                                                                 |
 

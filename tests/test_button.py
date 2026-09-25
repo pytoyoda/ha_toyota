@@ -68,12 +68,13 @@ async def test_setup_adds_status_and_trips_buttons_for_every_vehicle(hass) -> No
 
 @pytest.mark.asyncio
 async def test_setup_adds_electric_button_only_when_capable(hass) -> None:
-    """The electric-realtime-status button is gated on capability or EV type."""
+    """The electric-realtime-status button is gated on capability or EV/PHEV type."""
     entry, _coord = _coordinator(
         hass,
         [
             _Vehicle(econnect=True),
             _Vehicle(type_="electric"),
+            _Vehicle(type_="plug_in_hybrid"),
             _Vehicle(),
         ],
     )
@@ -86,7 +87,7 @@ async def test_setup_adds_electric_button_only_when_capable(hass) -> None:
         for e in entities
         if isinstance(e, ToyotaRefreshElectricRealtimeStatusButton)
     ]
-    assert len(electric_buttons) == 2
+    assert len(electric_buttons) == 3
 
 
 def _button(hass, cls, vehicle: _Vehicle, description) -> object:

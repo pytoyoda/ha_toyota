@@ -24,7 +24,7 @@ from .const import (
     DOMAIN,
 )
 from .entity import ToyotaBaseEntity
-from .sensor import get_vehicle_capability
+from .sensor import ELECTRIC_STATUS_VEHICLE_TYPES, get_vehicle_capability
 from .utils import command_failure_reason
 
 # Default fetch size for the manual button when auto-fetch is off
@@ -99,7 +99,7 @@ async def async_setup_entry(
         )
         if (
             get_vehicle_capability(vehicle, "econnect_vehicle_status_capable")
-            or vehicle.type == "electric"
+            or vehicle.type in ELECTRIC_STATUS_VEHICLE_TYPES
         ):
             buttons.append(
                 ToyotaRefreshElectricRealtimeStatusButton(

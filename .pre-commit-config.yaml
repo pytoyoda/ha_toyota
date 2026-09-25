@@ -36,7 +36,7 @@ repos:
       - id: trailing-whitespace
         name: "⬜ Fix trailing whitespaces"
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.8
+    rev: v0.16.9
     hooks:
       - id: ruff
         name: "🐶 Ruff Linter"

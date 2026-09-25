@@ -78,6 +78,12 @@ def get_vehicle_capability(
         return default
 
 
+# Plug-in hybrids report the same electric_status data (battery level/range,
+# charging status) as full EVs whenever econnect_vehicle_status_capable is
+# missing/false, so they need the same fallback (see ha_toyota#434).
+_ELECTRIC_STATUS_VEHICLE_TYPES = frozenset({"electric", "plug_in_hybrid"})
+
+
 class ToyotaSensorEntityDescription(SensorEntityDescription, frozen_or_thawed=True):
     """Describes a Toyota sensor entity."""
 
@@ -492,7 +498,7 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "description": BATTERY_LEVEL_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
                 get_vehicle_capability(v, "econnect_vehicle_status_capable")
-                or v.type == "electric"
+                or v.type in _ELECTRIC_STATUS_VEHICLE_TYPES
             ),
             "native_unit": PERCENTAGE,
             "suggested_unit": None,
@@ -501,7 +507,7 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "description": BATTERY_RANGE_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
                 get_vehicle_capability(v, "econnect_vehicle_status_capable")
-                or v.type == "electric"
+                or v.type in _ELECTRIC_STATUS_VEHICLE_TYPES
             ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
@@ -510,7 +516,7 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "description": BATTERY_RANGE_AC_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
                 get_vehicle_capability(v, "econnect_vehicle_status_capable")
-                or v.type == "electric"
+                or v.type in _ELECTRIC_STATUS_VEHICLE_TYPES
             ),
             "native_unit": get_length_unit(metric_values),
             "suggested_unit": get_length_unit(metric_values),
@@ -529,7 +535,7 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "description": CHARGING_STATUS_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
                 get_vehicle_capability(v, "econnect_vehicle_status_capable")
-                or v.type == "electric"
+                or v.type in _ELECTRIC_STATUS_VEHICLE_TYPES
             ),
             "native_unit": None,
             "suggested_unit": None,
@@ -538,7 +544,7 @@ def create_sensor_configurations(metric_values: bool) -> list[dict[str, Any]]:  
             "description": REMAINING_CHARGE_TIME_ENTITY_DESCRIPTION,
             "capability_check": lambda v: (
                 get_vehicle_capability(v, "econnect_vehicle_status_capable")
-                or v.type == "electric"
+                or v.type in _ELECTRIC_STATUS_VEHICLE_TYPES
             ),
             "native_unit": "min",
             "suggested_unit": "min",

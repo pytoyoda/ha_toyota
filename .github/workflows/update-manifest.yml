@@ -26,6 +26,8 @@ jobs:
           yq e -P -o=json \
             -i ".version = \"${version}\"" \
             "${{ github.workspace }}/custom_components/toyota/manifest.json"
+          npx --yes prettier@4.0.0-alpha.8 --write \
+            "${{ github.workspace }}/custom_components/toyota/manifest.json"
 
       - name: 📦 Created zipped release package
         shell: bash
@@ -96,6 +98,7 @@ jobs:
           version="${{ steps.version.outputs.value }}"
 
           yq e -P -o=json -i ".version = \"${version}\"" custom_components/toyota/manifest.json
+          npx --yes prettier@4.0.0-alpha.8 --write custom_components/toyota/manifest.json
           poetry version "${version}"
 
           if git diff --quiet -- custom_components/toyota/manifest.json pyproject.toml; then

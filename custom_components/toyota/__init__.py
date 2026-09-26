@@ -76,6 +76,15 @@ _LOGGER = logging.getLogger(__name__)
 # requests against the gateway.
 STRATEGY_DEFAULT_WAKE_TIMEOUT_S = 25
 
+# Wake-poll budget for toyota.refresh_electric_realtime_status, mirroring
+# STRATEGY_DEFAULT_WAKE_TIMEOUT_S's rationale: refresh_electric_realtime_status()
+# only returns once Toyota's gateway has accepted the wake POST, NOT once the
+# vehicle has actually reported a fresh SoC - the caller must poll afterwards
+# (see pytoyoda#248 / ha_toyota#431). Same 25s/10s-interval budget as the
+# /status wake path since both rely on the same cellular modem wake-up.
+ELECTRIC_REALTIME_WAKE_TIMEOUT_S = 25
+ELECTRIC_REALTIME_WAKE_POLL_INTERVAL_S = 10
+
 # Per-cycle wall-clock budgets that keep a single Toyota-side outage from
 # blocking config-entry setup. The /v1/trips summary endpoints are the slowest
 # + flakiest Toyota surface (each call retries 4x with 2/4/8s backoff inside
@@ -1296,6 +1305,50 @@ async def _wake_vehicle_electric_realtime_status(
             "toyota.refresh_electric_realtime_status failed for vin=...%s",
             vin[-6:],
         )
+        return
+    await _poll_electric_realtime_status_advanced(vehicle, vin)
+
+
+async def _poll_electric_realtime_status_advanced(vehicle: Vehicle, vin: str) -> None:
+    """Poll until the vehicle's electric status timestamp advances.
+
+    refresh_electric_realtime_status() only returns once Toyota's gateway has
+    accepted the wake POST, NOT once the vehicle has actually reported a
+    fresh SoC into the cache (see pytoyoda's docs for the analogous
+    /status wake). Without this poll, the coordinator refresh that follows
+    the wake POST just re-reads the still-stale cached value, which is
+    exactly what ha_toyota#431 reported. Failures/timeouts while polling are
+    logged and swallowed so they don't abort the caller's refresh for the
+    rest of the targeted fleet.
+    """
+    previous_timestamp = getattr(vehicle.electric_status, "last_update_timestamp", None)
+    deadline = dt_util.now() + timedelta(seconds=ELECTRIC_REALTIME_WAKE_TIMEOUT_S)
+    while dt_util.now() < deadline:
+        await asyncio.sleep(ELECTRIC_REALTIME_WAKE_POLL_INTERVAL_S)
+        try:
+            await vehicle.update(only=["electric_status"])
+        except (
+            ToyotaApiError,
+            ToyotaInternalError,
+            httpx.ConnectTimeout,
+            httpcore.ConnectTimeout,
+            asyncioexceptions.TimeoutError,
+            httpx.ReadTimeout,
+            ValidationError,
+        ):
+            # 429s and timeouts are expected mid-wake; loop again.
+            continue
+        new_timestamp = getattr(vehicle.electric_status, "last_update_timestamp", None)
+        if new_timestamp is not None and (
+            previous_timestamp is None or new_timestamp > previous_timestamp
+        ):
+            return
+    _LOGGER.warning(
+        "toyota.refresh_electric_realtime_status: vin=...%s did not report a "
+        "fresh electric status within %ds of the wake request",
+        vin[-6:],
+        ELECTRIC_REALTIME_WAKE_TIMEOUT_S,
+    )
 
 
 def _find_vehicle_by_vin(vehicle_data: list[VehicleData], vin: str) -> Vehicle | None:

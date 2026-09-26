@@ -185,6 +185,7 @@ state - Toyota's remote API doesn't report it - so it always shows
 | `sensor.<you_car_alias>_fuel_level`                  | Fuel level information.                                                                                                                       |
 | `sensor.<you_car_alias>_fuel_range`                  | Fuel range information.                                                                                                                       |
 | `sensor.<you_car_alias>_battery_level`               | Battery level information.                                                                                                                    |
+| `sensor.<you_car_alias>_phev_usable_battery_level`   | Usable-for-EV-driving battery level (plug-in hybrids only); separate from `battery_level`, which may report a higher, non-usable value.       |
 | `sensor.<you_car_alias>_battery_range`               | Battery range information.                                                                                                                    |
 | `sensor.<you_car_alias>_battery_range_ac`            | Battery range information when AC is on.                                                                                                      |
 | `sensor.<you_car_alias>_total_range`                 | Information about combined fuel and battery range.                                                                                            |

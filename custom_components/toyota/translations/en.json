@@ -78,6 +78,9 @@
       "battery_level": {
         "name": "Battery level"
       },
+      "phev_usable_battery_level": {
+        "name": "Usable battery level"
+      },
       "battery_range_ac": {
         "name": "Battery range with AC"
       },

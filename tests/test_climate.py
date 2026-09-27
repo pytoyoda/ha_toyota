@@ -88,6 +88,31 @@ def _rejected_response() -> RemoteClimateControlResponseModel:
     )
 
 
+def _accepted_response_missing_return_code() -> RemoteClimateControlResponseModel:
+    """A real-world RAV4 PHEV acceptance that omits ``payload.return_code``.
+
+    Regression fixture for ha_toyota#442: the vehicle actually started the
+    climate (and the MyToyota app showed it running), but the command
+    acknowledgement payload's ``returnCode`` was omitted entirely. Only the
+    envelope's ``status.messages`` reported success (``CTP-GENERIC-20001`` /
+    ``"Success"``).
+    """
+    return RemoteClimateControlResponseModel.model_validate(
+        {
+            "status": {
+                "messages": [
+                    {
+                        "description": "Success",
+                        "detailedDescription": "Request successfully completed",
+                        "responseCode": "CTP-GENERIC-20001",
+                    }
+                ]
+            },
+            "payload": {"appRequestNo": None, "returnCode": None},
+        }
+    )
+
+
 class _Vehicle:
     """Minimal vehicle shaped like pytoyoda's public climate interfaces."""
 
@@ -397,6 +422,26 @@ async def test_turn_on_climate_rejection_rolls_back(hass) -> None:
         await entity.async_turn_on()
 
     assert entity.hvac_mode == HVACMode.OFF
+
+
+@pytest.mark.asyncio
+async def test_turn_on_climate_accepts_missing_return_code(hass) -> None:
+    """Regression test for ha_toyota#442.
+
+    A start acknowledged by the envelope's status messages (but with
+    ``payload.return_code`` omitted) must be treated as a success, not
+    raise "Toyota did not start the climate" for a command that actually
+    succeeded.
+    """
+    vehicle = _Vehicle(
+        climate_settings=_climate_settings(),
+        set_climate_response=_accepted_response_missing_return_code(),
+    )
+    entity = _entity(hass, vehicle)
+
+    await entity.async_turn_on()
+
+    assert entity.hvac_mode == HVACMode.HEAT_COOL
 
 
 @pytest.mark.asyncio

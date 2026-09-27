@@ -31,7 +31,7 @@ if TYPE_CHECKING:
 
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
-from .utils import vehicle_has_climate_capability
+from .utils import command_failure_reason, vehicle_has_climate_capability
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=120)
@@ -68,9 +68,25 @@ async def async_setup_entry(
 
 
 def _climate_command_ok(response: object) -> bool:
-    """Whether a V2 climate-control response reported command success."""
+    """Whether a V2 climate-control response reported command success.
+
+    ``payload.return_code`` is the documented success/failure signal
+    (``"000000"`` = accepted), but some vehicles (e.g. RAV4 PHEV, see
+    ha_toyota#442) omit it entirely on an otherwise-successful command -
+    the acceptance is only reflected in the envelope's
+    ``status.messages`` (e.g. ``CTP-GENERIC-20001``/``"Success"``).
+    Treating a missing return_code as an automatic rejection produced a
+    false "Toyota did not accept" error even though the car actually
+    started, and skipped the post-start status poll - hence the ~5 minute
+    delay before Home Assistant caught up on the next scheduled poll.
+    Fall back to the same envelope-based failure check every other
+    command entity (lock/switch/button) already uses.
+    """
     payload = getattr(response, "payload", None)
-    return payload is not None and payload.return_code == CLIMATE_COMMAND_OK
+    return_code = getattr(payload, "return_code", None)
+    if return_code is not None:
+        return return_code == CLIMATE_COMMAND_OK
+    return command_failure_reason(response) is None
 
 
 def _onoff(*, value: bool | None) -> str | None:

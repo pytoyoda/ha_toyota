@@ -36,14 +36,17 @@ class ToyotaBaseEntity(CoordinatorEntity):
         """Initialize the Toyota entity."""
         super().__init__(coordinator)  # type: ignore[reportArgumentType, arg-type]
 
-        self.index = vehicle_index
         self._entry_id = entry_id
         self.entity_description = description
-        self.vehicle: Vehicle = coordinator.data[self.index]["data"]
-        self.statistics: StatisticsData | None = coordinator.data[self.index][
-            "statistics"
-        ]
-        self.metric_values: bool = coordinator.data[self.index]["metric_values"]
+        # The index is only trusted once, here at setup, to learn which VIN this
+        # entity belongs to. coordinator.data follows whatever order
+        # get_vehicles() returned, which can change between polls, so every
+        # later read resolves the vehicle by VIN instead (see _vehicle_data).
+        initial = coordinator.data[vehicle_index]
+        self.vehicle: Vehicle = initial["data"]
+        self.statistics: StatisticsData | None = initial["statistics"]
+        self.metric_values: bool = initial["metric_values"]
+        self._vin: str | None = self.vehicle.vin
 
         self._attr_unique_id = (
             f"{entry_id}_{self.vehicle.vin}/{self.entity_description.key}"
@@ -55,6 +58,18 @@ class ToyotaBaseEntity(CoordinatorEntity):
             manufacturer=CONF_BRAND_MAPPING.get(self.vehicle._vehicle_info.brand)  # noqa : SLF001
             if self.vehicle._vehicle_info.brand  # noqa : SLF001
             else "Unknown",
+        )
+
+    def _vehicle_data(self) -> VehicleData | None:
+        """Return this entity's coordinator entry, looked up by VIN.
+
+        The list order is not stable (it mirrors the API response, and vehicles
+        can drop out of a cycle), so a positional lookup can hand this entity
+        another car's data. Returns None if the VIN is not in the current data.
+        """
+        return next(
+            (vd for vd in self.coordinator.data or [] if vd["data"].vin == self._vin),
+            None,
         )
 
     @property
@@ -73,18 +88,20 @@ class ToyotaBaseEntity(CoordinatorEntity):
         """
         if not super().available:
             return False
-        try:
-            vd = self.coordinator.data[self.index]
-        except IndexError, TypeError:
+        vd = self._vehicle_data()
+        if vd is None:
             return False
         return vd.get("is_cached") or vd.get("last_successful_fetch") is not None
 
     @callback
     def _handle_coordinator_update(self) -> None:
         """Handle updated data from the coordinator."""
-        self.vehicle = self.coordinator.data[self.index]["data"]
-        self.statistics = self.coordinator.data[self.index]["statistics"]
-        self.metric_values = self.coordinator.data[self.index]["metric_values"]
+        # If the VIN is missing from this cycle, keep the last known data;
+        # `available` already reports the entity unavailable in that case.
+        if (vd := self._vehicle_data()) is not None:
+            self.vehicle = vd["data"]
+            self.statistics = vd["statistics"]
+            self.metric_values = vd["metric_values"]
         super()._handle_coordinator_update()
 
     async def async_added_to_hass(self) -> None:

@@ -2327,18 +2327,18 @@ zeroconf = "0.151.5"
 
 [[package]]
 name = "homeassistant-stubs"
-version = "2026.10.0b0"
-description = "PEP 484 typing stubs for Home Assistant Core"
+version = "2026.10.0"
+description = "Deprecated: Home Assistant Core ships its own type information"
 optional = false
-python-versions = ">=3.14.2"
+python-versions = ">=3.12"
 groups = ["dev"]
 files = [
-    {file = "homeassistant_stubs-2026.10.0b0-py3-none-any.whl", hash = "sha256:2030defcc912b6bd257ab0411778015fa412384bb40535b6a25a4ba4e46239c8"},
-    {file = "homeassistant_stubs-2026.10.0b0.tar.gz", hash = "sha256:9eee191e1885505fe3b4f24707a75cbc6f9c494ee99c495988f2d98059b3e61b"},
+    {file = "homeassistant_stubs-2026.10.0-py3-none-any.whl", hash = "sha256:bb284111bbbdd21fba6b20689378ced6943ebe300fa44d315c8e9efa2cc9f1b4"},
+    {file = "homeassistant_stubs-2026.10.0.tar.gz", hash = "sha256:a0451e9c6bb213fe00d79f85fdf3e7a1d8e81073dc285fa85b57fd2a2e71bd7c"},
 ]
 
 [package.dependencies]
-homeassistant = "2026.10.0b0"
+homeassistant = ">=2024.5.0"
 
 [[package]]
 name = "httpcore"

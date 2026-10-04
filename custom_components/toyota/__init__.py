@@ -243,7 +243,12 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         await client.login()
     except ToyotaLoginError as ex:
         raise ConfigEntryAuthFailed(ex) from ex
-    except (httpx.ConnectTimeout, httpcore.ConnectTimeout) as ex:
+    except (
+        httpx.ConnectTimeout,
+        httpcore.ConnectTimeout,
+        httpx.ConnectError,
+        httpcore.ConnectError,
+    ) as ex:
         msg = "Unable to connect to Toyota Connected Services"
         raise ConfigEntryNotReady(msg) from ex
 

@@ -19,6 +19,11 @@ from custom_components.toyota.const import CONF_METRIC_VALUES, DOMAIN
         (httpx.ConnectError("[Errno -3] Try again"), ConfigEntryState.SETUP_RETRY),
         (httpcore.ConnectError("[Errno -3] Try again"), ConfigEntryState.SETUP_RETRY),
         (httpx.ConnectTimeout("timed out"), ConfigEntryState.SETUP_RETRY),
+        (httpx.ReadTimeout("timed out"), ConfigEntryState.SETUP_RETRY),
+        (httpx.ReadError("connection reset"), ConfigEntryState.SETUP_RETRY),
+        (httpx.RemoteProtocolError("disconnected"), ConfigEntryState.SETUP_RETRY),
+        (httpx.PoolTimeout("timed out"), ConfigEntryState.SETUP_RETRY),
+        (httpcore.ReadTimeout("timed out"), ConfigEntryState.SETUP_RETRY),
         (ToyotaLoginError("Authentication Failed."), ConfigEntryState.SETUP_ERROR),
     ],
 )

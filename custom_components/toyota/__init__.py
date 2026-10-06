@@ -244,12 +244,11 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     except ToyotaLoginError as ex:
         raise ConfigEntryAuthFailed(ex) from ex
     except (
-        httpx.ConnectTimeout,
-        httpcore.ConnectTimeout,
-        httpx.ConnectError,
-        httpcore.ConnectError,
+        httpx.TransportError,
+        httpcore.NetworkError,
+        httpcore.TimeoutException,
     ) as ex:
-        msg = "Unable to connect to Toyota Connected Services"
+        msg = f"Unable to connect to Toyota Connected Services: {ex}"
         raise ConfigEntryNotReady(msg) from ex
 
     # Per-vehicle retain state. Keyed by VIN. The latest successful

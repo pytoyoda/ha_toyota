@@ -248,7 +248,9 @@ Service fields:
 - `temperature` - target cabin temperature (18-29 °C).
 - `front_defroster` / `rear_defogger` / `steering_heater` - on/off booleans.
 - `seat_heater_driver` / `seat_heater_passenger` / `seat_heater_rear_driver` /
-  `seat_heater_rear_passenger` - `off` / `low` / `medium` / `high`.
+  `seat_heater_rear_passenger` - `off` / `heater` / `ventilation` (the modes
+  Toyota's API accepts; `ventilation` needs ventilated seats). The legacy
+  levels `low` / `medium` / `high` are still accepted and sent as `heater`.
 - `duration_minutes` - how many minutes remote climate should run for
   (1 - 20); leave unset to use Toyota's default duration.
 

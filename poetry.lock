@@ -2313,14 +2313,14 @@ habluetooth = ">=4.0"
 
 [[package]]
 name = "homeassistant"
-version = "2026.10.0b2"
+version = "2026.10.0b4"
 description = "Open-source home automation platform running on Python 3."
 optional = false
 python-versions = ">=3.14.2"
 groups = ["main", "dev"]
 files = [
-    {file = "homeassistant-2026.10.0b2-py3-none-any.whl", hash = "sha256:c10989d954ba4583aa6abb36e55013bdd2f5f07a1caa25d7e27be0b8cdb51b2b"},
-    {file = "homeassistant-2026.10.0b2.tar.gz", hash = "sha256:06c9745424e4f87a1f9fb9f029d5a7b2df08f50d38b66fb485c35addadb15eeb"},
+    {file = "homeassistant-2026.10.0b4-py3-none-any.whl", hash = "sha256:999af096cae949f5ebcc79c5078b0da2e9026f952954d6517cd35f9e118a2069"},
+    {file = "homeassistant-2026.10.0b4.tar.gz", hash = "sha256:a7a81af3edc2ab093e6be9a9de2623a6934dbc713d87154deaa48300481c4f31"},
 ]
 
 [package.dependencies]
@@ -4937,21 +4937,21 @@ pytest = ">=7.0.0"
 
 [[package]]
 name = "pytest-homeassistant-custom-component"
-version = "0.13.369"
+version = "0.13.370"
 description = "Experimental package to automatically extract test plugins for Home Assistant custom components"
 optional = false
 python-versions = ">=3.14"
 groups = ["dev"]
 files = [
-    {file = "pytest_homeassistant_custom_component-0.13.369-py3-none-any.whl", hash = "sha256:94184ae20e57fa4fccc5ede2af2d359e036cdc07d90ce3d98bd46449a395afc1"},
-    {file = "pytest_homeassistant_custom_component-0.13.369.tar.gz", hash = "sha256:a18aacc04fb3d0f81551400d49092468dadd4dcf72224a7363c704284425d72a"},
+    {file = "pytest_homeassistant_custom_component-0.13.370-py3-none-any.whl", hash = "sha256:9f41bbe5415740349f17b401508f679109555bc40af9c9a1e3b820dfb0f4b619"},
+    {file = "pytest_homeassistant_custom_component-0.13.370.tar.gz", hash = "sha256:473bdfc456ece3c3c503844e3565370d27fbc95b888551c0d7b2f81ee06395d2"},
 ]
 
 [package.dependencies]
 aiohasupervisor = "0.6.0"
 coverage = "7.16.2"
 freezegun = "1.5.5"
-homeassistant = "2026.10.0b2"
+homeassistant = "2026.10.0b4"
 license-expression = "30.4.4"
 mock-open = "1.4.0"
 numpy = "2.3.2"

@@ -128,41 +128,49 @@ start_climate:
         boolean:
     seat_heater_driver:
       name: Driver seat heater
-      description: Driver seat heater level.
+      description: Driver seat mode (off, heater or ventilation). Legacy low, medium and high are sent as heater.
       selector:
         select:
           options:
             - "off"
+            - heater
+            - ventilation
             - low
             - medium
             - high
     seat_heater_passenger:
       name: Passenger seat heater
-      description: Passenger seat heater level.
+      description: Passenger seat mode (off, heater or ventilation). Legacy low, medium and high are sent as heater.
       selector:
         select:
           options:
             - "off"
+            - heater
+            - ventilation
             - low
             - medium
             - high
     seat_heater_rear_driver:
       name: Rear driver seat heater
-      description: Rear driver-side seat heater level.
+      description: Rear driver-side seat mode (off, heater or ventilation). Legacy low, medium and high are sent as heater.
       selector:
         select:
           options:
             - "off"
+            - heater
+            - ventilation
             - low
             - medium
             - high
     seat_heater_rear_passenger:
       name: Rear passenger seat heater
-      description: Rear passenger-side seat heater level.
+      description: Rear passenger-side seat mode (off, heater or ventilation). Legacy low, medium and high are sent as heater.
       selector:
         select:
           options:
             - "off"
+            - heater
+            - ventilation
             - low
             - medium
             - high

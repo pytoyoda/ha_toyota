@@ -7,10 +7,12 @@ and the steering-wheel-heater switch entity.
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+import yaml
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -229,6 +231,43 @@ async def test_apply_settings_echoes_read_seat_level_as_write_mode() -> None:
     request = vehicle.set_climate.call_args.args[0]
     assert request.seat_options.driver_seat == "heater"
     assert request.seat_options.passenger_seat == "heater"
+
+
+@pytest.mark.asyncio
+async def test_apply_settings_sends_ventilation_and_heater_modes_verbatim() -> None:
+    """Ventilation/heater overrides reach the wire unchanged, mixed per seat."""
+    vehicle = _Vehicle(
+        climate_settings=_climate_settings(driver_seat="off", passenger_seat="off")
+    )
+
+    await async_apply_climate_settings(
+        vehicle,
+        seat_overrides={"driver_seat": "ventilation", "passenger_seat": "heater"},
+    )
+
+    request = vehicle.set_climate.call_args.args[0]
+    assert request.seat_options.driver_seat == "ventilation"
+    assert request.seat_options.passenger_seat == "heater"
+
+
+def test_start_climate_service_offers_seat_modes() -> None:
+    """The service UI selectors expose the API's seat modes plus legacy levels."""
+    services = yaml.safe_load(
+        (
+            Path(__file__).parent.parent / "custom_components/toyota/services.yaml"
+        ).read_text()
+    )
+    fields = services["start_climate"]["fields"]
+    for field in (
+        "seat_heater_driver",
+        "seat_heater_passenger",
+        "seat_heater_rear_driver",
+        "seat_heater_rear_passenger",
+    ):
+        options = fields[field]["selector"]["select"]["options"]
+        assert {"off", "heater", "ventilation", "low", "medium", "high"} <= set(
+            options
+        ), field
 
 
 @pytest.mark.asyncio

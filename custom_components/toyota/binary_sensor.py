@@ -322,7 +322,7 @@ TRUNK_DOOR_OPEN_ENTITY_DESCRIPTION = ToyotaBinaryEntityDescription(
     translation_key="trunk_door",
     icon="mdi:car-door",
     entity_category=EntityCategory.DIAGNOSTIC,
-    device_class=BinarySensorDeviceClass.WINDOW,
+    device_class=BinarySensorDeviceClass.DOOR,
     value_fn=lambda vehicle: _inv_or_none(
         getattr(
             getattr(getattr(vehicle.lock_status, "doors", None), "trunk", None),

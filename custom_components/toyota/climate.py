@@ -31,7 +31,11 @@ if TYPE_CHECKING:
 
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
-from .utils import command_failure_reason, vehicle_has_climate_capability
+from .utils import (
+    command_failure_reason,
+    record_command_result,
+    vehicle_has_climate_capability,
+)
 
 _LOGGER = logging.getLogger(__name__)
 SCAN_INTERVAL = timedelta(seconds=120)
@@ -596,8 +600,27 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
 
         Keeps the request-build + success-check in one place.
         """
-        response = await self.vehicle.set_climate(self._build_start_request())
+        try:
+            response = await self.vehicle.set_climate(self._build_start_request())
+        except Exception as err:
+            record_command_result(
+                self.hass,
+                self._entry_id,
+                self.vehicle.vin,
+                "climate_start",
+                ok=False,
+                detail=type(err).__name__,
+            )
+            raise
         ok = self._command_ok(response)
+        record_command_result(
+            self.hass,
+            self._entry_id,
+            self.vehicle.vin,
+            "climate_start",
+            ok=ok,
+            code=getattr(getattr(response, "payload", None), "return_code", None),
+        )
         if not ok:
             _LOGGER.debug("Climate start rejected: %s", response)
             msg = (
@@ -649,6 +672,14 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             )
         except Exception as err:  # pylint: disable=W0718
             # The stop may not have landed — revert to "on" rather than falsely off.
+            record_command_result(
+                self.hass,
+                self._entry_id,
+                self.vehicle.vin,
+                "climate_stop",
+                ok=False,
+                detail=type(err).__name__,
+            )
             self._attr_hvac_mode = HVACMode.HEAT_COOL
             self.async_write_ha_state()
             msg = f"Failed to turn off Toyota climate: {err}"
@@ -656,6 +687,15 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
 
         # A non-000000 on stop is usually benign ("already stopped"); don't error the
         # tile — the next coordinator poll reconciles the real state via is_on.
-        if not self._command_ok(response):
+        ok = self._command_ok(response)
+        record_command_result(
+            self.hass,
+            self._entry_id,
+            self.vehicle.vin,
+            "climate_stop",
+            ok=ok,
+            code=getattr(getattr(response, "payload", None), "return_code", None),
+        )
+        if not ok:
             _LOGGER.debug("Climate stop returned non-success: %s", response)
         _LOGGER.debug("Climate control turned off for %s", self.vehicle.alias)

@@ -15,6 +15,7 @@ from pytoyoda.models.endpoints.command import CommandType
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
 from .utils import command_failure_reason as _command_failure_reason
+from .utils import record_command_result
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -218,10 +219,28 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
             try:
                 response = await self.vehicle.post_command(command)
             except Exception as err:
+                record_command_result(
+                    self.hass,
+                    self._entry_id,
+                    self.vehicle.vin,
+                    command.value,
+                    ok=False,
+                    detail=type(err).__name__,
+                )
                 msg = "Toyota could not send the door command"
                 raise HomeAssistantError(msg) from err
 
-            if reason := _command_failure_reason(response):
+            reason = _command_failure_reason(response)
+            record_command_result(
+                self.hass,
+                self._entry_id,
+                self.vehicle.vin,
+                command.value,
+                ok=reason is None,
+                code=getattr(response, "code", None),
+                detail=reason,
+            )
+            if reason:
                 raise HomeAssistantError(reason)
 
             self._command_generation += 1

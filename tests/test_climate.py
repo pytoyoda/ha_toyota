@@ -25,6 +25,39 @@ from custom_components.toyota.utils import vehicle_has_climate_capability
 CLIMATE_DESCRIPTION = EntityDescription(key="climate", name="Climate")
 
 
+@pytest.mark.parametrize("start", [True, False])
+@pytest.mark.parametrize("outcome", ["accepted", "missing_code", "rejected", "exception"])
+async def test_climate_records_command_response(hass, start, outcome) -> None:
+    """Record both climate actions while preserving rejection/rollback behavior."""
+    vehicle = _Vehicle()
+    entity = _entity(hass, vehicle)
+    bucket = {}
+    hass.data[DOMAIN] = {"entry-id_diag": bucket}
+    if outcome == "exception":
+        vehicle.set_climate.side_effect = TimeoutError("private request contents")
+    else:
+        vehicle.set_climate.return_value = {
+            "accepted": _ok_response(),
+            "missing_code": _accepted_response_missing_return_code(),
+            "rejected": _rejected_response(),
+        }[outcome]
+    action = entity.async_turn_on if start else entity.async_turn_off
+    if outcome == "exception" or (start and outcome == "rejected"):
+        with pytest.raises(HomeAssistantError):
+            await action()
+        assert entity.hvac_mode == (HVACMode.OFF if start else HVACMode.HEAT_COOL)
+    else:
+        await action()
+    result = bucket["last_command_result_per_vin"][vehicle.vin]
+    assert result["command"] == ("climate_start" if start else "climate_stop")
+    assert result["ok"] is (outcome in ("accepted", "missing_code"))
+    assert result["code"] == {
+        "accepted": "000000", "missing_code": None,
+        "rejected": "118003", "exception": None,
+    }[outcome]
+    assert result["detail"] == ("TimeoutError" if outcome == "exception" else None)
+
+
 def _climate_settings(
     *,
     front_defroster: str | None = "off",

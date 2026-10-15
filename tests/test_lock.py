@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, Mock, patch
 import pytest
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
+from homeassistant.helpers.entity_component import EntityComponent
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytoyoda.models.endpoints.common import StatusModel
@@ -356,3 +357,127 @@ async def test_lock_uses_existing_vehicle_wake_service(hass) -> None:
 
     assert calls == [{"device_id": [device.id]}]
     entity._clear_assumption()
+
+
+async def _publish_to_hass(entity: ToyotaDoorLock) -> None:
+    """Exercise HA's real state writer rather than only checking properties."""
+    entity.entity_id = "lock.test_car"
+    del entity.async_write_ha_state
+    # This test platform exercises state publication, not device registration.
+    entity._attr_device_info = None
+    component = EntityComponent(Mock(), "lock", entity.hass)
+    await component.async_add_entities([entity])
+
+
+@pytest.mark.parametrize("locked", [True, False])
+async def test_new_contradictory_report_is_published_immediately(hass, locked):
+    """The first incoming report must replace the optimistic HA state."""
+    before = datetime.now(UTC) - timedelta(minutes=1)
+    reported = "unlocked" if locked else "locked"
+    vehicle = _Vehicle(capabilities={"extended": True})
+    vehicle.set_status(before, {"driver": reported})
+    entity = _entity(hass, vehicle)
+    await _publish_to_hass(entity)
+    await (entity.async_lock() if locked else entity.async_unlock())
+    assert hass.states.get(entity.entity_id).state == (
+        "locked" if locked else "unlocked"
+    )
+
+    incoming = _Vehicle(capabilities={"extended": True})
+    incoming.set_status(before + timedelta(seconds=1), {"driver": reported})
+    entity.coordinator.data = [{**entity.coordinator.data[0], "data": incoming}]
+    entity._handle_coordinator_update()
+
+    state = hass.states.get(entity.entity_id)
+    assert state.state == reported
+    assert not state.attributes.get("assumed_state", False)
+    assert entity._cancel_assumption is None
+
+
+@pytest.mark.parametrize("expired", [False, True])
+@pytest.mark.parametrize("locked", [True, False])
+@pytest.mark.parametrize("timestamped", [False, True])
+async def test_changed_report_without_new_timestamp_confirms_command(
+    hass, locked, expired, timestamped
+):
+    """Actual lock-state movement supersedes the assumption, even after expiry."""
+    before = datetime.now(UTC) - timedelta(minutes=1)
+    vehicle = _Vehicle(capabilities={"extended": True})
+    vehicle.set_status(before, {"driver": "unlocked" if locked else "locked"})
+    if not timestamped:
+        vehicle._endpoint_data["status"].payload.last_update_timestamp = None
+    entity = _entity(hass, vehicle)
+    await _publish_to_hass(entity)
+    await (entity.async_lock() if locked else entity.async_unlock())
+    if expired:
+        entity._expire_assumption(datetime.now(UTC), entity._command_generation)
+        assert hass.states.get(entity.entity_id).state == "unknown"
+
+    incoming = _Vehicle(capabilities={"extended": True})
+    incoming.set_status(before, {"driver": "locked" if locked else "unlocked"})
+    if not timestamped:
+        incoming._endpoint_data["status"].payload.last_update_timestamp = None
+    entity.coordinator.data = [{**entity.coordinator.data[0], "data": incoming}]
+    entity._handle_coordinator_update()
+
+    state = hass.states.get(entity.entity_id)
+    assert state.state == ("locked" if locked else "unlocked")
+    assert not state.attributes.get("assumed_state", False)
+    assert entity._requires_fresh_status is False
+
+
+@pytest.mark.parametrize(
+    "initial,incoming_state",
+    [("unlocked", "unlocked"), ("unlocked", None), (None, "locked")],
+)
+async def test_unchanged_or_unknown_report_keeps_assumption(
+    hass, initial, incoming_state
+):
+    """Neither a fetch nor an unknown-to-known transition proves lock movement."""
+    before = datetime.now(UTC) - timedelta(minutes=1)
+    vehicle = _Vehicle(capabilities={"extended": True})
+    vehicle.set_status(before, {"driver": initial})
+    entity = _entity(hass, vehicle)
+    await _publish_to_hass(entity)
+    await entity.async_lock()
+    incoming = _Vehicle(capabilities={"extended": True})
+    incoming.set_status(before, {"driver": incoming_state})
+    entity.coordinator.data = [{**entity.coordinator.data[0], "data": incoming}]
+    entity._handle_coordinator_update()
+    state = hass.states.get(entity.entity_id)
+    assert state.state == "locked"
+    assert state.attributes["assumed_state"] is True
+    entity._clear_assumption()
+
+
+@pytest.mark.parametrize("missing", [False, True])
+async def test_reconciliation_uses_only_matching_vin(hass, missing):
+    """Another car's newer status must not clear this car's assumption."""
+    before = datetime.now(UTC) - timedelta(minutes=1)
+    vehicle = _Vehicle(capabilities={"extended": True})
+    vehicle.set_status(before, {"driver": "unlocked"})
+    entity = _entity(hass, vehicle)
+    await _publish_to_hass(entity)
+    await entity.async_lock()
+    other = _Vehicle(capabilities={"extended": True})
+    other.vin = "JTDBR32E720000002"
+    other.set_status(before + timedelta(seconds=1), {"driver": "locked"})
+    original = entity.coordinator.data[0]
+    entity.coordinator.data = [{**original, "data": other}]
+    if not missing:
+        entity.coordinator.data.append(original)
+    entity._handle_coordinator_update()
+    assert entity.assumed_state is True
+    assert hass.states.get(entity.entity_id).state == (
+        "unavailable" if missing else "locked"
+    )
+    # Our car returns in a different position with a newer contradictory report.
+    incoming = _Vehicle(capabilities={"extended": True})
+    incoming.set_status(before + timedelta(seconds=1), {"driver": "unlocked"})
+    entity.coordinator.data = [
+        {**original, "data": other},
+        {**original, "data": incoming},
+    ]
+    entity._handle_coordinator_update()
+    assert hass.states.get(entity.entity_id).state == "unlocked"
+    assert not hass.states.get(entity.entity_id).attributes.get("assumed_state", False)

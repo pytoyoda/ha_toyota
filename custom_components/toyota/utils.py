@@ -7,11 +7,14 @@ from __future__ import annotations
 import re
 from typing import TYPE_CHECKING, Any
 
-from .const import CONF_BRAND_MAPPING, REMOTE_DISPLAY_NAMES
+from homeassistant.util import dt as dt_util
+
+from .const import CONF_BRAND_MAPPING, DOMAIN, REMOTE_DISPLAY_NAMES
 
 if TYPE_CHECKING:
     from datetime import timedelta
 
+    from homeassistant.core import HomeAssistant
     from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
     from pytoyoda.models.summary import Summary
     from pytoyoda.models.vehicle import Vehicle
@@ -20,6 +23,35 @@ _HTTP_CLIENT_ERROR = 400
 _HTTP_SERVER_ERROR = 600
 _FAILURE_STATUSES = frozenset({"error", "failed", "failure", "rejected"})
 _HTTP_CODE = re.compile(r"(?:^|[^0-9])([45][0-9]{2})(?:$|[^0-9])")
+
+
+def record_command_result(  # noqa: PLR0913
+    hass: HomeAssistant,
+    entry_id: str,
+    vin: str | None,
+    command: str,
+    *,
+    ok: bool,
+    code: Any = None,  # noqa: ANN401
+    detail: str | None = None,
+) -> None:
+    """Store the latest command response per car for diagnostics.
+
+    ``ok`` reflects response acceptance, not confirmed execution by the car.
+    Missing diagnostics state must not interfere with sending commands.
+    """
+    if not vin:
+        return
+    bucket = hass.data.get(DOMAIN, {}).get(f"{entry_id}_diag")
+    if bucket is None:
+        return
+    bucket.setdefault("last_command_result_per_vin", {})[vin] = {
+        "command": command,
+        "ok": ok,
+        "code": code,
+        "detail": detail,
+        "at": dt_util.now().isoformat(),
+    }
 
 
 def command_failure_reason(response: object) -> str | None:

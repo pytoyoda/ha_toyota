@@ -26,6 +26,45 @@ from custom_components.toyota.lock import (
 )
 
 
+@pytest.mark.parametrize("locked", [True, False])
+@pytest.mark.parametrize("outcome", ["accepted", "rejected", "exception"])
+async def test_command_records_response_without_changing_error_semantics(
+    hass, locked, outcome
+) -> None:
+    """Both door commands record acceptance or failure, not observed execution."""
+    vehicle = _Vehicle(capabilities={"extended": True})
+    entity = _entity(hass, vehicle)
+    bucket = {}
+    hass.data[DOMAIN] = {"entry-id_diag": bucket}
+    if outcome == "exception":
+        vehicle.post_command.side_effect = TimeoutError("private request contents")
+    else:
+        vehicle.post_command.return_value = StatusModel(
+            code=202 if outcome == "accepted" else 403
+        )
+    action = entity.async_lock if locked else entity.async_unlock
+    if outcome == "accepted":
+        await action()
+        assert entity.assumed_state is True
+        entity._clear_assumption()
+    else:
+        with pytest.raises(HomeAssistantError):
+            await action()
+        entity._async_request_status_refresh.assert_not_awaited()
+    result = bucket["last_command_result_per_vin"][vehicle.vin]
+    assert result["command"] == ("door-lock" if locked else "door-unlock")
+    assert result["ok"] is (outcome == "accepted")
+    assert result["code"] == {
+        "accepted": 202, "rejected": 403, "exception": None
+    }[outcome]
+    assert result["detail"] == {
+        "accepted": None,
+        "rejected": "Toyota returned HTTP 403",
+        "exception": "TimeoutError",
+    }[outcome]
+    assert datetime.fromisoformat(result["at"]).tzinfo is not None
+
+
 def _status(
     timestamp: datetime, doors: dict[str, str | None]
 ) -> RemoteStatusResponseModel:

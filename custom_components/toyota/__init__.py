@@ -326,6 +326,8 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
         "remaining_post_cycles_per_vin",
         "last_status_refresh_state_per_vin",
         "last_status_refresh_trigger_per_vin",
+        # Latest lock/climate command response, exported by diagnostics.
+        "last_command_result_per_vin",
         # Parsed RemoteStatusResponseModel from the most recent successful
         # /status fetch (GET_ONLY OR POST_THEN_GET). Re-injected into the
         # Vehicle's _endpoint_data on SERVE_FROM_CACHE cycles, since each

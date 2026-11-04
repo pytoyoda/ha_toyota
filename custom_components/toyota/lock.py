@@ -138,6 +138,7 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
         self._assumed_locked: bool | None = None
         self._command_status_timestamp: datetime | None = None
         self._command_started_at: datetime | None = None
+        self._telemetry_at_command: bool | None = None
         self._requires_fresh_status = False
         self._command_generation = 0
         self._cancel_assumption: Callable[[], None] | None = None
@@ -155,7 +156,9 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
         """Return optimistic state until fresh lock telemetry supersedes it."""
         if self._assumed_locked is not None:
             return self._assumed_locked
-        if self._requires_fresh_status and not self._status_is_new_since_command():
+        if self._requires_fresh_status and not self._status_is_new_since_command(
+            self.vehicle
+        ):
             return None
         return _door_lock_state(self.vehicle)
 
@@ -170,6 +173,7 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
         """Discard a pending optimistic state and its expiry callback."""
         self._assumed_locked = None
         if not keep_freshness:
+            self._telemetry_at_command = None
             self._command_status_timestamp = None
             self._command_started_at = None
             self._requires_fresh_status = False
@@ -177,9 +181,9 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
             self._cancel_assumption()
             self._cancel_assumption = None
 
-    def _status_is_new_since_command(self) -> bool:
+    def _status_is_new_since_command(self, vehicle: Vehicle) -> bool:
         """Return whether current status is demonstrably newer than the command."""
-        timestamp = _lock_timestamp(self.vehicle)
+        timestamp = _lock_timestamp(vehicle)
         if timestamp is None:
             return False
         if self._command_status_timestamp is not None:
@@ -197,10 +201,20 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
         self.async_write_ha_state()
 
     def _handle_coordinator_update(self) -> None:
-        """Use only a new lock payload to retire an optimistic state."""
+        """Reconcile incoming lock telemetry before publishing the HA state."""
+        if self._requires_fresh_status and (vd := self._vehicle_data()) is not None:
+            # self.vehicle still belongs to the previous cycle here. Inspect the
+            # incoming VIN-matched vehicle before the base class publishes it.
+            incoming = vd["data"]
+            reported = _door_lock_state(incoming)
+            moved = (
+                reported is not None
+                and self._telemetry_at_command is not None
+                and reported != self._telemetry_at_command
+            )
+            if moved or self._status_is_new_since_command(incoming):
+                self._clear_assumption()
         super()._handle_coordinator_update()
-        if self._requires_fresh_status and self._status_is_new_since_command():
-            self._clear_assumption()
 
     async def async_lock(self, **_kwargs: object) -> None:
         """Lock the vehicle doors."""
@@ -247,6 +261,7 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
             generation = self._command_generation
             self._clear_assumption()
             self._assumed_locked = locked
+            self._telemetry_at_command = _door_lock_state(self.vehicle)
             self._command_status_timestamp = _lock_timestamp(self.vehicle)
             # Toyota's status timestamp is commonly second-granular. Keep the
             # same precision here so a status reported in the command second

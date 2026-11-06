@@ -10,7 +10,7 @@ from homeassistant.components.climate import HVACMode
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 from pytoyoda.models.climate import ClimateSettings, ClimateStatus
 from pytoyoda.models.endpoints.climate import (
     ClimateSettingsResponseModel,

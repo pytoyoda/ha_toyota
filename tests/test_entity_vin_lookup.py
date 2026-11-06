@@ -13,7 +13,7 @@ from unittest.mock import Mock
 
 from homeassistant.helpers.entity import EntityDescription
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.toyota.const import DOMAIN
 from custom_components.toyota.entity import ToyotaBaseEntity

@@ -15,7 +15,7 @@ import pytest
 import yaml
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 from pytoyoda.models.climate import ClimateSettings
 from pytoyoda.models.endpoints.climate import (
     ClimateSettingsResponseModel,

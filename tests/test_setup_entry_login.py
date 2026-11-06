@@ -6,7 +6,7 @@ import httpcore
 import httpx
 import pytest
 from homeassistant.config_entries import ConfigEntryState
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 from pytoyoda.exceptions import ToyotaLoginError
 
 from custom_components.toyota.const import CONF_METRIC_VALUES, DOMAIN

@@ -7,7 +7,7 @@ import pytest
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers.selector import BooleanSelector
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 from pytoyoda.exceptions import ToyotaInvalidUsernameError, ToyotaLoginError
 
 from custom_components.toyota.const import (

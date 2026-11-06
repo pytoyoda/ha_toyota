@@ -25,13 +25,15 @@ pre-commit = "^4.1"
 voluptuous-stubs = "^0.1"
 pytest = "^9.0.0"
 pytest-asyncio = "^1.0.0"
-pytest-homeassistant-custom-component = "^0.13"
+pytest-homeassistant = "2026.11.0"
+pytest-cov = "^7.1"
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
 build-backend = "poetry.core.masonry.api"
 
 [tool.pytest.ini_options]
+addopts = "-p no:respx"
 testpaths = "tests"
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"

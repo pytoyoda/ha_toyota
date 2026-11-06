@@ -1,7 +1,7 @@
 """Fixtures for Toyota EU community integration tests."""
 
 import pytest
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
 from custom_components.toyota.const import CONF_METRIC_VALUES, DOMAIN

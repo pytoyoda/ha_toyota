@@ -8,7 +8,7 @@ from unittest.mock import Mock
 import pytest
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.toyota.button import (
     REFRESH_BUTTON_DESCRIPTION,

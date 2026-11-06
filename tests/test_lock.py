@@ -10,7 +10,7 @@ import pytest
 from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 from pytoyoda.models.endpoints.common import StatusModel
 from pytoyoda.models.endpoints.status import RemoteStatusResponseModel
 from pytoyoda.models.lock_status import LockStatus

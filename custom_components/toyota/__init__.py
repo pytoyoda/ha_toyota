@@ -9,7 +9,9 @@ import asyncio.exceptions as asyncioexceptions
 import contextlib
 import logging
 import os
+import re
 from datetime import datetime, timedelta
+from http import HTTPStatus
 from pathlib import Path
 from typing import TYPE_CHECKING, TypedDict, TypeVar
 
@@ -130,6 +132,38 @@ if TYPE_CHECKING:
 _T = TypeVar("_T")
 
 
+# pytoyoda builds login-flow failures as "<step> <status>, <body>." - e.g.
+# "Authentication Failed. 502, <html>...". Used for pytoyoda releases that
+# raise a plain ToyotaLoginError for every non-success login answer.
+_LOGIN_FAILURE_STATUS = re.compile(
+    r"^(?:Authentication Failed|Authorization failed|Token retrieval failed"
+    r"|Token refresh failed)\. (\d{3}),"
+)
+
+
+def _login_server_status(ex: ToyotaLoginError) -> int | None:
+    """Return the HTTP status if a login failure was a Toyota server error.
+
+    A 5xx or 429 from Toyota's login service means the service is down or
+    throttling, not that the credentials were rejected, so callers retry
+    instead of starting a reauth flow. Newer pytoyoda raises
+    ToyotaLoginServerError carrying ``status_code``; older releases only put
+    the status in the message. Returns None for a real credential failure.
+    """
+    status = getattr(ex, "status_code", None)
+    if not isinstance(status, int):
+        match = _LOGIN_FAILURE_STATUS.match(str(ex))
+        status = int(match.group(1)) if match else None
+    if status is None:
+        return None
+    if (
+        status == HTTPStatus.TOO_MANY_REQUESTS
+        or status >= HTTPStatus.INTERNAL_SERVER_ERROR
+    ):
+        return status
+    return None
+
+
 class StatisticsData(TypedDict):
     """Representing Statistics data."""
 
@@ -242,6 +276,12 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
     try:
         await client.login()
     except ToyotaLoginError as ex:
+        if _login_server_status(ex) is not None:
+            # Toyota's login service is down (e.g. 502/504 from its gateway);
+            # the credentials were never judged. Let HA retry setup instead
+            # of raising a reauth repair that never clears on its own.
+            msg = f"Toyota login service unavailable: {ex}"
+            raise ConfigEntryNotReady(msg) from ex
         raise ConfigEntryAuthFailed(ex) from ex
     except (
         httpx.TransportError,
@@ -366,6 +406,8 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
 
     def _error_code(exc: BaseException) -> str:
         """Derive a short error-code string for the last_error sensor."""
+        if isinstance(exc, ToyotaLoginError) and (status := _login_server_status(exc)):
+            return f"HTTP {status}"
         msg = str(exc)
         # Toyota 429s embed the status code in the ToyotaApiError message:
         # "Request Failed. 429, {...}." Extract it when present.
@@ -986,11 +1028,16 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             vehicle_list_store.replace_from_vehicles(vehicles or [])
             await vehicle_list_store.save()
         except ToyotaLoginError as ex:
-            # Credentials/token invalid - not transient, surface as auth
-            # error so HA prompts the user to reauthenticate, whether this
-            # happens during initial setup or a later periodic refresh.
-            _LOGGER.exception("Toyota login error")
-            raise ConfigEntryAuthFailed(ex) from ex
+            if _login_server_status(ex) is not None:
+                # Toyota's login service failed (5xx/429) while renewing the
+                # token: transient, so recover like any other API outage.
+                vehicles = _recover_fleet_fetch_failure(code=_error_code(ex), ex=ex)
+            else:
+                # Credentials/token invalid - not transient, surface as auth
+                # error so HA prompts the user to reauthenticate, whether this
+                # happens during initial setup or a later periodic refresh.
+                _LOGGER.exception("Toyota login error")
+                raise ConfigEntryAuthFailed(ex) from ex
         except (
             ToyotaApiError,
             httpx.ConnectTimeout,
@@ -1043,6 +1090,10 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             vehicle_data = await _refresh_one_vehicle(vehicle)
             last_good_per_vin[vin] = vehicle_data
         except ToyotaLoginError as ex:
+            if _login_server_status(ex) is not None:
+                # Toyota's login service failed (5xx/429) while renewing the
+                # token mid-sweep: transient, same as an API outage.
+                return _recover_one_vehicle_failure(vehicle, ex)
             # Token/credentials died mid-fleet-sweep (not just at the
             # initial get_vehicles() call). Same as the Step 1 case: this is
             # not transient, so surface it as an auth failure that triggers
@@ -1064,31 +1115,38 @@ async def async_setup_entry(  # pylint: disable=too-many-statements # noqa: PLR0
             ValidationError,
             TypeError,
         ) as ex:
-            code = _error_code(ex)
-            last_error_per_vin[vin] = (dt_util.now(), code)
-            _LOGGER.warning("Toyota refresh failed for vin=...%s (%s)", vin[-6:], code)
-            if retain_on_transient and vin in last_good_per_vin:
-                # retain=ON + cache available: serve stale cached data.
-                return _build_vehicle_data_from_cache(vin)
-            # retain=OFF OR retain=ON with no cache yet: emit a stub
-            # VehicleData. The Vehicle object came from get_vehicles() so it
-            # has identity (vin, alias, device info) but no endpoint data
-            # because vehicle.update() failed. Data sensors read through a
-            # ToyotaBaseEntity.available override that checks
-            # last_successful_fetch, so stubs render as unavailable without
-            # raising UpdateFailed for the whole refresh. Siblings that
-            # succeeded this cycle keep their fresh data - per-vehicle fault
-            # isolation.
-            return VehicleData(
-                data=vehicle,
-                statistics=None,
-                metric_values=metric_values,
-                last_successful_fetch=None,
-                last_error_time=dt_util.now(),
-                last_error_code=code,
-                is_cached=False,
-            )
+            return _recover_one_vehicle_failure(vehicle, ex)
         return vehicle_data
+
+    def _recover_one_vehicle_failure(
+        vehicle: Vehicle, ex: BaseException
+    ) -> VehicleData:
+        """Record a transient per-vehicle failure and choose what to serve."""
+        vin = vehicle.vin
+        code = _error_code(ex)
+        last_error_per_vin[vin] = (dt_util.now(), code)
+        _LOGGER.warning("Toyota refresh failed for vin=...%s (%s)", vin[-6:], code)
+        if retain_on_transient and vin in last_good_per_vin:
+            # retain=ON + cache available: serve stale cached data.
+            return _build_vehicle_data_from_cache(vin)
+        # retain=OFF OR retain=ON with no cache yet: emit a stub
+        # VehicleData. The Vehicle object came from get_vehicles() so it
+        # has identity (vin, alias, device info) but no endpoint data
+        # because vehicle.update() failed. Data sensors read through a
+        # ToyotaBaseEntity.available override that checks
+        # last_successful_fetch, so stubs render as unavailable without
+        # raising UpdateFailed for the whole refresh. Siblings that
+        # succeeded this cycle keep their fresh data - per-vehicle fault
+        # isolation.
+        return VehicleData(
+            data=vehicle,
+            statistics=None,
+            metric_values=metric_values,
+            last_successful_fetch=None,
+            last_error_time=dt_util.now(),
+            last_error_code=code,
+            is_cached=False,
+        )
 
     def _commit_fetch_timestamps(vehicle_informations: list[VehicleData]) -> None:
         """Record per-VIN fetch timestamps once a refresh cycle has survived.

@@ -7,6 +7,7 @@ from typing import Any
 from unittest.mock import AsyncMock
 
 import pytest
+from homeassistant.config_entries import ConfigEntryState
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from pytoyoda.exceptions import ToyotaApiError, ToyotaLoginError
 from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
@@ -339,3 +340,97 @@ async def test_per_vehicle_login_error_triggers_reauth(hass, monkeypatch):
     assert coordinator.last_update_success is False
     reauth_flows = hass.config_entries.flow.async_progress_by_handler(DOMAIN)
     assert any(flow["context"].get("source") == "reauth" for flow in reauth_flows)
+
+
+async def _setup_loaded_entry(hass, monkeypatch):
+    """Set up an entry with one healthy vehicle; return (entry, client class)."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        data={
+            "email": "test@example.com",
+            "password": "password",
+            CONF_METRIC_VALUES: True,
+        },
+        entry_id="entry1",
+        title="Toyota test",
+    )
+    entry.add_to_hass(hass)
+
+    fake_client_cls = _fake_client_factory(
+        [_vehicle_from_payload(_vehicle_guid_payload())]
+    )
+    monkeypatch.setattr("custom_components.toyota.MyT", fake_client_cls)
+    monkeypatch.setattr(
+        "custom_components.toyota._async_register_services", AsyncMock()
+    )
+    monkeypatch.setattr(hass.config_entries, "async_forward_entry_setups", AsyncMock())
+    monkeypatch.setattr(Vehicle, "update", _noop_update)
+    monkeypatch.setattr(Vehicle, "get_current_day_summary", _noop_summary)
+    monkeypatch.setattr(Vehicle, "get_current_week_summary", _noop_summary)
+    monkeypatch.setattr(Vehicle, "get_current_month_summary", _noop_summary)
+    monkeypatch.setattr(Vehicle, "get_current_year_summary", _noop_summary)
+
+    assert await hass.config_entries.async_setup(entry.entry_id) is True
+    await hass.async_block_till_done()
+    assert hass.data[DOMAIN][entry.entry_id].last_update_success is True
+    return entry, fake_client_cls
+
+
+def _reauth_started(hass) -> bool:
+    return any(
+        flow["context"].get("source") == "reauth"
+        for flow in hass.config_entries.flow.async_progress_by_handler(DOMAIN)
+    )
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("status", [429, 502, 504])
+async def test_periodic_refresh_login_server_error_does_not_reauth(
+    hass, monkeypatch, status
+):
+    """A login-service 5xx/429 on a periodic refresh is transient, not reauth.
+
+    Toyota's login gateway answered 502/504 during an outage; pytoyoda's
+    token renewal reported it as a login failure. That must not start a
+    reauth flow (which never retries on its own) - the next poll retries.
+    """
+    entry, fake_client_cls = await _setup_loaded_entry(hass, monkeypatch)
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+
+    async def _get_vehicles_login_outage(*_args, **_kwargs):
+        raise ToyotaLoginError(f"Token refresh failed. {status}, <html>outage</html>.")
+
+    monkeypatch.setattr(fake_client_cls, "get_vehicles", _get_vehicles_login_outage)
+
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    # retain-on-transient is off by default, so the poll fails as UpdateFailed
+    # (entities go unavailable until the next poll) - but no reauth flow.
+    assert coordinator.last_update_success is False
+    assert not _reauth_started(hass)
+    assert entry.state is ConfigEntryState.LOADED
+
+
+@pytest.mark.asyncio
+async def test_per_vehicle_login_server_error_does_not_reauth(
+    hass, monkeypatch, caplog
+):
+    """A login-service 502 mid-fleet-sweep fails the car's refresh, not auth."""
+    entry, _fake_client_cls = await _setup_loaded_entry(hass, monkeypatch)
+    coordinator = hass.data[DOMAIN][entry.entry_id]
+
+    async def _update_login_outage(self, **_kwargs) -> None:
+        raise ToyotaLoginError("Token refresh failed. 502, <html>outage</html>.")
+
+    monkeypatch.setattr(Vehicle, "update", _update_login_outage)
+
+    await coordinator.async_refresh()
+    await hass.async_block_till_done()
+
+    # The only car failed, so the poll fails as a whole (as for any API
+    # outage) - but it is recorded as a transient HTTP 502, with no reauth.
+    assert coordinator.last_update_success is False
+    assert "Toyota refresh failed for vin=...000001 (HTTP 502)" in caplog.text
+    assert not _reauth_started(hass)
+    assert entry.state is ConfigEntryState.LOADED

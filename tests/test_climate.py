@@ -278,7 +278,7 @@ def test_entity_defaults_when_no_climate_settings(hass) -> None:
     """A cold cache (no climate_settings yet) must not crash and stays off."""
     entity = _entity(hass, _Vehicle())
     assert entity.hvac_mode == HVACMode.OFF
-    assert entity.target_temperature == 21
+    assert entity.native_target_temperature == 21
     assert entity.preset_mode == "none"
 
 
@@ -290,7 +290,7 @@ def test_entity_loads_temperature_and_defrost_from_settings(hass) -> None:
         )
     )
     entity = _entity(hass, vehicle)
-    assert entity.target_temperature == 24
+    assert entity.native_target_temperature == 24
     assert entity.front_defrost is True
     assert entity.rear_defrost is True
     assert entity.preset_mode == "both_defrost"
@@ -327,7 +327,7 @@ def test_climate_status_updates_hvac_mode_and_current_temperature(hass) -> None:
     entity = _entity(hass, vehicle)
     entity._load_climate_status_from_coordinator()
     assert entity.hvac_mode == HVACMode.HEAT_COOL
-    assert entity.current_temperature == 19
+    assert entity.native_current_temperature == 19
 
 
 def test_missing_climate_status_leaves_state_unchanged(hass) -> None:
@@ -375,7 +375,7 @@ async def test_set_temperature_updates_target_and_marks_dirty(hass) -> None:
     entity = _entity(hass, _Vehicle(climate_settings=_climate_settings()))
 
     await entity.async_set_temperature(temperature=25)
-    assert entity.target_temperature == 25
+    assert entity.native_target_temperature == 25
     assert entity._settings_dirty is True
 
 
@@ -383,11 +383,11 @@ async def test_set_temperature_updates_target_and_marks_dirty(hass) -> None:
 async def test_set_temperature_without_value_is_noop(hass) -> None:
     """A set_temperature call missing the temperature kwarg must not crash."""
     entity = _entity(hass, _Vehicle(climate_settings=_climate_settings()))
-    before = entity.target_temperature
+    before = entity.native_target_temperature
 
     await entity.async_set_temperature()
 
-    assert entity.target_temperature == before
+    assert entity.native_target_temperature == before
     assert entity._settings_dirty is False
 
 
@@ -400,7 +400,7 @@ async def test_dirty_settings_are_not_overwritten_by_coordinator_update(hass) ->
     await entity.async_set_temperature(temperature=27)
     entity._handle_coordinator_update()
 
-    assert entity.target_temperature == 27
+    assert entity.native_target_temperature == 27
 
 
 # --- turn on / off --------------------------------------------------------
@@ -546,4 +546,4 @@ async def test_async_update_polls_status_when_climate_is_on(hass) -> None:
 
     vehicle.refresh_climate_status.assert_awaited_once()
     vehicle.update.assert_awaited_once_with(only=["climate_status"])
-    assert entity.current_temperature == 21
+    assert entity.native_current_temperature == 21

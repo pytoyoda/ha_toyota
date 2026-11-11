@@ -25,7 +25,7 @@ from .const import (
 )
 from .entity import ToyotaBaseEntity
 from .sensor import ELECTRIC_STATUS_VEHICLE_TYPES, get_vehicle_capability
-from .utils import command_failure_reason
+from .utils import command_failure_reason, get_vehicle_device
 
 # Default fetch size for the manual button when auto-fetch is off
 # (max_recent_trips=0). Picked as a sensible "show me the last few drives".
@@ -129,9 +129,7 @@ class ToyotaRefreshStatusButton(ToyotaBaseEntity, ButtonEntity):
         from homeassistant.helpers import device_registry as dr  # noqa: PLC0415
 
         device_reg = dr.async_get(self.hass)
-        device = device_reg.async_get_device(
-            identifiers={(DOMAIN, self.vehicle.vin or "")}
-        )
+        device = get_vehicle_device(device_reg, self._entry_id, self.vehicle.vin or "")
         if device is None:
             return
         await self.hass.services.async_call(
@@ -156,9 +154,7 @@ class ToyotaRefreshRecentTripsButton(ToyotaBaseEntity, ButtonEntity):
         from homeassistant.helpers import device_registry as dr  # noqa: PLC0415
 
         device_reg = dr.async_get(self.hass)
-        device = device_reg.async_get_device(
-            identifiers={(DOMAIN, self.vehicle.vin or "")}
-        )
+        device = get_vehicle_device(device_reg, self._entry_id, self.vehicle.vin or "")
         if device is None:
             return
         # Resolve the limit from the config entry's options. self.coordinator
@@ -192,9 +188,7 @@ class ToyotaRefreshElectricRealtimeStatusButton(ToyotaBaseEntity, ButtonEntity):
         from homeassistant.helpers import device_registry as dr  # noqa: PLC0415
 
         device_reg = dr.async_get(self.hass)
-        device = device_reg.async_get_device(
-            identifiers={(DOMAIN, self.vehicle.vin or "")}
-        )
+        device = get_vehicle_device(device_reg, self._entry_id, self.vehicle.vin or "")
         if device is None:
             return
         await self.hass.services.async_call(

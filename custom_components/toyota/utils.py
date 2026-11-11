@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from datetime import timedelta
 
     from homeassistant.core import HomeAssistant
+    from homeassistant.helpers.device_registry import DeviceEntry, DeviceRegistry
     from pytoyoda.models.endpoints.vehicle_guid import VehicleGuidModel
     from pytoyoda.models.summary import Summary
     from pytoyoda.models.vehicle import Vehicle
@@ -23,6 +24,32 @@ _HTTP_CLIENT_ERROR = 400
 _HTTP_SERVER_ERROR = 600
 _FAILURE_STATUSES = frozenset({"error", "failed", "failure", "rejected"})
 _HTTP_CODE = re.compile(r"(?:^|[^0-9])([45][0-9]{2})(?:$|[^0-9])")
+
+
+def get_vehicle_device(
+    device_reg: DeviceRegistry, entry_id: str, vin: str
+) -> DeviceEntry | None:
+    """Return the device registered for ``vin`` under the given config entry.
+
+    Home Assistant 2026.11 made device identifiers unique per config entry only
+    and deprecated ``async_get_device``; fall back to it on older cores.
+    """
+    lookup = getattr(device_reg, "async_get_device_by_identifier", None)
+    if lookup is not None:
+        return lookup((DOMAIN, vin), entry_id)
+    return device_reg.async_get_device(identifiers={(DOMAIN, vin)})
+
+
+def device_config_entry_ids(device: DeviceEntry) -> set[str]:
+    """Return the config entry ids a device belongs to.
+
+    Uses ``config_entry_id`` (HA 2026.11+) and falls back to the deprecated
+    ``config_entries`` set on older cores.
+    """
+    entry_id = getattr(device, "config_entry_id", None)
+    if entry_id:
+        return {entry_id}
+    return set(device.config_entries)
 
 
 def record_command_result(  # noqa: PLR0913

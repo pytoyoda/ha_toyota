@@ -96,7 +96,7 @@ def test_current_temperature_reflects_cabin_temperature_from_climate_status(
 
     entity._load_climate_status_from_coordinator()
 
-    assert entity.current_temperature == 18.5
+    assert entity.native_current_temperature == 18.5
 
 
 def test_current_temperature_is_none_when_climate_status_lacks_it(hass) -> None:
@@ -106,7 +106,7 @@ def test_current_temperature_is_none_when_climate_status_lacks_it(hass) -> None:
 
     entity._load_climate_status_from_coordinator()
 
-    assert entity.current_temperature is None
+    assert entity.native_current_temperature is None
 
 
 def test_current_temperature_is_none_when_climate_status_missing(hass) -> None:
@@ -116,7 +116,7 @@ def test_current_temperature_is_none_when_climate_status_missing(hass) -> None:
 
     entity._load_climate_status_from_coordinator()
 
-    assert entity.current_temperature is None
+    assert entity.native_current_temperature is None
 
 
 def test_current_temperature_updates_on_coordinator_refresh(hass) -> None:
@@ -124,8 +124,8 @@ def test_current_temperature_updates_on_coordinator_refresh(hass) -> None:
     vehicle = _Vehicle(climate_status=_climate_status(current_temperature=18.5))
     entity = _climate_entity(hass, vehicle)
     entity._handle_coordinator_update()
-    assert entity.current_temperature == 18.5
+    assert entity.native_current_temperature == 18.5
 
     vehicle._climate_status_raw = _climate_status(current_temperature=21.0)
     entity._handle_coordinator_update()
-    assert entity.current_temperature == 21.0
+    assert entity.native_current_temperature == 21.0

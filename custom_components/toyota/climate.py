@@ -262,7 +262,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
     """Representation of a Toyota climate control."""
 
     _attr_translation_key = "climate"
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_hvac_modes = (HVACMode.OFF, HVACMode.HEAT_COOL)
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
@@ -284,14 +284,14 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         super().__init__(coordinator, entry_id, vehicle_index, description)
 
         # Initialize with defaults first
-        self._attr_target_temperature = 21
+        self._attr_native_target_temperature = 21
         self._attr_min_temp = 18
         self._attr_max_temp = 29
         self._attr_target_temperature_step = 1
         self._attr_hvac_mode = HVACMode.OFF
         self._attr_front_defrost = False
         self._attr_rear_defrost = False
-        self._attr_current_temperature = None
+        self._attr_native_current_temperature = None
         self._attr_climate_status = False
 
         # User-set target-temp / defrost are applied on the next climate START
@@ -319,7 +319,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             _LOGGER.debug(
                 "Loaded climate settings for %s: temp=%s, min=%s, max=%s",
                 getattr(self.vehicle, "alias", "vehicle"),
-                self._attr_target_temperature,
+                self._attr_native_target_temperature,
                 self._attr_min_temp,
                 self._attr_max_temp,
             )
@@ -334,10 +334,10 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         climate_settings = self.vehicle.climate_settings
         target_temperature = climate_settings.temperature
         if target_temperature is not None and target_temperature.value is not None:
-            self._attr_target_temperature = target_temperature.value
+            self._attr_native_target_temperature = target_temperature.value
             # Honor the unit the car reports rather than assuming Celsius.
             unit = (target_temperature.unit or "").upper()
-            self._attr_temperature_unit = (
+            self._attr_native_temperature_unit = (
                 UnitOfTemperature.FAHRENHEIT
                 if unit.startswith("F")
                 else UnitOfTemperature.CELSIUS
@@ -380,7 +380,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
                 self._attr_climate_status = is_on
                 self._attr_hvac_mode = HVACMode.HEAT_COOL if is_on else HVACMode.OFF
             current = climate_status.current_temperature
-            self._attr_current_temperature = (
+            self._attr_native_current_temperature = (
                 current.value if current is not None else None
             )
         except Exception:  # pylint: disable=W0718
@@ -435,14 +435,14 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         return self._attr_hvac_mode
 
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         """Return the current temperature."""
-        return self._attr_current_temperature
+        return self._attr_native_current_temperature
 
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         """Return the temperature we try to reach."""
-        return self._attr_target_temperature
+        return self._attr_native_target_temperature
 
     @property
     def front_defrost(self) -> bool:
@@ -504,14 +504,16 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
             )
 
         unit = (
-            "F" if self._attr_temperature_unit == UnitOfTemperature.FAHRENHEIT else "C"
+            "F"
+            if self._attr_native_temperature_unit == UnitOfTemperature.FAHRENHEIT
+            else "C"
         )
         # Only persist defaults when we have a full read to echo — a null-options
         # body with save_settings=True could clear the car's saved seat/steering.
         save = read_seats is not None and read_heating is not None
         return V2RemoteClimateControlRequestModel(
             command="start",
-            temperature=UnitValueModel(unit=unit, value=self.target_temperature),
+            temperature=UnitValueModel(unit=unit, value=self.native_target_temperature),
             heating_options=heating,
             seat_options=seats,
             save_settings=save,
@@ -580,7 +582,7 @@ class ToyotaClimate(ToyotaBaseEntity, ClimateEntity):
         try:
             # Local desired state; applied on the next start (V2 sends the full body).
             # Mark dirty so a coordinator poll doesn't revert it before the start.
-            self._attr_target_temperature = temperature
+            self._attr_native_target_temperature = temperature
             self._settings_dirty = True
             self.async_write_ha_state()
 

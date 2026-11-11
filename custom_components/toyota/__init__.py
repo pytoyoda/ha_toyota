@@ -64,6 +64,7 @@ from .refresh_strategy import (
     transient_post_status,
 )
 from .trips_manager import RecentTripsManager
+from .utils import device_config_entry_ids
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -1256,7 +1257,7 @@ def _resolve_devices_to_vins_per_entry(
         )
         if not vin:
             continue
-        for entry_id in device.config_entries:
+        for entry_id in device_config_entry_ids(device):
             if entry_id in hass.data.get(DOMAIN, {}):
                 per_entry_vins.setdefault(entry_id, []).append(vin)
     return per_entry_vins

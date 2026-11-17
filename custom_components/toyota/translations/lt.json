@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Įjungti garsinį signalą"
+      },
+      "charge_now": {
+        "name": "Įkrauti dabar"
       }
     },
     "binary_sensor": {

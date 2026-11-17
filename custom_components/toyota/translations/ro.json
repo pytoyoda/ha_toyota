@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Activează semnalul sonor"
+      },
+      "charge_now": {
+        "name": "Încarcă acum"
       }
     },
     "binary_sensor": {

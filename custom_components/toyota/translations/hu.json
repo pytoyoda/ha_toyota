@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Hangjelzés indítása"
+      },
+      "charge_now": {
+        "name": "Töltés most"
       }
     },
     "binary_sensor": {

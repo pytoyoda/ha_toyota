@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Aktiviraj zvučni signal"
+      },
+      "charge_now": {
+        "name": "Puni sada"
       }
     },
     "binary_sensor": {

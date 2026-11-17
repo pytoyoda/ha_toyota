@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Activa l'avisador acústic"
+      },
+      "charge_now": {
+        "name": "Carrega ara"
       }
     },
     "binary_sensor": {

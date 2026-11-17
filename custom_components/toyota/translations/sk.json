@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Spustiť zvukový signál"
+      },
+      "charge_now": {
+        "name": "Nabiť teraz"
       }
     },
     "binary_sensor": {

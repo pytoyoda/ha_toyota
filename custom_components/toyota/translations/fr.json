@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Déclencher l'avertisseur sonore"
+      },
+      "charge_now": {
+        "name": "Charger maintenant"
       }
     },
     "binary_sensor": {

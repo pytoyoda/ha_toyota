@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Utløs lydsignal"
+      },
+      "charge_now": {
+        "name": "Lad nå"
       }
     },
     "binary_sensor": {

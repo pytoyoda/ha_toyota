@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Soita äänimerkki"
+      },
+      "charge_now": {
+        "name": "Lataa nyt"
       }
     },
     "binary_sensor": {

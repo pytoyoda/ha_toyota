@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Signalton auslösen"
+      },
+      "charge_now": {
+        "name": "Jetzt laden"
       }
     },
     "binary_sensor": {

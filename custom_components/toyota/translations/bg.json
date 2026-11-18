@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Звуков сигнал"
+      },
+      "charge_now": {
+        "name": "Зареждане сега"
       }
     },
     "binary_sensor": {

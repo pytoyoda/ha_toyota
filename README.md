@@ -217,12 +217,13 @@ status support).
 
 ### Button(s)
 
-| <div style="width:250px">Name</div>                       | Description                                                                                            |
-| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| `button.<you_car_alias>_refresh_vehicle_status`           | One-tap wake. Wraps `toyota.refresh_vehicle_status` for the corresponding vehicle.                     |
-| `button.<you_car_alias>_refresh_recent_trips`             | Wraps `toyota.refresh_recent_trips` (fetches `max_recent_trips`, or 5 if disabled/unset).              |
-| `button.<you_car_alias>_refresh_electric_realtime_status` | Wraps `toyota.refresh_electric_realtime_status`. Only created for EV/PHEV vehicles.                    |
-| `button.<you_car_alias>_sound_buzzer`                     | Sends the remote buzzer/horn-warning command. Only created for vehicles that report buzzer capability. |
+| <div style="width:250px">Name</div>                       | Description                                                                                                                                |
+| --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| `button.<you_car_alias>_refresh_vehicle_status`           | One-tap wake. Wraps `toyota.refresh_vehicle_status` for the corresponding vehicle.                                                         |
+| `button.<you_car_alias>_refresh_recent_trips`             | Wraps `toyota.refresh_recent_trips` (fetches `max_recent_trips`, or 5 if disabled/unset).                                                  |
+| `button.<you_car_alias>_refresh_electric_realtime_status` | Wraps `toyota.refresh_electric_realtime_status`. Only created for EV/PHEV vehicles.                                                        |
+| `button.<you_car_alias>_charge_now`                       | Sends the remote charge-now command. Only created when the vehicle explicitly reports the `next_charge` or `charge_management` capability. |
+| `button.<you_car_alias>_sound_buzzer`                     | Sends the remote buzzer/horn-warning command. Only created for vehicles that report buzzer capability.                                     |
 
 ### Service(s)
 

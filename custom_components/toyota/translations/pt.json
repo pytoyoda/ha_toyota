@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Ativar sinal sonoro"
+      },
+      "charge_now": {
+        "name": "Carregar agora"
       }
     },
     "binary_sensor": {

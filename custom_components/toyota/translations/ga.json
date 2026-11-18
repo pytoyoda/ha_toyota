@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Séid an bonnán"
+      },
+      "charge_now": {
+        "name": "Luchtaigh anois"
       }
     },
     "binary_sensor": {

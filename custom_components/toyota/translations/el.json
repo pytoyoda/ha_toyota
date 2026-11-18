@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Ενεργοποίηση βομβητή"
+      },
+      "charge_now": {
+        "name": "Φόρτιση τώρα"
       }
     },
     "binary_sensor": {

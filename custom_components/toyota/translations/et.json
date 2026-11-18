@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Käivita helisignaal"
+      },
+      "charge_now": {
+        "name": "Laadi kohe"
       }
     },
     "binary_sensor": {

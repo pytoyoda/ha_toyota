@@ -186,6 +186,9 @@
       },
       "sound_buzzer": {
         "name": "Sound buzzer"
+      },
+      "charge_now": {
+        "name": "Charge now"
       }
     },
     "binary_sensor": {

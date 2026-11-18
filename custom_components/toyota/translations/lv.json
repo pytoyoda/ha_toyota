@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Ieslēgt skaņas signālu"
+      },
+      "charge_now": {
+        "name": "Uzlādēt tagad"
       }
     },
     "binary_sensor": {

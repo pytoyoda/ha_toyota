@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Sproži zvočni signal"
+      },
+      "charge_now": {
+        "name": "Polni zdaj"
       }
     },
     "binary_sensor": {

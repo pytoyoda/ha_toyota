@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Udløs alarm"
+      },
+      "charge_now": {
+        "name": "Oplad nu"
       }
     },
     "binary_sensor": {

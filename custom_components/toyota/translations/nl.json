@@ -183,6 +183,9 @@
       },
       "sound_buzzer": {
         "name": "Zoemer activeren"
+      },
+      "charge_now": {
+        "name": "Nu opladen"
       }
     },
     "binary_sensor": {

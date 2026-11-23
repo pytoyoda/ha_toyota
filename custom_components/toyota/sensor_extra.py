@@ -8,6 +8,10 @@ Adds per-vehicle sensors:
 - last_service_detail: full service history detail (operations, notes,
   dealer, ro_number) with newest record's date as state.
 - average_speed_week: average speed from current week summary.
+- last_trip_ev_share: share of the most recent trip's distance driven in EV
+  mode (hybrids only).
+- last_trip_fuel_consumption: average fuel consumption of the most recent
+  trip (L/100km, or MPG on imperial accounts).
 
 Follows the ToyotaBaseEntity pattern so entities attach to the same
 device and unique-id namespace as the base integration sensors.
@@ -24,8 +28,9 @@ from homeassistant.components.sensor import (
     SensorEntityDescription,
     SensorStateClass,
 )
-from homeassistant.const import UnitOfSpeed, UnitOfTemperature
+from homeassistant.const import PERCENTAGE, UnitOfSpeed, UnitOfTemperature
 from homeassistant.helpers.entity import EntityCategory
+from pytoyoda.utils.conversions import convert_to_mpg
 
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
@@ -247,6 +252,111 @@ class ToyotaAverageSpeedWeekSensor(ToyotaExtraSensorBase):
         return _speed_unit(self.metric_values)
 
 
+def _last_trip_stat(trip: dict | None, key: str) -> float | None:
+    """Return a numeric ``stats`` value of a cached trip, or None."""
+    value = ((trip or {}).get("stats") or {}).get(key)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        return None
+    return value
+
+
+class ToyotaLastTripEvShareSensor(ToyotaExtraSensorBase):
+    """Share of the most recent trip's distance driven in EV mode.
+
+    Toyota reports ``hdc.evDistance`` (metres) per trip on hybrids; the
+    monthly/yearly statistics sensors already expose it as an aggregate,
+    this gives the per-trip figure the MyToyota app shows.
+    """
+
+    @property
+    def native_value(self) -> StateType:
+        """Return EV distance / trip distance as a percentage."""
+        trip = self._last_trip()
+        distance = _last_trip_stat(trip, "distance_m")
+        ev_distance = _last_trip_stat(trip, "ev_distance_m")
+        if not distance or ev_distance is None:
+            return None
+        return round(min(ev_distance / distance, 1.0) * 100, 1)
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the raw EV distance/time and the trip timestamps."""
+        trip = self._last_trip()
+        if not trip:
+            return None
+        return {
+            "start_ts": trip.get("start_ts"),
+            "end_ts": trip.get("end_ts"),
+            "distance_m": _last_trip_stat(trip, "distance_m"),
+            "ev_distance_m": _last_trip_stat(trip, "ev_distance_m"),
+            "ev_time_s": _last_trip_stat(trip, "ev_time_s"),
+            "duration_s": _last_trip_stat(trip, "duration_s"),
+        }
+
+
+class ToyotaLastTripFuelConsumptionSensor(ToyotaExtraSensorBase):
+    """Average fuel consumption of the most recent trip.
+
+    The trip payload carries ``fuelConsumption`` in millilitres and
+    ``length`` in metres regardless of the account's unit setting, so
+    ml / m * 100 is L/100km; imperial accounts get MPG through pytoyoda's
+    own conversion, matching the statistics sensors.
+    """
+
+    @property
+    def native_value(self) -> StateType:
+        """Return the trip's average consumption."""
+        trip = self._last_trip()
+        distance = _last_trip_stat(trip, "distance_m")
+        fuel_ml = _last_trip_stat(trip, "fuel_consumption_ml")
+        if not distance or fuel_ml is None:
+            return None
+        l_per_100km = fuel_ml / distance * 100
+        if self.metric_values:
+            return round(l_per_100km, 2)
+        return round(convert_to_mpg(l_per_100km), 1) if l_per_100km else None
+
+    @property
+    def native_unit_of_measurement(self) -> str:
+        """Return L/100km or MPG, matching the account's metric_values setting."""
+        return "L/100km" if self.metric_values else "MPG"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the fuel used and the trip timestamps."""
+        trip = self._last_trip()
+        if not trip:
+            return None
+        fuel_ml = _last_trip_stat(trip, "fuel_consumption_ml")
+        return {
+            "start_ts": trip.get("start_ts"),
+            "end_ts": trip.get("end_ts"),
+            "distance_m": _last_trip_stat(trip, "distance_m"),
+            "fuel_used_l": None if fuel_ml is None else round(fuel_ml / 1000, 3),
+        }
+
+
+def _vehicle_reports_ev_share(vehicle: Vehicle) -> bool:
+    """Return whether the vehicle reports per-trip EV (hybrid) data.
+
+    Same flags ``format_statistics_attributes`` uses to add EV_distance.
+    """
+    caps = getattr(
+        getattr(vehicle, "_vehicle_info", None), "extended_capabilities", None
+    )
+    return bool(
+        getattr(caps, "hybrid_pulse", False)
+        or getattr(caps, "econnect_vehicle_status_capable", False)
+    )
+
+
+def _vehicle_uses_fuel(vehicle: Vehicle) -> bool:
+    """Return whether the vehicle burns fuel (has a fuel type)."""
+    return (
+        getattr(getattr(vehicle, "_vehicle_info", None), "fuel_type", None) is not None
+    )
+
+
 DESCRIPTIONS: dict[str, SensorEntityDescription] = {
     "last_trip_score": SensorEntityDescription(
         key="last_trip_score",
@@ -283,6 +393,21 @@ DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         # overrides native_unit_of_measurement per-instance based on the
         # account's metric_values setting (km/h vs mph).
     ),
+    "last_trip_ev_share": SensorEntityDescription(
+        key="last_trip_ev_share",
+        translation_key="last_trip_ev_share",
+        icon="mdi:leaf",
+        native_unit_of_measurement=PERCENTAGE,
+        state_class=SensorStateClass.MEASUREMENT,
+        suggested_display_precision=0,
+    ),
+    "last_trip_fuel_consumption": SensorEntityDescription(
+        key="last_trip_fuel_consumption",
+        translation_key="last_trip_fuel_consumption",
+        icon="mdi:gas-station",
+        state_class=SensorStateClass.MEASUREMENT,
+        # Unit set per-instance (L/100km vs MPG), like average_speed_week.
+    ),
 }
 
 _CLASSES = {
@@ -291,6 +416,8 @@ _CLASSES = {
     "warning_lights": ToyotaWarningLightsSensor,
     "last_service_detail": ToyotaServiceDetailSensor,
     "average_speed_week": ToyotaAverageSpeedWeekSensor,
+    "last_trip_ev_share": ToyotaLastTripEvShareSensor,
+    "last_trip_fuel_consumption": ToyotaLastTripFuelConsumptionSensor,
 }
 
 # Per-key capability gate, checked before an extra sensor is created for a
@@ -304,4 +431,6 @@ _CLASSES = {
 # ones.
 CAPABILITY_CHECKS: dict[str, Callable[[Vehicle], bool]] = {
     "cabin_temperature": vehicle_has_climate_capability,
+    "last_trip_ev_share": _vehicle_reports_ev_share,
+    "last_trip_fuel_consumption": _vehicle_uses_fuel,
 }

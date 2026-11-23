@@ -169,6 +169,12 @@
       },
       "average_speed_week": {
         "name": "Velocidad media semanal"
+      },
+      "last_trip_ev_share": {
+        "name": "Porcentaje eléctrico último viaje"
+      },
+      "last_trip_fuel_consumption": {
+        "name": "Consumo último viaje"
       }
     },
     "button": {

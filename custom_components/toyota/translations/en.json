@@ -172,6 +172,12 @@
       },
       "average_speed_week": {
         "name": "Average speed week"
+      },
+      "last_trip_ev_share": {
+        "name": "Last trip EV share"
+      },
+      "last_trip_fuel_consumption": {
+        "name": "Last trip fuel consumption"
       }
     },
     "button": {

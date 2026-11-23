@@ -164,6 +164,9 @@
       "warning_lights": {
         "name": "Testigos del cuadro"
       },
+      "warning_message": {
+        "name": "Aviso del vehículo"
+      },
       "last_service_detail": {
         "name": "Detalle último servicio"
       },

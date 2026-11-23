@@ -4,7 +4,9 @@ Adds per-vehicle sensors:
 - last_trip_score: overall driving score of the most recent cached trip
   (from the trips manager cache, same source as recent_trips).
 - cabin_temperature: climate status current temperature.
-- warning_lights: dashboard warning lights count + detail.
+- warning_lights: number of active vehicle warnings + detail.
+- warning_message: text of the active vehicle warnings (e.g. low tire
+  pressure), or OK.
 - last_service_detail: full service history detail (operations, notes,
   dealer, ro_number) with newest record's date as state.
 - average_speed_week: average speed from current week summary.
@@ -143,40 +145,95 @@ class ToyotaCabinTemperatureSensor(ToyotaExtraSensorBase):
         return _cabin_temperature(self.vehicle)
 
 
-class ToyotaWarningLightsSensor(ToyotaExtraSensorBase):
-    """Dashboard warning lights count and detail."""
+def _dashboard_warnings(vehicle: object) -> list[Any] | None:
+    """Return the raw health-status warning list, or None if not reported yet."""
+    dash = getattr(vehicle, "dashboard", None)
+    if dash is None:
+        return None
+    return getattr(dash, "warning_lights", None) or []
 
-    def _lights(self) -> list[Any]:
-        dash = getattr(self.vehicle, "dashboard", None)
-        if dash is None:
-            return []
-        return getattr(dash, "warning_lights", None) or []
+
+def _is_active_warning(entry: object) -> bool:
+    """Return whether a health-status warning entry describes an active warning.
+
+    Toyota's health-status endpoint lists one entry per active warning, keyed
+    ``wngcode``/``wngdesc``/``wngtype``/``wngfilterType``/``severity``/
+    ``wngdcmtime``. Entries shaped ``name``/``status`` are kept for
+    compatibility and count only while their status is on.
+    """
+    if _attr(entry, "wngcode") or _attr(entry, "wngdesc"):
+        return True
+    return _attr(entry, "status") not in (None, False, "off")
+
+
+def _warning_detail(entry: object) -> dict[str, Any]:
+    """Flatten one health-status warning entry into readable attributes."""
+    icons = _attr(entry, "wngicon") or []
+    icon_url = next(
+        (url for icon in icons if (url := _attr(icon, "deviceUrl"))),
+        None,
+    )
+    return {
+        "code": _attr(entry, "wngcode"),
+        "description": _attr(entry, "wngdesc") or _attr(entry, "name"),
+        "type": _attr(entry, "wngtype"),
+        "category": _attr(entry, "wngfilterType") or _attr(entry, "category"),
+        "severity": _attr(entry, "severity"),
+        "reported_at": _attr(entry, "wngdcmtime"),
+        "icon_url": icon_url,
+    }
+
+
+def _active_warnings(vehicle: object) -> list[dict[str, Any]] | None:
+    """Return the detail of every active warning, or None if not reported yet."""
+    entries = _dashboard_warnings(vehicle)
+    if entries is None:
+        return None
+    return [_warning_detail(e) for e in entries if _is_active_warning(e)]
+
+
+_MAX_STATE_LENGTH = 255
+
+
+class ToyotaWarningLightsSensor(ToyotaExtraSensorBase):
+    """Number of active vehicle warnings, with their detail."""
 
     @property
     def native_value(self) -> StateType:
-        """Return the number of active dashboard warning lights."""
-        return sum(
-            1
-            for light in self._lights()
-            if _attr(light, "status") not in (None, False, "off")
-        )
+        """Return the number of active vehicle warnings."""
+        warnings = _active_warnings(self.vehicle)
+        return None if warnings is None else len(warnings)
 
     @property
     def extra_state_attributes(self) -> dict[str, Any] | None:
-        """Return the name/status/category detail for each warning light."""
-        lights = self._lights()
-        if not lights:
+        """Return code, description, category, severity, time for each warning."""
+        warnings = _active_warnings(self.vehicle)
+        if not warnings:
             return None
-        return {
-            "lights": [
-                {
-                    "name": _attr(light, "name"),
-                    "status": _attr(light, "status"),
-                    "category": _attr(light, "category"),
-                }
-                for light in lights
-            ]
-        }
+        return {"warnings": warnings}
+
+
+class ToyotaWarningMessageSensor(ToyotaExtraSensorBase):
+    """Text of the active vehicle warnings, as reported by Toyota."""
+
+    @property
+    def native_value(self) -> StateType:
+        """Return the warning descriptions, or ``OK`` when none are active."""
+        warnings = _active_warnings(self.vehicle)
+        if warnings is None:
+            return None
+        if not warnings:
+            return "OK"
+        text = ", ".join(w["description"] or w["code"] or "?" for w in warnings)
+        return text[:_MAX_STATE_LENGTH]
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any] | None:
+        """Return the warning codes behind the message."""
+        warnings = _active_warnings(self.vehicle)
+        if not warnings:
+            return None
+        return {"codes": [w["code"] for w in warnings]}
 
 
 class ToyotaServiceDetailSensor(ToyotaExtraSensorBase):
@@ -267,6 +324,11 @@ DESCRIPTIONS: dict[str, SensorEntityDescription] = {
         icon="mdi:car-tire-alert",
         entity_category=EntityCategory.DIAGNOSTIC,
     ),
+    "warning_message": SensorEntityDescription(
+        key="warning_message",
+        translation_key="warning_message",
+        icon="mdi:alert-circle-outline",
+    ),
     "last_service_detail": SensorEntityDescription(
         key="last_service_detail",
         translation_key="last_service_detail",
@@ -289,19 +351,20 @@ _CLASSES = {
     "last_trip_score": ToyotaLastTripScoreSensor,
     "cabin_temperature": ToyotaCabinTemperatureSensor,
     "warning_lights": ToyotaWarningLightsSensor,
+    "warning_message": ToyotaWarningMessageSensor,
     "last_service_detail": ToyotaServiceDetailSensor,
     "average_speed_week": ToyotaAverageSpeedWeekSensor,
 }
 
 # Per-key capability gate, checked before an extra sensor is created for a
 # vehicle. Keys absent here are always created (matches the pre-existing
-# behaviour for notifications/warning_lights/last_service_detail/
-# average_speed_week - none of them read from an endpoint pytoyoda gates on
-# a capability flag). cabin_temperature reads climate_status, which
-# pytoyoda only ever populates for climate-capable vehicles (see
-# vehicle_has_climate_capability) - without this gate the sensor is created
-# for every vehicle and reads permanently unknown on non-climate-capable
-# ones.
+# behaviour for notifications/warning_lights/warning_message/
+# last_service_detail/average_speed_week - none of them read from an
+# endpoint pytoyoda gates on a capability flag). cabin_temperature reads
+# climate_status, which pytoyoda only ever populates for climate-capable
+# vehicles (see vehicle_has_climate_capability) - without this gate the
+# sensor is created for every vehicle and reads permanently unknown on
+# non-climate-capable ones.
 CAPABILITY_CHECKS: dict[str, Callable[[Vehicle], bool]] = {
     "cabin_temperature": vehicle_has_climate_capability,
 }

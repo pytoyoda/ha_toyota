@@ -200,7 +200,8 @@ state - Toyota's remote API doesn't report it - so it always shows
 | `sensor.<you_car_alias>_recent_trips`                | Rolling cache of the most recent trips (see [Recent trips](#configuration) option); attributes include per-trip data with optional route.     |
 | `sensor.<you_car_alias>_last_trip_score`             | Overall driving score of the most recently cached trip.                                                                                       |
 | `sensor.<you_car_alias>_cabin_temperature`           | Current cabin temperature, from climate status.                                                                                               |
-| `sensor.<you_car_alias>_warning_lights`              | Number of active dashboard warning lights, with detail attributes.                                                                            |
+| `sensor.<you_car_alias>_warning_lights`              | Number of active vehicle warnings; attributes list each one's code, description, category, severity and time.                                 |
+| `sensor.<you_car_alias>_warning_message`             | Text of the active vehicle warnings as reported by Toyota (e.g. `Tire low pressure warning`), or `OK` when there are none.                    |
 | `sensor.<you_car_alias>_last_service_detail`         | Date of the most recent service record; attributes include the full service history list.                                                     |
 | `sensor.<you_car_alias>_average_speed_week`          | Average speed from the current week's trip summary.                                                                                           |
 | `sensor.<you_car_alias>_last_successful_fetch`       | Diagnostic: timestamp of the last successful refresh.                                                                                         |

@@ -27,7 +27,10 @@ from homeassistant.exceptions import HomeAssistantError
 from .climate import async_apply_climate_settings
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
-from .utils import vehicle_has_climate_capability
+from .utils import (
+    vehicle_denies_extended_capability,
+    vehicle_has_climate_capability,
+)
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -41,19 +44,32 @@ _LOGGER = logging.getLogger(__name__)
 
 SEAT_HEATER_OPTIONS = ("off", "low", "medium", "high")
 
-# (SeatOptionsModel field name, entity/translation key, friendly name)
+# (SeatOptionsModel field name, entity/translation key, friendly name,
+#  extended_capabilities flag that says whether the seat has a heater)
 _SEAT_HEATERS = (
-    ("driver_seat", "seat_heater_driver", "Driver seat heater"),
-    ("passenger_seat", "seat_heater_passenger", "Passenger seat heater"),
+    (
+        "driver_seat",
+        "seat_heater_driver",
+        "Driver seat heater",
+        "front_driver_seat_heater",
+    ),
+    (
+        "passenger_seat",
+        "seat_heater_passenger",
+        "Passenger seat heater",
+        "front_passenger_seat_heater",
+    ),
     (
         "rear_driver_seat",
         "seat_heater_rear_driver",
         "Rear driver seat heater",
+        "rear_driver_seat_heater",
     ),
     (
         "rear_passenger_seat",
         "seat_heater_rear_passenger",
         "Rear passenger seat heater",
+        "rear_passenger_seat_heater",
     ),
 )
 
@@ -78,8 +94,10 @@ async def async_setup_entry(
         )
         if seats is None:
             continue
-        for field, key, name in _SEAT_HEATERS:
+        for field, key, name, capability in _SEAT_HEATERS:
             if getattr(seats, field, None) is None:
+                continue
+            if vehicle_denies_extended_capability(vehicle, capability):
                 continue
             entities.append(
                 ToyotaSeatHeaterSelect(

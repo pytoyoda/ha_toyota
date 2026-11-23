@@ -25,7 +25,11 @@ from pytoyoda.models.endpoints.command import CommandType
 from .climate import async_apply_climate_settings
 from .const import DOMAIN
 from .entity import ToyotaBaseEntity
-from .utils import command_failure_reason, vehicle_has_climate_capability
+from .utils import (
+    command_failure_reason,
+    vehicle_denies_extended_capability,
+    vehicle_has_climate_capability,
+)
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -79,7 +83,11 @@ async def async_setup_entry(
             heating = getattr(
                 getattr(vehicle, "climate_settings", None), "heating_options", None
             )
-            if getattr(heating, "steering_heater", None) is not None:
+            if getattr(
+                heating, "steering_heater", None
+            ) is not None and not vehicle_denies_extended_capability(
+                vehicle, "steering_heater"
+            ):
                 entities.append(
                     ToyotaSteeringHeaterSwitch(
                         coordinator,

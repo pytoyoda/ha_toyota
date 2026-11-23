@@ -203,6 +203,8 @@ state - Toyota's remote API doesn't report it - so it always shows
 | `sensor.<you_car_alias>_warning_lights`              | Number of active dashboard warning lights, with detail attributes.                                                                            |
 | `sensor.<you_car_alias>_last_service_detail`         | Date of the most recent service record; attributes include the full service history list.                                                     |
 | `sensor.<you_car_alias>_average_speed_week`          | Average speed from the current week's trip summary.                                                                                           |
+| `sensor.<you_car_alias>_last_trip_ev_share`          | Share of the most recent trip's distance driven in EV mode (hybrids only).                                                                    |
+| `sensor.<you_car_alias>_last_trip_fuel_consumption`  | Average fuel consumption of the most recent trip (L/100km, or MPG on imperial accounts).                                                      |
 | `sensor.<you_car_alias>_last_successful_fetch`       | Diagnostic: timestamp of the last successful refresh.                                                                                         |
 | `sensor.<you_car_alias>_last_refresh_error`          | Diagnostic: timestamp of the last error refreshing data from Toyota (HTTP/network - not a vehicle fault).                                     |
 | `sensor.<you_car_alias>_last_refresh_error_code`     | Diagnostic: HTTP status or exception class of the last refresh error; reads `none` while no error has occurred yet.                           |

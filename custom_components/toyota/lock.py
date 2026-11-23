@@ -201,6 +201,10 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
         super()._handle_coordinator_update()
         if self._requires_fresh_status and self._status_is_new_since_command():
             self._clear_assumption()
+            # super() has already written the state while it was still assumed;
+            # without this the entity keeps showing the optimistic state until
+            # the next coordinator update, as the bounded expiry is now a no-op.
+            self.async_write_ha_state()
 
     async def async_lock(self, **_kwargs: object) -> None:
         """Lock the vehicle doors."""

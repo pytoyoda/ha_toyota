@@ -356,3 +356,29 @@ async def test_lock_uses_existing_vehicle_wake_service(hass) -> None:
 
     assert calls == [{"device_id": [device.id]}]
     entity._clear_assumption()
+
+
+@pytest.mark.asyncio
+async def test_fresh_telemetry_writes_the_confirmed_state(hass) -> None:
+    """Retiring the assumption must reach Home Assistant's state machine.
+
+    The coordinator update writes the state before the assumption is cleared;
+    the bounded expiry then finds nothing to expire, so without a second
+    write the UI kept showing the assumed state until the next poll.
+    """
+    vehicle = _Vehicle(capabilities={"extended": True})
+    entity = _entity(hass, vehicle)
+    command_time = datetime.now(UTC).replace(microsecond=0)
+    vehicle.set_status(command_time - timedelta(minutes=5), {"driver": "unlocked"})
+
+    await entity.async_lock()
+    written: list[tuple[bool | None, bool]] = []
+    entity.async_write_ha_state = Mock(
+        side_effect=lambda: written.append((entity.is_locked, entity.assumed_state))
+    )
+
+    vehicle.set_status(command_time + timedelta(seconds=17), {"driver": "locked"})
+    entity._handle_coordinator_update()
+
+    assert written[-1] == (True, False)
+    entity._clear_assumption()

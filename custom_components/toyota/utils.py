@@ -285,6 +285,23 @@ def vehicle_has_climate_capability(vehicle: Vehicle) -> bool:
         return False
 
 
+def vehicle_denies_extended_capability(vehicle: Vehicle, flag: str) -> bool:
+    """Return True only if ``extended_capabilities.<flag>`` is explicitly False.
+
+    Toyota reports per-equipment flags (seat heaters, steering heater) that say
+    whether the item can be driven remotely, while the climate-settings payload
+    echoes every seat and the steering heater as ``"off"`` regardless (issue
+    #501). On such cars the heaters may exist but only work from the physical
+    button, so a remote request just starts the normal climate. A missing flag
+    or block is treated as unknown, not as a denial, so vehicles whose account
+    does not publish the flag keep their entities.
+    """
+    caps = getattr(
+        getattr(vehicle, "_vehicle_info", None), "extended_capabilities", None
+    )
+    return getattr(caps, flag, None) is False
+
+
 def predict_climate_class(features: Any, ext: Any) -> tuple[str, str]:  # noqa: ANN401
     """Predict a car's remote-climate archetype from its capability flags.
 

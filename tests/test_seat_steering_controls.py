@@ -100,6 +100,7 @@ class _Vehicle:
         self,
         *,
         capabilities: dict[str, bool] | None = None,
+        equipment: dict[str, bool] | None = None,
         climate_settings: ClimateSettingsResponseModel | None = None,
         set_climate_response: RemoteClimateControlResponseModel | None = None,
     ) -> None:
@@ -120,6 +121,7 @@ class _Vehicle:
                 remote_engine_start_stop=capabilities.get(
                     "remote_engine_start_stop", False
                 ),
+                **(equipment or {}),
             ),
         )
         self._endpoint_data: dict[str, object] = {}
@@ -338,6 +340,49 @@ async def test_select_setup_skips_vehicle_without_climate_capability(hass) -> No
     assert entities == []
 
 
+@pytest.mark.asyncio
+async def test_select_setup_skips_seats_not_remotely_heatable(hass) -> None:
+    """Seats echoed as "off" but flagged not remotely heatable get no entity."""
+    vehicle = _Vehicle(
+        capabilities={"features": True},
+        equipment={
+            "front_driver_seat_heater": True,
+            "front_passenger_seat_heater": False,
+            "rear_driver_seat_heater": False,
+            "rear_passenger_seat_heater": False,
+        },
+        climate_settings=_climate_settings(
+            driver_seat="off",
+            passenger_seat="off",
+            rear_driver_seat="off",
+            rear_passenger_seat="off",
+        ),
+    )
+    entry, _coord = _coordinator_with(hass, vehicle)
+    entities: list[ToyotaSeatHeaterSelect] = []
+
+    await select_async_setup_entry(hass, entry, entities.extend)
+
+    assert [e._seat_field for e in entities] == ["driver_seat"]
+
+
+@pytest.mark.asyncio
+async def test_select_setup_keeps_seats_when_the_flag_is_not_reported(hass) -> None:
+    """Without the equipment flags, presence in the settings still decides."""
+    vehicle = _Vehicle(
+        capabilities={"features": True},
+        climate_settings=_climate_settings(
+            rear_driver_seat="off", rear_passenger_seat="off"
+        ),
+    )
+    entry, _coord = _coordinator_with(hass, vehicle)
+    entities: list[ToyotaSeatHeaterSelect] = []
+
+    await select_async_setup_entry(hass, entry, entities.extend)
+
+    assert len(entities) == 4
+
+
 def _select_entity(hass, vehicle: _Vehicle, seat_field: str) -> ToyotaSeatHeaterSelect:
     from homeassistant.components.select import SelectEntityDescription
 
@@ -501,6 +546,24 @@ async def test_switch_setup_adds_entity_when_capable_and_present(hass) -> None:
 
     assert len(entities) == 1
     assert entities[0].entity_description == STEERING_HEATER_DESCRIPTION
+
+
+@pytest.mark.asyncio
+async def test_switch_setup_skips_steering_heater_not_remotely_controllable(
+    hass,
+) -> None:
+    """steering_heater=False wins over an "off" echoed in the settings (#501)."""
+    vehicle = _Vehicle(
+        capabilities={"features": True},
+        equipment={"steering_heater": False},
+        climate_settings=_climate_settings(steering_heater="off"),
+    )
+    entry, _coord = _coordinator_with(hass, vehicle)
+    entities: list[ToyotaSteeringHeaterSwitch] = []
+
+    await switch_async_setup_entry(hass, entry, entities.extend)
+
+    assert entities == []
 
 
 def _switch_entity(hass, vehicle: _Vehicle) -> ToyotaSteeringHeaterSwitch:

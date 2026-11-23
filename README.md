@@ -154,7 +154,9 @@ desired body (matching the MyToyota app's own behavior).
 | `select.<you_car_alias>_seat_heater_rear_passenger` | Rear passenger-side seat heater level.                       |
 
 Only the seats your vehicle actually reports get an entity - a car without
-rear seat heaters won't show those two. Picking a level (re)starts remote
+rear seat heaters won't show those two. Seats (and the steering heater) that
+the vehicle's capabilities flag as not remotely controllable are skipped too,
+even if the climate settings echo them as `off`. Picking a level (re)starts remote
 climate control, since Toyota's API has no way to change it independently.
 See the [climate quota warning](#climate) above - prefer
 `toyota.start_climate` when setting multiple seat heaters (and/or the

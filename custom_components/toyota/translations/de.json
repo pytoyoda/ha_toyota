@@ -275,6 +275,9 @@
     "lock": {
       "door_lock": {
         "name": "Türverriegelung"
+      },
+      "trunk_lock": {
+        "name": "Heckklappe"
       }
     },
     "select": {

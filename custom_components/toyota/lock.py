@@ -37,6 +37,11 @@ DOOR_LOCK_DESCRIPTION = LockEntityDescription(
     key="door_lock",
     translation_key="door_lock",
 )
+TRUNK_LOCK_DESCRIPTION = LockEntityDescription(
+    key="trunk_lock",
+    translation_key="trunk_lock",
+)
+_TRUNK_ATTRIBUTES = ("rear_back",)
 
 
 def _lock_capable(vehicle: Vehicle) -> bool:
@@ -52,7 +57,20 @@ def _lock_capable(vehicle: Vehicle) -> bool:
     )
 
 
-def _door_lock_state(vehicle: Vehicle) -> bool | None:
+def _trunk_lock_capable(vehicle: Vehicle) -> bool:
+    """Return whether *vehicle* explicitly advertises remote trunk locking.
+
+    Only the extended capability flag is trusted: a RAV4 PHEV that reports it
+    as false rejects TRUNK_LOCK with CTP-REMOTE-40041.
+    """
+    info = getattr(vehicle, "_vehicle_info", None)
+    capabilities = getattr(info, "extended_capabilities", None)
+    return getattr(capabilities, "trunk_lock_unlock_capable", False) is True
+
+
+def _door_lock_state(
+    vehicle: Vehicle, attributes: tuple[str, ...] = _DOOR_ATTRIBUTES
+) -> bool | None:
     """Return the aggregate reported door lock state, or ``None`` when unknown.
 
     This reads the typed status payload directly so absent doors can be
@@ -62,7 +80,7 @@ def _door_lock_state(vehicle: Vehicle) -> bool | None:
     doors = _reported_doors(vehicle)
     if doors is None:
         return None
-    states = _reported_door_lock_states(doors)
+    states = _reported_door_lock_states(doors, attributes)
     if not states:
         return None
     normalized = [state.lower() if isinstance(state, str) else None for state in states]
@@ -82,10 +100,12 @@ def _reported_doors(vehicle: Vehicle) -> object | None:
     return getattr(getattr(status, "payload", None), "doors", None)
 
 
-def _reported_door_lock_states(doors: object) -> list[str | None]:
+def _reported_door_lock_states(
+    doors: object, attributes: tuple[str, ...] = _DOOR_ATTRIBUTES
+) -> list[str | None]:
     """Return lock states for doors that are actually present in the payload."""
     states: list[str | None] = []
-    for attribute in _DOOR_ATTRIBUTES:
+    for attribute in attributes:
         door = getattr(doors, attribute, None)
         if door is not None:
             states.append(getattr(getattr(door, "lock_status", None), "status", None))
@@ -111,20 +131,39 @@ async def async_setup_entry(
     coordinator: DataUpdateCoordinator[list[VehicleData]] = hass.data[DOMAIN][
         entry.entry_id
     ]
-    async_add_entities(
-        ToyotaDoorLock(
-            coordinator=coordinator,
-            entry_id=entry.entry_id,
-            vehicle_index=index,
-            description=DOOR_LOCK_DESCRIPTION,
-        )
-        for index, vehicle_data in enumerate(coordinator.data)
-        if _lock_capable(vehicle_data["data"])
-    )
+    entities: list[ToyotaDoorLock] = []
+    for index, vehicle_data in enumerate(coordinator.data):
+        vehicle = vehicle_data["data"]
+        if _lock_capable(vehicle):
+            entities.append(
+                ToyotaDoorLock(
+                    coordinator=coordinator,
+                    entry_id=entry.entry_id,
+                    vehicle_index=index,
+                    description=DOOR_LOCK_DESCRIPTION,
+                )
+            )
+        if _trunk_lock_capable(vehicle):
+            entities.append(
+                ToyotaTrunkLock(
+                    coordinator=coordinator,
+                    entry_id=entry.entry_id,
+                    vehicle_index=index,
+                    description=TRUNK_LOCK_DESCRIPTION,
+                )
+            )
+    async_add_entities(entities)
 
 
 class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
     """Lock entity for all doors controlled by Toyota's door command."""
+
+    _lock_command = CommandType.DOOR_LOCK
+    _unlock_command = CommandType.DOOR_UNLOCK
+    _state_attributes = _DOOR_ATTRIBUTES
+    _icon_locked = "mdi:car-door-lock"
+    _icon_unlocked = "mdi:car-door-lock-open"
+    _send_failed = "Toyota could not send the door command"
 
     def __init__(
         self,
@@ -157,14 +196,14 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
             return self._assumed_locked
         if self._requires_fresh_status and not self._status_is_new_since_command():
             return None
-        return _door_lock_state(self.vehicle)
+        return _door_lock_state(self.vehicle, self._state_attributes)
 
     @property
     def icon(self) -> str:
-        """Return a door-lock icon matching the current state."""
+        """Return a lock icon matching the current state."""
         if self.is_locked is False:
-            return "mdi:car-door-lock-open"
-        return "mdi:car-door-lock"
+            return self._icon_unlocked
+        return self._icon_locked
 
     def _clear_assumption(self, *, keep_freshness: bool = False) -> None:
         """Discard a pending optimistic state and its expiry callback."""
@@ -204,11 +243,11 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
 
     async def async_lock(self, **_kwargs: object) -> None:
         """Lock the vehicle doors."""
-        await self._async_send_command(CommandType.DOOR_LOCK, locked=True)
+        await self._async_send_command(self._lock_command, locked=True)
 
     async def async_unlock(self, **_kwargs: object) -> None:
         """Unlock the vehicle doors."""
-        await self._async_send_command(CommandType.DOOR_UNLOCK, locked=False)
+        await self._async_send_command(self._unlock_command, locked=False)
 
     async def _async_send_command(self, command: CommandType, *, locked: bool) -> None:
         """Send one door command, then wait briefly for fresh lock telemetry."""
@@ -227,8 +266,7 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
                     ok=False,
                     detail=type(err).__name__,
                 )
-                msg = "Toyota could not send the door command"
-                raise HomeAssistantError(msg) from err
+                raise HomeAssistantError(self._send_failed) from err
 
             reason = _command_failure_reason(response)
             record_command_result(
@@ -283,3 +321,14 @@ class ToyotaDoorLock(ToyotaBaseEntity, LockEntity):
             {"device_id": [device.id]},
             blocking=False,
         )
+
+
+class ToyotaTrunkLock(ToyotaDoorLock):
+    """Lock entity for the trunk (rear hatch), on vehicles that advertise it."""
+
+    _lock_command = CommandType.TRUNK_LOCK
+    _unlock_command = CommandType.TRUNK_UNLOCK
+    _state_attributes = _TRUNK_ATTRIBUTES
+    _icon_locked = "mdi:car-back"
+    _icon_unlocked = "mdi:car-back"
+    _send_failed = "Toyota could not send the trunk command"

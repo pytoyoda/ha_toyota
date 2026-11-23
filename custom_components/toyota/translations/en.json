@@ -167,6 +167,9 @@
       "warning_lights": {
         "name": "Warning lights"
       },
+      "warning_message": {
+        "name": "Warning message"
+      },
       "last_service_detail": {
         "name": "Last service detail"
       },

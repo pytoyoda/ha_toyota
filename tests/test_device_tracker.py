@@ -2,13 +2,18 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from types import SimpleNamespace
-from unittest.mock import Mock
+from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from homeassistant.components.device_tracker import SourceType
+from homeassistant.core import State
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant_custom_component.common import (
+    MockConfigEntry,
+    mock_restore_cache,
+)
 
 from custom_components.toyota.const import DOMAIN
 from custom_components.toyota.device_tracker import (
@@ -16,6 +21,7 @@ from custom_components.toyota.device_tracker import (
     ToyotaParkingTracker,
     async_setup_entry,
 )
+from custom_components.toyota.entity import ToyotaBaseEntity
 
 
 class _Vehicle:
@@ -132,3 +138,88 @@ def test_entity_picture_is_none_without_an_image(hass) -> None:
     """A vehicle without an image URL must not crash and read as unknown."""
     tracker = _tracker(hass, _Vehicle(extended=True, image=None))
     assert tracker.entity_picture is None
+
+
+def test_keeps_last_fix_when_location_drops_out(hass) -> None:
+    """A cycle without a parking fix (no coverage, driving) keeps the old one."""
+    acquired = datetime(2026, 11, 23, 18, 30, tzinfo=UTC)
+    vehicle = _Vehicle(
+        extended=True,
+        location=SimpleNamespace(latitude=37.38, longitude=-5.98, timestamp=acquired),
+    )
+    tracker = _tracker(hass, vehicle)
+    assert (tracker.latitude, tracker.longitude) == (37.38, -5.98)
+
+    vehicle.location = None
+    assert (tracker.latitude, tracker.longitude) == (37.38, -5.98)
+    assert tracker.extra_state_attributes == {
+        "location_timestamp": "2026-11-23T18:30:00+00:00"
+    }
+
+    vehicle.location = SimpleNamespace(latitude=None, longitude=None, timestamp=None)
+    assert (tracker.latitude, tracker.longitude) == (37.38, -5.98)
+
+
+def test_new_fix_replaces_the_kept_one(hass) -> None:
+    """Once the API reports a position again, it wins over the kept fix."""
+    vehicle = _Vehicle(
+        extended=True, location=SimpleNamespace(latitude=1.0, longitude=2.0)
+    )
+    tracker = _tracker(hass, vehicle)
+    assert tracker.latitude == 1.0
+    vehicle.location = None
+    assert tracker.latitude == 1.0
+    vehicle.location = SimpleNamespace(latitude=3.0, longitude=4.0)
+    assert (tracker.latitude, tracker.longitude) == (3.0, 4.0)
+
+
+def test_no_timestamp_attribute_without_one(hass) -> None:
+    """A fix without an acquisition time adds no attribute."""
+    tracker = _tracker(
+        hass,
+        _Vehicle(extended=True, location=SimpleNamespace(latitude=1.0, longitude=2.0)),
+    )
+    assert tracker.extra_state_attributes == {}
+
+
+@pytest.mark.asyncio
+async def test_restores_last_fix_after_restart(hass) -> None:
+    """After a restart with no fix in the first payload, the saved one is used."""
+    tracker = _tracker(hass, _Vehicle(extended=True, location=None))
+    tracker.entity_id = "device_tracker.test_car_parking_location"
+    mock_restore_cache(
+        hass,
+        [
+            State(
+                tracker.entity_id,
+                "not_home",
+                {
+                    "latitude": 37.38,
+                    "longitude": -5.98,
+                    "location_timestamp": "2026-11-23T18:30:00+00:00",
+                },
+            )
+        ],
+    )
+
+    with patch.object(ToyotaBaseEntity, "async_added_to_hass", AsyncMock()):
+        await tracker.async_added_to_hass()
+
+    assert (tracker.latitude, tracker.longitude) == (37.38, -5.98)
+    assert tracker.extra_state_attributes == {
+        "location_timestamp": "2026-11-23T18:30:00+00:00"
+    }
+
+
+@pytest.mark.asyncio
+async def test_restore_ignores_state_without_coordinates(hass) -> None:
+    """A saved state that was already unknown restores nothing."""
+    tracker = _tracker(hass, _Vehicle(extended=True, location=None))
+    tracker.entity_id = "device_tracker.test_car_parking_location"
+    mock_restore_cache(hass, [State(tracker.entity_id, "unknown", {})])
+
+    with patch.object(ToyotaBaseEntity, "async_added_to_hass", AsyncMock()):
+        await tracker.async_added_to_hass()
+
+    assert tracker.latitude is None
+    assert tracker.longitude is None

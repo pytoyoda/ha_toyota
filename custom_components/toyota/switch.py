@@ -145,7 +145,10 @@ class ToyotaSteeringHeaterSwitch(ToyotaBaseEntity, SwitchEntity):
         self.async_write_ha_state()
         try:
             await async_apply_climate_settings(
-                self.vehicle, steering_heater="on" if state else "off"
+                self.vehicle,
+                steering_heater="on" if state else "off",
+                hass=self.hass,
+                entry_id=self._entry_id,
             )
         except Exception as err:
             self._pending_state = previous

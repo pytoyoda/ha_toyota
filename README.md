@@ -254,6 +254,14 @@ Service fields:
 - `duration_minutes` - how many minutes remote climate should run for
   (1 - 20); leave unset to use Toyota's default duration.
 
+`toyota.start_climate` fails (an error in the UI, and a stopped script or
+automation) when Toyota rejects the start, the request gets no answer, or the
+targeted vehicle isn't loaded. Every targeted vehicle is still tried first.
+Add `continue_on_error: true` to the step if a script should carry on anyway.
+Toyota accepting a start is not the car confirming it: the climate entity
+shows the start once the car reports it, which can take 20-45 seconds when
+the car has been asleep.
+
 Use sparingly: `refresh_vehicle_status` and `refresh_electric_realtime_status`
 each use a small amount of cellular airtime and 12 V battery. For routine
 polling, the integration's smart strategy already picks the right moments

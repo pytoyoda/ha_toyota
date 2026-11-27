@@ -191,6 +191,8 @@ async def async_apply_climate_settings(  # noqa: PLR0913
     rear_defogger: str | None = None,
     temperature: float | None = None,
     duration_minutes: int | None = None,
+    hass: HomeAssistant | None = None,
+    entry_id: str | None = None,
 ) -> None:
     """Send a V2 climate-control ``start``, echoing current settings + overrides.
 
@@ -217,6 +219,9 @@ async def async_apply_climate_settings(  # noqa: PLR0913
     Every read echo and every ``seat_overrides`` value goes through
     :func:`_seat_write_value`, so a select handing over ``"high"`` sends
     ``"heater"``.
+
+    Given ``hass`` and ``entry_id``, the outcome is recorded for diagnostics
+    as ``climate_start``, as the climate entity's own start does.
 
     Raises:
         HomeAssistantError: if Toyota rejects the command.
@@ -249,8 +254,30 @@ async def async_apply_climate_settings(  # noqa: PLR0913
         seat_options=seats,
         save_settings=True,
     )
-    response = await vehicle.set_climate(request)
-    if not _climate_command_ok(response):
+    try:
+        response = await vehicle.set_climate(request)
+    except Exception as err:
+        if hass is not None and entry_id is not None:
+            record_command_result(
+                hass,
+                entry_id,
+                vehicle.vin,
+                "climate_start",
+                ok=False,
+                detail=type(err).__name__,
+            )
+        raise
+    ok = _climate_command_ok(response)
+    if hass is not None and entry_id is not None:
+        record_command_result(
+            hass,
+            entry_id,
+            vehicle.vin,
+            "climate_start",
+            ok=ok,
+            code=getattr(getattr(response, "payload", None), "return_code", None),
+        )
+    if not ok:
         msg = (
             "Toyota did not accept the climate-control update. Common causes: "
             "the car is unlocked, a door/window/trunk is open, or a key is inside."

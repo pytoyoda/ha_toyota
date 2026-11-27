@@ -16,7 +16,11 @@ from typing import TYPE_CHECKING, TypedDict, TypeVar
 import httpcore
 import httpx
 from homeassistant.const import CONF_EMAIL, CONF_PASSWORD
-from homeassistant.exceptions import ConfigEntryAuthFailed, ConfigEntryNotReady
+from homeassistant.exceptions import (
+    ConfigEntryAuthFailed,
+    ConfigEntryNotReady,
+    HomeAssistantError,
+)
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 from homeassistant.util import dt as dt_util
 from loguru import logger
@@ -1221,6 +1225,9 @@ ATTR_SEAT_HEATER_PASSENGER = "seat_heater_passenger"
 ATTR_SEAT_HEATER_REAR_DRIVER = "seat_heater_rear_driver"
 ATTR_SEAT_HEATER_REAR_PASSENGER = "seat_heater_rear_passenger"
 ATTR_DURATION_MINUTES = "duration_minutes"
+_START_CLIMATE_UNAVAILABLE = (
+    "The Toyota vehicle is not available right now; no climate start was sent."
+)
 # Maps a start_climate service field to the SeatOptionsModel field it targets.
 _SEAT_HEATER_FIELD_MAP = {
     ATTR_SEAT_HEATER_DRIVER: "driver_seat",
@@ -1412,12 +1419,18 @@ async def _async_register_services(hass: HomeAssistant) -> None:  # noqa: C901
 
 
 async def _apply_start_climate(
-    vehicle: Vehicle, call: ServiceCall, seat_overrides: dict[str, str]
-) -> None:
+    hass: HomeAssistant,
+    entry_id: str,
+    vehicle: Vehicle,
+    call: ServiceCall,
+    seat_overrides: dict[str, str],
+) -> str | None:
     """Apply one ``toyota.start_climate`` call's fields to a single vehicle.
 
-    Failures are logged and swallowed so one bad vehicle doesn't abort the
-    call for the rest of the targeted fleet.
+    Returns None when Toyota accepted the start, else the reason it failed.
+    Failures are returned rather than raised so one bad vehicle doesn't abort
+    the call for the rest of the targeted fleet; the service handler raises
+    once every vehicle has been tried.
     """
     from .climate import async_apply_climate_settings  # noqa: PLC0415
 
@@ -1430,23 +1443,50 @@ async def _apply_start_climate(
             seat_overrides=seat_overrides or None,
             temperature=call.data.get(ATTR_TEMPERATURE),
             duration_minutes=call.data.get(ATTR_DURATION_MINUTES),
+            hass=hass,
+            entry_id=entry_id,
         )
-    except Exception:
-        _LOGGER.exception(
-            "toyota.start_climate failed for vin=...%s", (vehicle.vin or "")[-6:]
+    except HomeAssistantError as err:
+        _LOGGER.warning(
+            "toyota.start_climate rejected for vin=...%s: %s",
+            (vehicle.vin or "")[-6:],
+            err,
         )
+        return f"{_vehicle_label(vehicle)}: {err}"
+    except Exception as err:  # noqa: BLE001 - reported to the caller below
+        _LOGGER.warning(
+            "toyota.start_climate failed for vin=...%s: %s",
+            (vehicle.vin or "")[-6:],
+            type(err).__name__,
+        )
+        return (
+            f"{_vehicle_label(vehicle)}: Failed to start Toyota climate: "
+            f"{type(err).__name__}"
+        )
+    return None
 
 
-async def _apply_start_climate_to_entry(
+def _vehicle_label(vehicle: Vehicle) -> str:
+    """Name a vehicle in a user-facing message without exposing its VIN."""
+    return getattr(vehicle, "alias", None) or "Toyota vehicle"
+
+
+async def _apply_start_climate_to_entry(  # noqa: PLR0913
     hass: HomeAssistant,
     coord: DataUpdateCoordinator,
     vins: list[str],
     call: ServiceCall,
     seat_overrides: dict[str, str],
-) -> None:
-    """Apply ``toyota.start_climate`` to every targeted VIN in one config entry."""
+    *,
+    entry_id: str,
+) -> list[str]:
+    """Apply ``toyota.start_climate`` to every targeted VIN in one config entry.
+
+    Returns the failure reason of each vehicle whose start failed.
+    """
     if coord.data is None:
-        return
+        return [_START_CLIMATE_UNAVAILABLE] * len(vins)
+    failures: list[str] = []
     for vin in vins:
         vehicle = _find_vehicle_by_vin(coord.data, vin)
         if vehicle is None:
@@ -1454,11 +1494,17 @@ async def _apply_start_climate_to_entry(
                 "toyota.start_climate: VIN ...%s not in coordinator data; skipping",
                 vin[-6:],
             )
+            failures.append(_START_CLIMATE_UNAVAILABLE)
             continue
-        await _apply_start_climate(vehicle, call, seat_overrides)
+        failure = await _apply_start_climate(
+            hass, entry_id, vehicle, call, seat_overrides
+        )
+        if failure is not None:
+            failures.append(failure)
     # Schedule a refresh so the climate/seat/steering entities pick up the
     # just-applied settings on the next coordinator cycle.
     hass.async_create_task(coord.async_request_refresh())
+    return failures
 
 
 async def _async_register_climate_services(hass: HomeAssistant) -> None:
@@ -1490,11 +1536,21 @@ async def _async_register_climate_services(hass: HomeAssistant) -> None:
             if attr in call.data
         }
         per_entry_vins = _resolve_devices_to_vins_per_entry(hass, device_ids)
+        # A target that resolves to no loaded vehicle (the entry is still
+        # starting or failed to set up) is a failure too, not a silent success.
+        failures: list[str] = [] if per_entry_vins else [_START_CLIMATE_UNAVAILABLE]
         for entry_id, vins in per_entry_vins.items():
             coord = hass.data[DOMAIN].get(entry_id)
             if coord is None:
+                failures += [_START_CLIMATE_UNAVAILABLE] * len(vins)
                 continue
-            await _apply_start_climate_to_entry(hass, coord, vins, call, seat_overrides)
+            failures += await _apply_start_climate_to_entry(
+                hass, coord, vins, call, seat_overrides, entry_id=entry_id
+            )
+        # Raise only after every vehicle was tried, so the caller (a script,
+        # automation or dashboard button) learns the start did not happen.
+        if failures:
+            raise HomeAssistantError("; ".join(dict.fromkeys(failures)))
 
     hass.services.async_register(
         DOMAIN,
